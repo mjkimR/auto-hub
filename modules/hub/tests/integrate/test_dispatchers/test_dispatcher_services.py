@@ -32,6 +32,8 @@ def settings() -> SchedulerDefaults:
         GLOBAL_TIMEOUT_SECONDS=60,
         GLOBAL_TIMEOUT_BUFFER=10,
         MAX_CONCURRENT_TASKS=5,
+        MAX_RETRY_ATTEMPTS=3,
+        MAX_DISPATCH_LIMIT=3,
     )
 
 
@@ -296,7 +298,8 @@ class TestDispatchJobs:
             mock_registry.get.return_value = _mock_hello_world
             await service.dispatch_jobs([(job_dto, config_dto)], run_id)
 
-        result = await session.execute(select(ScheduleJob).where(ScheduleJob.id == job_obj.id))
+        session.expire_all()
+        result = await session.execute(select(ScheduleJob).where(ScheduleJob.id == job_dto.id))
         updated = result.scalar_one()
 
         assert updated.status == ScheduleJobStatus.SUCCESS
@@ -316,7 +319,8 @@ class TestDispatchJobs:
             mock_registry.get.return_value = _mock_failing
             await service.dispatch_jobs([(job_dto, config_dto)], run_id)
 
-        result = await session.execute(select(ScheduleJob).where(ScheduleJob.id == job_obj.id))
+        session.expire_all()
+        result = await session.execute(select(ScheduleJob).where(ScheduleJob.id == job_dto.id))
         updated = result.scalar_one()
 
         assert updated.status == ScheduleJobStatus.FAILURE
@@ -352,6 +356,7 @@ class TestDispatchJobs:
             mock_registry.get.return_value = _noop
             await service.dispatch_jobs(pairs, run_id)
 
+        session.expire_all()
         result = await session.execute(select(ScheduleJob).where(ScheduleJob.id.in_(job_ids)))
         jobs = result.scalars().all()
 
