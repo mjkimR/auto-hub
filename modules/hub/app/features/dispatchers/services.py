@@ -19,7 +19,8 @@ from app_base.core.traceback import get_exception_traceback_str
 from fastapi import Depends
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import selectinload
+from sqlalchemy.sql import func as sql_func
 
 
 class DispatcherService:
@@ -145,7 +146,7 @@ class DispatcherService:
                 ScheduleJob.retry_need.is_(True),
                 ScheduleJob.retry_attempts < ScheduleJob.retry_max,
             )
-            .options(joinedload(ScheduleJob.schedule_config))
+            .options(selectinload(ScheduleJob.schedule_config))
             .limit(self.settings.MAX_DISPATCH_LIMIT)
             .with_for_update(skip_locked=True)
         )
@@ -209,11 +210,11 @@ class DispatcherService:
             prefix = f"[sch:{config.name}|{short_id}]"
 
             try:
-                func = task_registry.get(config.task_func)
-                if func is None:
+                task_fn = task_registry.get(config.task_func)
+                if task_fn is None:
                     raise ValueError(f"Task function '{config.task_func}' is not registered in task_registry.")
-                if iscoroutinefunction(func):
-                    await func(payload=config.payload)
+                if iscoroutinefunction(task_fn):
+                    await task_fn(payload=config.payload)
                 else:
                     raise TypeError(f"Task function '{config.task_func}' must be an async function.")
                 logger.debug(f"{prefix} Dispatched schedule")
@@ -238,16 +239,20 @@ class DispatcherService:
 
             # Update schedule job
             async with AsyncTransaction() as session:
-                job_obj = await self.job_repo.get_by_pk(session, job.id)
-                if job_obj:
-                    job_obj.status = status
-                    job_obj.finished_at = finished_at
-                    job_obj.error_message = error_message
-                    job_obj.retry_need = retry_need
-                    job_obj.retry_attempts = (job_obj.retry_attempts or 0) + 1
-                    session.add(job_obj)
-                    await session.commit()
-                else:
+                update_stmt = (
+                    update(ScheduleJob)
+                    .where(ScheduleJob.id == job.id)
+                    .values(
+                        status=status,
+                        finished_at=finished_at,
+                        error_message=error_message,
+                        retry_need=retry_need,
+                        retry_attempts=sql_func.coalesce(ScheduleJob.retry_attempts, 0) + 1,
+                    )
+                )
+                result = await session.execute(update_stmt)
+                await session.commit()
+                if result.rowcount == 0:  # type: ignore
                     logger.error(f"{prefix} Failed to update ScheduleJob - not found")
 
             if is_cancelled:
