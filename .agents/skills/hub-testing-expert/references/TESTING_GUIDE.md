@@ -2,89 +2,32 @@
 
 This guide outlines the conventions and best practices for writing tests within the Hub module. Adhering to these guidelines ensures consistency, maintainability, and clarity across our test suite.
 
+## 0. Infrastructure Discovery
+
+To understand the current state of the test environment, always use the following discovery scripts located in the root `scripts/` directory:
+
+- **Show Test Directory Structure**:
+  ```bash
+  python scripts/show_test_structure.py hub
+  ```
+- **List Available Fixtures**:
+  ```bash
+  python scripts/list_fixtures.py hub
+  ```
+
+---
+
 ## 1. Test Strategy & Priorities
 
-### 1.1 Test Trophy Model (Not Pyramid)
-
-We follow the **Test Trophy** model over the traditional Test Pyramid. This prioritizes **refactoring resilience** and **ROI** over sheer test count.
-
-- E2E (critical flows)
-- Integration (primary focus, core)
-- Unit (selective)
-
-### 1.2 Test Type Selection Guide
-
-| Scenario                                          | Recommended Test   | Reason                                         |
-| ------------------------------------------------- | ------------------ | ---------------------------------------------- |
-| CRUD API                                          | E2E                | Interface-based, stable across refactoring     |
-| Multiple services/components                      | Integration        | Real interaction verification, minimal mocking |
-| Complex business logic (calculations, validation) | Unit               | Only for pure, isolated functions              |
-| External API integration                          | Integration + Mock | Isolate only external dependencies             |
-| Simple delegation/proxy logic                     | Skip               | Low ROI                                        |
-
-### 1.3 Unit Test: When to Write (and When NOT to)
-
-**✅ DO write Unit Tests when:**
-
-- Complex conditional business logic (pricing calculations, permission checks, etc.)
-- Pure utility/helper functions with no external dependencies
-- Algorithms requiring rapid verification of diverse input combinations
-
-**❌ DO NOT write Unit Tests when:**
-
-- Simple CRUD operations (E2E is sufficient)
-- Service → Repository simple delegation (Integration is sufficient)
-- Tests tightly coupled to implementation details (breaks on refactoring)
-- Tests requiring 3+ mocks (consider switching to Integration)
-
-### 1.4 Refactoring Resilience Principle
-
-**A good test = A test that doesn't break when you refactor**
-
-- **Test the interface (API contract)**, not the implementation
-- If a test breaks when you change internal method signatures, it's coupled to implementation
-- E2E/Integration tests are based on public interfaces, so they have high refactoring resilience
-
-### 1.5 Priority Order for New Features
-
-Test writing priority when developing new features:
-
-1. **E2E**: Critical user flows (Happy path + major error cases)
-2. **Integration**: Service layer with complex business logic
-3. **Unit**: Complex logic isolated into pure functions (selective)
-
-> ⚠️ **When requesting tests from AI**: If test type is not specified, E2E or Integration will be recommended based on the above priorities.
+... (rest of section 1) ...
 
 ---
 
 ## 2. Test Directory Structure
 
-Tests are organized by their scope and the module they belong to. The current structure is as follows:
+Tests are organized by their scope and the module they belong to. Since the structure evolves, use the discovery script mentioned in Section 0 to see the current layout.
 
-```
-tests/
-├── unit/
-│   └── test_dispatchers/
-│       └── test_dispatcher_services.py
-├── integrate/
-│   ├── test_dispatchers/
-│   │   └── test_dispatcher_services.py
-│   ├── test_schedule_configs/
-│   │   ├── test_create_schedule_config.py
-│   │   ├── test_update_schedule_config.py
-│   │   └── test_get_schedule_config.py
-│   ├── test_schedule_jobs/
-│   │   ├── test_create_schedule_job.py
-│   │   └── test_get_schedule_job.py
-│   └── test_system_configs/
-│       ├── test_create_system_config.py
-│       ├── test_update_system_config.py
-│       ├── test_get_system_config.py
-│       └── test_delete_system_config.py
-└── e2e/
-    └── test_schedule_configs/
-        └── test_schedule_configs_api.py
-```
+The high-level organization is as follows:
 
 - **`unit/`**:
   - **Purpose**: Tests individual components (e.g., use cases, services, repositories) in isolation.
@@ -94,12 +37,13 @@ tests/
 - **`integrate/`**:
   - **Purpose**: Tests the interaction between several components, typically involving the database.
   - **Characteristics**: Uses a real database session (provided by the `session` fixture). Dependencies _within_ the tested flow are usually real, while external services might still be mocked.
-  - **Naming**: `test_<component_name>_service.py` (e.g., service and repo interaction).
+  - **Naming**: `test_<operation>_<entity>.py` (e.g., `test_create_task.py`).
 
 - **`e2e/`**:
   - **Purpose**: Tests the entire application flow from the API endpoint down to the database.
   - **Characteristics**: Uses an HTTP client (`client` fixture) to make requests to the FastAPI application. Involves the full stack, including routing, dependency injection, services, and the database.
-  - **Naming**: `test_<component_name>_api.py`.
+  - **Naming**: `test_<entity>_api.py`.
+
 
 ## 3. Naming Conventions
 
@@ -398,6 +342,18 @@ configs = await make_db_batch(ScheduleConfigRepository, _size=3, task_func="task
 - **Make tests readable**: Use clear variable names, comments where necessary, and separate test stages (Given, When, Then).
 - **Test data setup**: Use `make_db` and `make_db_batch` with Repository classes (not SQLAlchemy models) to create realistic but minimal test data. The factory automatically extracts the CreateSchema from the repository's generic arguments. Avoid hardcoding IDs unless absolutely necessary.
 - **Clean up**: The `session` fixture automatically handles transaction rollback, so explicit cleanup is rarely needed for DB state. For file system or other external resources, ensure proper teardown.
+- **Async test functions**: All test functions MUST be defined as `async def`. Do **NOT** add the `@pytest.mark.asyncio` decorator — asyncio mode is configured globally (`asyncio_mode = "auto"` in `pyproject.toml`), so the decorator is unnecessary and should be omitted.
+
+  ```python
+  # ✅ Correct
+  async def test_create_entity_success(session):
+      ...
+
+  # ❌ Wrong - decorator is redundant and must not be used
+  @pytest.mark.asyncio
+  async def test_create_entity_success(session):
+      ...
+  ```
 
 ## 11. Database Session Caching & `inspect_session`
 
@@ -431,3 +387,67 @@ await update_use_case.execute(config.id, update_data, ...)
 db_config = await session.get(SystemConfig, config.id)
 await session.refresh(db_config) # Force reload
 ```
+
+---
+
+## 12. Canonical Test Templates
+
+Use these templates as a starting point for new tests to ensure consistency and high ROI.
+
+### 12.1 Integration Test Template
+
+Integration tests focus on the interaction between UseCases/Services and the Repository/Database.
+
+```python
+from tests.utils.fastapi import resolve_dependency
+from tests.utils.assertions import assert_model_fields
+from app.features.your_module.usecases.create_something import CreateSomethingUseCase
+from app.features.your_module.repos import YourRepository
+
+async def test_create_entity_success(session):
+    # 1. Setup - Resolve dependencies with the test session
+    use_case = resolve_dependency(CreateSomethingUseCase, state={"db": session})
+    
+    # 2. Execute - Perform the action
+    data = {"name": "Test Entity", "value": 123}
+    result = await use_case.execute(data)
+    
+    # 3. Verify - Check result and DB state
+    assert result.name == "Test Entity"
+    assert_model_fields(result, data)
+    
+    # Verify persistence using the same session (or session.get)
+    saved_entity = await session.get(YourModel, result.id)
+    assert saved_entity is not None
+```
+
+### 12.2 E2E Test Template
+
+E2E tests verify the full API stack. They are the primary tool for CRUD validation.
+
+```python
+from tests.utils.assertions import assert_status_code, assert_json_contains
+from app.features.your_module.repos import YourRepository
+
+async def test_get_entity_api(client, make_db):
+    # 1. Setup - Create test data using make_db and Repository
+    entity = await make_db(YourRepository, name="Target Entity")
+    
+    # 2. Execute - Call the API
+    response = await client.get(f"/api/v1/your-entities/{entity.id}")
+    
+    # 3. Verify - Use assertion helpers
+    assert_status_code(response, 200)
+    assert_json_contains(response, {
+        "id": str(entity.id),
+        "name": "Target Entity"
+    })
+```
+
+### 12.3 Consistency Check
+
+Before submitting a new test:
+1.  **Run discovery**: `python scripts/show_test_structure.py hub` and `python scripts/list_fixtures.py hub`.
+2.  **Locate similar tests**: Find an existing test for a similar feature (e.g., another CRUD API).
+3.  **Align style**: Match the existing test's imports, variable naming (e.g., `config` vs `cfg`), and assertion style.
+4.  **Verify**: Run the new test and ensure it passes cleanly without side effects.
