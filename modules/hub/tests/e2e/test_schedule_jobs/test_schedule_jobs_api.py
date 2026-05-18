@@ -41,8 +41,6 @@ class TestScheduleJobsAPI:
             name="Parent Config",
             task_func="tasks.example",
             interval_seconds=60,
-            cron_expression=None,
-            payload={},
         )
         payload = ScheduleJobCreate(
             name="Test Job",
@@ -85,8 +83,7 @@ class TestScheduleJobsAPI:
         client: AsyncClient,
         make_db_batch,
     ):
-        # Pass payload={} to prevent polyfactory from generating non-JSON-serializable types
-        await make_db_batch(ScheduleJobRepository, 4, payload={})
+        await make_db_batch(ScheduleJobRepository, 4, schedule_config_id=None)
 
         response = await client.get(self.base_url())
 
@@ -106,7 +103,6 @@ class TestScheduleJobsAPI:
             ScheduleJobRepository,
             name="Fetch Me",
             status=ScheduleJobStatus.SUCCESS,
-            payload={},
         )
 
         response = await client.get(self.base_url(job.id))
@@ -138,7 +134,6 @@ class TestScheduleJobsAPI:
             ScheduleJobRepository,
             name="Before Patch",
             status=ScheduleJobStatus.PENDING,
-            payload={},
         )
 
         response = await client.patch(
@@ -175,7 +170,6 @@ class TestScheduleJobsAPI:
             ScheduleJobRepository,
             name="Original Job",
             status=ScheduleJobStatus.PENDING,
-            payload={},
         )
         put_payload = ScheduleJobCreate(
             name="Replaced Job",
@@ -208,7 +202,6 @@ class TestScheduleJobsAPI:
             ScheduleJobRepository,
             name="To Be Deleted",
             status=ScheduleJobStatus.PENDING,
-            payload={},
         )
 
         response = await client.delete(self.base_url(job.id))

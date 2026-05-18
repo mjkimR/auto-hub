@@ -23,8 +23,6 @@ class TestCreateScheduleJob:
             name="job_parent_config",
             task_func="tasks.example_task",
             interval_seconds=60,
-            cron_expression=None,
-            payload={},
         )
 
         use_case = resolve_dependency(CreateScheduleJobUseCase)

@@ -23,7 +23,6 @@ class TestDeleteScheduleJob:
             status=ScheduleJobStatus.SUCCESS,
             started_at=datetime.now(timezone.utc),
             finished_at=datetime.now(timezone.utc),
-            payload={},
         )
 
         use_case = resolve_dependency(DeleteScheduleJobUseCase)

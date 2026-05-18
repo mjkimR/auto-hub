@@ -19,8 +19,6 @@ class TestGetScheduleConfig:
             name="get_test_schedule",
             task_func="tasks.example_task",
             interval_seconds=60,
-            cron_expression=None,
-            payload={},
         )
 
         service = resolve_dependency(ScheduleConfigService)
@@ -44,8 +42,6 @@ class TestGetScheduleConfig:
             _size=3,
             task_func="tasks.example_task",
             interval_seconds=60,
-            cron_expression=None,
-            payload={},
         )
 
         service = resolve_dependency(ScheduleConfigService)

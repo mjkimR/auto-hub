@@ -1,4 +1,3 @@
-import pytest
 from app.features.tasks.core import registry
 from app.features.tasks.usecases.task_spec import GetTaskSpecUseCase
 from pydantic import BaseModel
@@ -14,7 +13,6 @@ async def mock_task(payload: MockPayload):
     pass
 
 
-@pytest.mark.asyncio
 async def test_get_task_spec_use_case():
     # Force register a task for testing
     registry.task(name="mock_task")(mock_task)

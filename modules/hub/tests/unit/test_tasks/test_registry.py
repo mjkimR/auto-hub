@@ -29,7 +29,6 @@ def test_task_decorator_duplicate_name():
     assert "is already registered" in str(exc.value)
 
 
-@pytest.mark.asyncio
 async def test_wrap_with_payload_adapter_no_params():
     async def task_func():
         return "success"
@@ -39,7 +38,6 @@ async def test_wrap_with_payload_adapter_no_params():
     assert result == "success"
 
 
-@pytest.mark.asyncio
 async def test_wrap_with_payload_adapter_with_payload_param():
     async def task_func(payload: DummyPayload):
         return payload.id

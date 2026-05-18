@@ -23,8 +23,6 @@ class TestUpdateScheduleConfig:
             name="put_target_schedule",
             task_func="tasks.old_task",
             interval_seconds=60,
-            cron_expression=None,
-            payload={},
         )
 
         use_case = resolve_dependency(PutScheduleConfigUseCase)
@@ -60,8 +58,6 @@ class TestUpdateScheduleConfig:
             name="patch_enable_schedule",
             task_func="tasks.example_task",
             interval_seconds=60,
-            cron_expression=None,
-            payload={},
             enabled=True,
         )
 
@@ -87,8 +83,6 @@ class TestUpdateScheduleConfig:
             name="patch_task_func_schedule",
             task_func="tasks.old_func",
             interval_seconds=30,
-            cron_expression=None,
-            payload={},
         )
 
         use_case = resolve_dependency(PatchScheduleConfigUseCase)
@@ -113,8 +107,6 @@ class TestUpdateScheduleConfig:
             name="patch_interval_schedule",
             task_func="tasks.example_task",
             interval_seconds=60,
-            cron_expression=None,
-            payload={},
         )
         original_next_run_at = config.next_run_at
 
@@ -140,8 +132,6 @@ class TestUpdateScheduleConfig:
             name="patch_clear_schedule",
             task_func="tasks.example_task",
             interval_seconds=60,
-            cron_expression=None,
-            payload={},
         )
 
         use_case = resolve_dependency(PatchScheduleConfigUseCase)

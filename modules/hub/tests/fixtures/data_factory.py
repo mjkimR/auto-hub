@@ -8,9 +8,30 @@ from polyfactory.factories.pydantic_factory import ModelFactory
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from tests.fixtures import factory as ft
 from tests.utils.fastapi import resolve_dependency
 
 T = TypeVar("T", bound=BaseModel)
+
+
+def get_model_factory(model_class: Type[T], _use_default: bool = False) -> Type[ModelFactory]:
+    """Get the corresponding ModelFactory for a given Pydantic model class."""
+    from app.features.schedule_configs.schemas import ScheduleConfigCreate
+    from app.features.schedule_jobs.schemas import ScheduleJobCreate
+
+    model_factory = {
+        ScheduleConfigCreate: ft.ScheduleConfigCreateFactory,
+        ScheduleJobCreate: ft.ScheduleJobCreateFactory,
+    }
+
+    factory_class = model_factory.get(model_class)
+    if factory_class is None:
+        return ModelFactory.create_factory(model_class, __use_defaults__=_use_default)
+
+    if _use_default:
+        return factory_class.create_factory(model_class, __use_defaults__=True)
+
+    return factory_class
 
 
 @pytest.fixture
@@ -24,7 +45,7 @@ def make():
     """
 
     def _make(model_class: Type[T], _use_default: bool = False, **kwargs: Any) -> T:
-        factory = ModelFactory.create_factory(model_class, __use_defaults__=_use_default)
+        factory = get_model_factory(model_class, _use_default)
         return factory.build(**kwargs)
 
     return _make
@@ -42,7 +63,7 @@ def make_batch():
     """
 
     def _make_batch(model_class: Type[T], _size: int = 3, _use_default: bool = False, **kwargs: Any) -> list[T]:
-        factory = ModelFactory.create_factory(model_class, __use_defaults__=_use_default)
+        factory = get_model_factory(model_class, _use_default)
         return factory.batch(size=_size, **kwargs)
 
     return _make_batch
@@ -88,9 +109,11 @@ def make_db(session: AsyncSession):
             repo_class = repo_class_or_instance
             repo = resolve_dependency(repo_class_or_instance)
         create_schema_type = _find_generic_args(repo_class)
-        factory = ModelFactory.create_factory(create_schema_type, __use_defaults__=_use_default)
+        factory = get_model_factory(create_schema_type, _use_default)
         data = factory.build(**{**kwargs, **(_build_kwargs or {})})
-        return await repo.create(session, data, **{**kwargs, **(_create_kwargs or {})})
+        result = await repo.create(session, data, **{**kwargs, **(_create_kwargs or {})})
+        await session.commit()
+        return result
 
     return _make_db
 
@@ -125,11 +148,12 @@ def make_db_batch(session: AsyncSession):
             repo_class = repo_class_or_instance
             repo = resolve_dependency(repo_class_or_instance)
         create_schema_type = _find_generic_args(repo_class)
-        factory = ModelFactory.create_factory(create_schema_type, __use_defaults__=_use_default)
+        factory = get_model_factory(create_schema_type, _use_default)
         data_list = factory.batch(size=_size, **{**kwargs, **(_build_kwargs or {})})
         results = []
         for data in data_list:
             results.append(await repo.create(session, data, **{**kwargs, **(_create_kwargs or {})}))
+        await session.commit()
         return results
 
     return _make_db_batch
@@ -147,7 +171,7 @@ def make_api(client: AsyncClient):
     """
 
     async def _make_api(endpoint: str, model_class: Type[T], _use_default: bool = False, **kwargs: Any) -> T:
-        factory = ModelFactory.create_factory(model_class, __use_defaults__=_use_default)
+        factory = get_model_factory(model_class, _use_default)
         data = factory.build(**kwargs)
         response = await client.post(endpoint, json=data.model_dump())
         response.raise_for_status()
@@ -171,7 +195,7 @@ def make_api_batch(client: AsyncClient):
     async def _make_api_batch(
         endpoint: str, model_class: Type[T], _size: int = 3, _use_default: bool = False, **kwargs: Any
     ) -> list[T]:
-        factory = ModelFactory.create_factory(model_class, __use_defaults__=_use_default)
+        factory = get_model_factory(model_class, _use_default)
         data_list = factory.batch(size=_size, **kwargs)
         payload = [data.model_dump() for data in data_list]
         response = await client.post(endpoint, json=payload)

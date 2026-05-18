@@ -103,7 +103,6 @@ class TestExampleTaskDispatch:
             session,
             name="hello-world-config",
             task_func="hello_world",
-            payload={},
         )
         job_obj = await _create_schedule_job(session, config, status=ScheduleJobStatus.PENDING)
         await session.commit()
@@ -137,7 +136,6 @@ class TestExampleTaskDispatch:
         config_dto = ScheduleConfigRead.model_validate(config)
         return job_obj, job_dto, config_dto, job_dto.dispatcher_run_id
 
-    @pytest.mark.asyncio
     async def test_hello_world_task_completes_with_success_status(
         self, service, session, hello_world_job, session_maker
     ):
@@ -155,7 +153,6 @@ class TestExampleTaskDispatch:
         assert updated.error_message is None
         assert updated.retry_need is False
 
-    @pytest.mark.asyncio
     async def test_hello_world_task_with_custom_message_payload(
         self, service, session, hello_world_job_with_message, session_maker
     ):
@@ -172,7 +169,6 @@ class TestExampleTaskDispatch:
         assert updated.finished_at is not None
         assert updated.error_message is None
 
-    @pytest.mark.asyncio
     async def test_hello_world_task_is_registered_in_task_registry(self):
         """hello_world should be discoverable in task_registry by name."""
         from app.features import tasks as task_registry
@@ -182,7 +178,6 @@ class TestExampleTaskDispatch:
         assert callable(func)
         assert func.__name__ == "hello_world"
 
-    @pytest.mark.asyncio
     async def test_hello_world_multiple_concurrent_dispatches(self, service, session, session_maker):
         """Multiple hello_world jobs should all complete successfully when dispatched concurrently."""
         pairs = []
@@ -235,7 +230,6 @@ class TestNoPayloadTaskDispatch:
             session,
             name="no-payload-config",
             task_func="no_payload_task",
-            payload={},
         )
         job_obj = await _create_schedule_job(session, config, status=ScheduleJobStatus.PENDING)
         await session.commit()
@@ -246,7 +240,6 @@ class TestNoPayloadTaskDispatch:
         config_dto = ScheduleConfigRead.model_validate(config)
         return job_obj, job_dto, config_dto, job_dto.dispatcher_run_id
 
-    @pytest.mark.asyncio
     async def test_no_payload_task_completes_with_success_status(self, service, session, no_payload_job, session_maker):
         """no_payload_task should run successfully and set job status to SUCCESS."""
         job_obj, job_dto, config_dto, run_id = no_payload_job
@@ -262,7 +255,6 @@ class TestNoPayloadTaskDispatch:
         assert updated.error_message is None
         assert updated.retry_need is False
 
-    @pytest.mark.asyncio
     async def test_no_payload_task_is_registered_in_task_registry(self):
         """no_payload_task should be discoverable in task_registry by name."""
         from app.features import tasks as task_registry

@@ -53,9 +53,7 @@ class TestDispatcherTriggerAPI:
             ScheduleConfigRepository,
             _use_default=True,
             name="due-config",
-            cron_expression=None,
             interval_seconds=60,
-            payload={},
             next_run_at=past,
             last_run_at=past - timedelta(minutes=5),
         )
@@ -97,9 +95,7 @@ class TestDispatcherTriggerAPI:
             ScheduleConfigRepository,
             3,
             _use_default=True,
-            cron_expression=None,
             interval_seconds=60,
-            payload={},
             next_run_at=past,
         )
 
@@ -125,9 +121,7 @@ class TestDispatcherTriggerAPI:
             ScheduleConfigRepository,
             _use_default=True,
             name="disabled-config",
-            cron_expression=None,
             interval_seconds=60,
-            payload={},
             enabled=False,
             next_run_at=past,
         )
@@ -150,9 +144,7 @@ class TestDispatcherTriggerAPI:
             ScheduleConfigRepository,
             _use_default=True,
             name="future-config",
-            cron_expression=None,
             interval_seconds=60,
-            payload={},
             next_run_at=future,
         )
 
@@ -174,9 +166,7 @@ class TestDispatcherTriggerAPI:
             ScheduleConfigRepository,
             _use_default=True,
             name="expired-config",
-            cron_expression=None,
             interval_seconds=60,
-            payload={},
             end_at=now - timedelta(seconds=1),
             next_run_at=now - timedelta(minutes=1),
         )
@@ -199,9 +189,7 @@ class TestDispatcherTriggerAPI:
             ScheduleConfigRepository,
             _use_default=True,
             name="not-started-config",
-            cron_expression=None,
             interval_seconds=60,
-            payload={},
             start_at=now + timedelta(hours=1),
             next_run_at=now - timedelta(minutes=1),
         )
@@ -229,9 +217,7 @@ class TestDispatcherTriggerAPI:
             ScheduleConfigRepository,
             _use_default=True,
             name="interval-config",
-            cron_expression=None,
             interval_seconds=60,
-            payload={},
             next_run_at=past,
             last_run_at=past - timedelta(minutes=5),
         )
@@ -244,7 +230,11 @@ class TestDispatcherTriggerAPI:
 
         await session.refresh(config)
         assert config.next_run_at is not None
-        assert config.next_run_at > datetime.utcnow()
+        # Normalize to UTC-aware before comparing.
+        next_run_at = config.next_run_at
+        if next_run_at.tzinfo is None:
+            next_run_at = next_run_at.replace(tzinfo=timezone.utc)
+        assert next_run_at > datetime.now(timezone.utc)
 
     # ------------------------------------------------------------------
     # Retry jobs
@@ -263,9 +253,7 @@ class TestDispatcherTriggerAPI:
             ScheduleConfigRepository,
             _use_default=True,
             name="retry-config",
-            cron_expression=None,
             interval_seconds=60,
-            payload={},
             next_run_at=future,
             last_run_at=None,
         )
@@ -279,7 +267,6 @@ class TestDispatcherTriggerAPI:
             retry_attempts=0,
             retry_max=3,
             started_at=datetime.now(timezone.utc) - timedelta(minutes=10),
-            payload={},
         )
 
         with patch("app.features.dispatchers.services.task_registry") as mock_registry:
@@ -303,9 +290,7 @@ class TestDispatcherTriggerAPI:
             ScheduleConfigRepository,
             _use_default=True,
             name="no-retry-config",
-            cron_expression=None,
             interval_seconds=60,
-            payload={},
             next_run_at=future,
             last_run_at=None,
         )
@@ -318,7 +303,6 @@ class TestDispatcherTriggerAPI:
             retry_attempts=3,
             retry_max=3,
             started_at=datetime.now(timezone.utc) - timedelta(minutes=10),
-            payload={},
         )
 
         with patch("app.features.dispatchers.services.task_registry") as mock_registry:
@@ -347,9 +331,7 @@ class TestDispatcherTriggerAPI:
             ScheduleConfigRepository,
             _use_default=True,
             name="failing-task-config",
-            cron_expression=None,
             interval_seconds=60,
-            payload={},
             next_run_at=past,
             last_run_at=None,
         )

@@ -2,11 +2,9 @@ import asyncio
 import uuid
 from unittest.mock import MagicMock, patch
 
-import pytest
 from app.features.dispatchers.services import DispatcherService
 
 
-@pytest.mark.asyncio
 async def test_dispatch_jobs_timeout(monkeypatch):
     from app.common.config import SchedulerDefaults
     from app.features.schedule_configs.schemas import ScheduleConfigRead

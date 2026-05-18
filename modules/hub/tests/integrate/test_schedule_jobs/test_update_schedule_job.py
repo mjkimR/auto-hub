@@ -25,7 +25,6 @@ class TestUpdateScheduleJob:
             status=ScheduleJobStatus.PENDING,
             started_at=now,
             finished_at=None,
-            payload={},
         )
 
         use_case = resolve_dependency(PutScheduleJobUseCase)
@@ -58,7 +57,6 @@ class TestUpdateScheduleJob:
             status=ScheduleJobStatus.PENDING,
             started_at=now,
             finished_at=None,
-            payload={},
         )
 
         use_case = resolve_dependency(PatchScheduleJobUseCase)
@@ -91,7 +89,6 @@ class TestUpdateScheduleJob:
             status=ScheduleJobStatus.PENDING,
             started_at=now,
             finished_at=None,
-            payload={},
         )
 
         use_case = resolve_dependency(PatchScheduleJobUseCase)

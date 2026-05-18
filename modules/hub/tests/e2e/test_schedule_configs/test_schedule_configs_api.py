@@ -99,9 +99,7 @@ class TestScheduleConfigsAPI:
         client: AsyncClient,
         make_db_batch,
     ):
-        # Force only interval_seconds to avoid polyfactory generating both triggers simultaneously
-        # Pass payload={} to prevent polyfactory from generating non-JSON-serializable types
-        await make_db_batch(ScheduleConfigRepository, 3, cron_expression=None, interval_seconds=60, payload={})
+        await make_db_batch(ScheduleConfigRepository, 3, interval_seconds=60)
 
         response = await client.get(self.base_url())
 
@@ -122,8 +120,6 @@ class TestScheduleConfigsAPI:
             name="Get This Config",
             task_func="tasks.example",
             interval_seconds=120,
-            cron_expression=None,
-            payload={},
         )
 
         response = await client.get(self.base_url(config.id))
@@ -147,8 +143,6 @@ class TestScheduleConfigsAPI:
             name="Old Name",
             task_func="tasks.example",
             interval_seconds=60,
-            cron_expression=None,
-            payload={},
         )
 
         response = await client.patch(
@@ -186,8 +180,6 @@ class TestScheduleConfigsAPI:
             name="Original",
             task_func="tasks.example",
             interval_seconds=60,
-            cron_expression=None,
-            payload={},
         )
         put_payload = ScheduleConfigCreate(
             name="Replaced",
@@ -221,8 +213,6 @@ class TestScheduleConfigsAPI:
             name="To Be Deleted",
             task_func="tasks.example",
             interval_seconds=60,
-            cron_expression=None,
-            payload={},
         )
 
         response = await client.delete(self.base_url(config.id))
