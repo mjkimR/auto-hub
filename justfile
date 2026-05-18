@@ -15,8 +15,8 @@ lint:
     uv run ruff check --fix
 
 # Run all tests
-test:
-    cd modules/hub && uv run pytest
+test db="sqlite":
+    cd modules/hub && uv run pytest --db-type "{{db}}"
 
 # Install pre-commit hooks
 hooks-install:
