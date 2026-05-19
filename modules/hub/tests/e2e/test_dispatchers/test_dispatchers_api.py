@@ -34,13 +34,13 @@ async def _failing(**kwargs):
 
 
 @pytest.mark.e2e
+@pytest.mark.real_commit
 class TestDispatcherTriggerAPI:
     """E2E tests for POST /api/v1/dispatchers/trigger."""
 
     # ------------------------------------------------------------------
     # Happy path – due configs are dispatched
     # ------------------------------------------------------------------
-
     async def test_trigger_dispatches_due_config(
         self,
         client: AsyncClient,

@@ -26,7 +26,7 @@ def get_model_factory(model_class: Type[T], _use_default: bool = False) -> Type[
 
     factory_class = model_factory.get(model_class)
     if factory_class is None:
-        return ModelFactory.create_factory(model_class, __use_defaults__=_use_default)
+        return ModelFactory.create_factory(model_class, __use_defaults__=_use_default)  # type: ignore
 
     if _use_default:
         return factory_class.create_factory(model_class, __use_defaults__=True)

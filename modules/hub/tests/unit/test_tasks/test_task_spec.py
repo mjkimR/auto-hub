@@ -18,6 +18,7 @@ async def test_get_task_spec_use_case():
     registry.task(name="mock_task")(mock_task)
 
     use_case = GetTaskSpecUseCase()
+    use_case.clear_cache()
     specs = await use_case.execute()
 
     mock_spec = next((s for s in specs if s.name == "mock_task"), None)

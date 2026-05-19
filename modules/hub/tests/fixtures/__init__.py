@@ -10,19 +10,17 @@ from tests.fixtures.clients import (
 )
 from tests.fixtures.db import (
     async_engine,
-    event_loop_policy,
-    inspect_session,
+    db_url,
     session_fixture,
-    session_maker_fixture,
+    setup_database,
 )
 
 __all__ = [
     # Database fixtures
-    "event_loop_policy",
+    "db_url",
+    "setup_database",
     "async_engine",
-    "session_maker_fixture",
     "session_fixture",
-    "inspect_session",
     # Client fixtures
     "AsyncClientWithJson",
     "app_fixture",

@@ -14,7 +14,7 @@ from tests.utils.fastapi import resolve_dependency
 class TestDeleteScheduleJob:
     async def test_delete_schedule_job_success(
         self,
-        inspect_session: AsyncSession,
+        session: AsyncSession,
         make_db,
     ):
         job: ScheduleJob = await make_db(
@@ -30,5 +30,7 @@ class TestDeleteScheduleJob:
 
         await use_case.execute(job.id, context=context)
 
-        db_job = await inspect_session.get(ScheduleJob, job.id)
+        job_id = job.id
+        session.expire_all()
+        db_job = await session.get(ScheduleJob, job_id)
         assert db_job is None

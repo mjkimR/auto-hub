@@ -261,6 +261,7 @@ class TestGetRetryJobs:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.real_commit
 class TestDispatchJobs:
     """Integration tests for DispatcherService.dispatch_jobs.
 

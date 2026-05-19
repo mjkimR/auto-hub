@@ -93,6 +93,7 @@ async def _create_schedule_job(session: AsyncSession, config: ScheduleConfig, **
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.real_commit
 class TestExampleTaskDispatch:
     """Integration tests that dispatch the real hello_world example task."""
 
@@ -136,34 +137,30 @@ class TestExampleTaskDispatch:
         config_dto = ScheduleConfigRead.model_validate(config)
         return job_obj, job_dto, config_dto, job_dto.dispatcher_run_id
 
-    async def test_hello_world_task_completes_with_success_status(
-        self, service, session, hello_world_job, session_maker
-    ):
+    async def test_hello_world_task_completes_with_success_status(self, service, session, hello_world_job):
         """hello_world task should run successfully without mocking and set job status to SUCCESS."""
         job_obj, job_dto, config_dto, run_id = hello_world_job
 
         await service.dispatch_jobs([(job_dto, config_dto)], run_id)
 
-        async with session_maker() as s:
-            result = await s.execute(select(ScheduleJob).where(ScheduleJob.id == job_obj.id))
-            updated = result.scalar_one()
+        session.expire_all()
+        result = await session.execute(select(ScheduleJob).where(ScheduleJob.id == job_dto.id))
+        updated = result.scalar_one()
 
         assert updated.status == ScheduleJobStatus.SUCCESS
         assert updated.finished_at is not None
         assert updated.error_message is None
         assert updated.retry_need is False
 
-    async def test_hello_world_task_with_custom_message_payload(
-        self, service, session, hello_world_job_with_message, session_maker
-    ):
+    async def test_hello_world_task_with_custom_message_payload(self, service, session, hello_world_job_with_message):
         """hello_world task should accept a custom message payload and still succeed."""
         job_obj, job_dto, config_dto, run_id = hello_world_job_with_message
 
         await service.dispatch_jobs([(job_dto, config_dto)], run_id)
 
-        async with session_maker() as s:
-            result = await s.execute(select(ScheduleJob).where(ScheduleJob.id == job_obj.id))
-            updated = result.scalar_one()
+        session.expire_all()
+        result = await session.execute(select(ScheduleJob).where(ScheduleJob.id == job_dto.id))
+        updated = result.scalar_one()
 
         assert updated.status == ScheduleJobStatus.SUCCESS
         assert updated.finished_at is not None
@@ -178,7 +175,7 @@ class TestExampleTaskDispatch:
         assert callable(func)
         assert func.__name__ == "hello_world"
 
-    async def test_hello_world_multiple_concurrent_dispatches(self, service, session, session_maker):
+    async def test_hello_world_multiple_concurrent_dispatches(self, service, session):
         """Multiple hello_world jobs should all complete successfully when dispatched concurrently."""
         pairs = []
         job_ids = []
@@ -205,9 +202,9 @@ class TestExampleTaskDispatch:
 
         await service.dispatch_jobs(pairs, run_id)
 
-        async with session_maker() as s:
-            result = await s.execute(select(ScheduleJob).where(ScheduleJob.id.in_(job_ids)))
-            jobs = result.scalars().all()
+        session.expire_all()
+        result = await session.execute(select(ScheduleJob).where(ScheduleJob.id.in_(job_ids)))
+        jobs = result.scalars().all()
 
         assert len(jobs) == 3
         assert all(j.status == ScheduleJobStatus.SUCCESS for j in jobs)
@@ -240,15 +237,15 @@ class TestNoPayloadTaskDispatch:
         config_dto = ScheduleConfigRead.model_validate(config)
         return job_obj, job_dto, config_dto, job_dto.dispatcher_run_id
 
-    async def test_no_payload_task_completes_with_success_status(self, service, session, no_payload_job, session_maker):
+    async def test_no_payload_task_completes_with_success_status(self, service, session, no_payload_job):
         """no_payload_task should run successfully and set job status to SUCCESS."""
         job_obj, job_dto, config_dto, run_id = no_payload_job
 
         await service.dispatch_jobs([(job_dto, config_dto)], run_id)
 
-        async with session_maker() as s:
-            result = await s.execute(select(ScheduleJob).where(ScheduleJob.id == job_obj.id))
-            updated = result.scalar_one()
+        session.expire_all()
+        result = await session.execute(select(ScheduleJob).where(ScheduleJob.id == job_dto.id))
+        updated = result.scalar_one()
 
         assert updated.status == ScheduleJobStatus.SUCCESS
         assert updated.finished_at is not None

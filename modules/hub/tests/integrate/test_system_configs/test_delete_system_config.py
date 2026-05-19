@@ -15,7 +15,7 @@ from tests.utils.fastapi import resolve_dependency
 class TestDeleteSystemConfig:
     async def test_delete_system_config_success(
         self,
-        inspect_session: AsyncSession,
+        session: AsyncSession,
         make_db,
     ):
         config: SystemConfig = await make_db(
@@ -29,7 +29,9 @@ class TestDeleteSystemConfig:
 
         await use_case.execute(config.id, context=context)
 
-        db_config = await inspect_session.get(SystemConfig, config.id)
+        config_id = config.id
+        session.expire_all()
+        db_config = await session.get(SystemConfig, config_id)
         assert db_config is None
 
     async def test_delete_system_config_not_found(
