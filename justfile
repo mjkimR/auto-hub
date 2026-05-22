@@ -1,5 +1,7 @@
 available_modules := "hub"
 default_test_path := "modules/hub"
+default_pytest_options := "-q --tb=short --disable-warnings --no-header"
+default_pytest_progress_line_filter := "^[\\.sFxFw]*\\s+\\[.*\\]$"
 
 # Print available commands
 default:
@@ -14,6 +16,10 @@ init:
 lint:
     uv run ruff format
     uv run ruff check --fix
+
+# Run pyright static type checking
+check:
+    uv run pyright
 
 # Install pre-commit hooks
 hooks-install:
@@ -32,16 +38,23 @@ docker-build module="all" tag="latest":
     @AVAILABLE_MODULES="{{available_modules}}" bash ./scripts/docker-build.sh "{{module}}" "{{tag}}"
 
 # Generate a new database migration for hub
-db-revision message:
-    cd modules/hub && uv run alembic revision --autogenerate -m "{{message}}"
+db-revision message module="hub":
+    cd modules/{{module}} && uv run alembic revision --autogenerate -m "{{message}}"
 
 # Apply database migrations to head for hub
-db-upgrade:
-    cd modules/hub && uv run alembic upgrade head
+db-upgrade module="hub":
+    cd modules/{{module}} && uv run alembic upgrade head
 
 # Run tests with specified database type and paths
 _run_tests db_type +paths:
-    uv run pytest --db-type {{db_type}} {{paths}}
+    #!/usr/bin/env bash
+    set -u
+    tmp="$(mktemp)"
+    trap 'rm -f "$tmp"' EXIT
+    status=0
+    uv run pytest {{default_pytest_options}} --db-type {{db_type}} {{paths}} >"$tmp" 2>&1 || status=$?
+    grep -vE '{{default_pytest_progress_line_filter}}' "$tmp" || true
+    exit "$status"
 
 # Run tests with SQLite (default)
 test +paths=default_test_path:

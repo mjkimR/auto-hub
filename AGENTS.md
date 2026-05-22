@@ -31,6 +31,7 @@ This skill contains our Test Trophy model, shared fixtures, and standard pattern
 ### Quick Commands
 
 - **Run All Tests**: `just test`
+- **Targeted Test**: `just test <path>` (Runs Pytest for specific files/directories via `+paths`; use this instead of calling `uv run pytest` directly for individual file tests)
 
 ## Architecture & Code Style
 
