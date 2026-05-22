@@ -14,8 +14,16 @@ async def test_dispatch_jobs_timeout(monkeypatch):
     mock_config = MagicMock(spec=ScheduleConfigRead)
     run_id = uuid.uuid4()
 
+    from typing import Any, cast
+
     # Use a real SchedulerDefaults object but mock the property it uses for timeout
-    settings = SchedulerDefaults()
+    settings = SchedulerDefaults(
+        GLOBAL_TIMEOUT_SECONDS=300,
+        GLOBAL_TIMEOUT_BUFFER=30,
+        MAX_CONCURRENT_TASKS=10,
+        MAX_RETRY_ATTEMPTS=3,
+        MAX_DISPATCH_LIMIT=200,
+    )
 
     service = DispatcherService(
         job_repo=MagicMock(),
@@ -23,7 +31,7 @@ async def test_dispatch_jobs_timeout(monkeypatch):
     )
 
     # Override global_timeout directly on the service object
-    service.global_timeout = 0.01
+    service.global_timeout = cast(Any, 0.01)
 
     async def slow_dispatch(*args, **kwargs):
         await asyncio.sleep(0.1)

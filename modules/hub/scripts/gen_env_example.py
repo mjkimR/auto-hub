@@ -15,8 +15,8 @@ import typing as _typing
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Load all dependencies to trigger module-level imports
-from app.main import create_app  # type: ignore  # noqa: F401, E402
-from pydantic_settings import BaseSettings  # noqa: E402
+from app.main import create_app  # type: ignore  # noqa: F401
+from pydantic_settings import BaseSettings
 
 OUTPUT_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env.example")
 
@@ -82,9 +82,7 @@ for cls in settings_classes:
 
         if type_str == "SecretStr":
             value_hint = "<secret>"
-        elif has_default_factory:
-            value_hint = ""
-        elif is_required or default is None:
+        elif has_default_factory or is_required or default is None:
             value_hint = ""
         else:
             value_hint = str(default)

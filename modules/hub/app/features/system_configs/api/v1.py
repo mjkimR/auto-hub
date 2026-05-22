@@ -12,6 +12,7 @@ from app.features.system_configs.usecases.crud import (
 )
 from app_base.base.deps.params.page import PaginationParam
 from app_base.base.exceptions.basic import NotFoundException
+from app_base.base.repos.query_options import ListQueryOptions
 from app_base.base.schemas.delete_resp import DeleteResponse
 from app_base.base.schemas.paginated import PaginatedList
 from fastapi import APIRouter, Depends, status
@@ -32,7 +33,7 @@ async def get_system_configs(
     use_case: Annotated[GetMultiSystemConfigUseCase, Depends()],
     pagination: PaginationParam,
 ):
-    return await use_case.execute(**pagination)
+    return await use_case.execute(ListQueryOptions(offset=pagination.offset, limit=pagination.limit))
 
 
 @router.get("/{system_config_id}", response_model=SystemConfigRead)

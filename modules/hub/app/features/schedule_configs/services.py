@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from typing import Annotated, Any, Optional
+from typing import Annotated, Any
 
 from app.common.utils.calc_schedule import calc_next_run as _calc_next_run_util
 from app.features.schedule_configs.models import ScheduleConfig
@@ -26,8 +26,8 @@ class ScheduleConfigContextKwargs(BaseContextKwargs):
 
 
 class ScheduleConfigService(
-    UniqueConstraintHooksMixin[ScheduleConfigContextKwargs],
-    ExistsCheckHooksMixin[ScheduleConfigContextKwargs],
+    UniqueConstraintHooksMixin[ScheduleConfig, ScheduleConfigContextKwargs],
+    ExistsCheckHooksMixin[ScheduleConfig, ScheduleConfigContextKwargs],
     BaseCreateServiceMixin[ScheduleConfigRepository, ScheduleConfig, ScheduleConfigCreate, ScheduleConfigContextKwargs],
     BaseGetMultiServiceMixin[ScheduleConfigRepository, ScheduleConfig, ScheduleConfigContextKwargs],
     BaseGetServiceMixin[ScheduleConfigRepository, ScheduleConfig, ScheduleConfigContextKwargs],
@@ -70,7 +70,7 @@ class ScheduleConfigService(
         self,
         session: AsyncSession,
         obj_data: ScheduleConfigCreate,
-        context: Optional[ScheduleConfigContextKwargs] = None,
+        context: ScheduleConfigContextKwargs | None = None,
         **update_fields: Any,
     ) -> ScheduleConfig:
         update_fields["next_run_at"] = self._calc_next_run(obj_data.cron_expression, obj_data.interval_seconds)
@@ -81,7 +81,7 @@ class ScheduleConfigService(
         session: AsyncSession,
         obj_id: uuid.UUID,
         obj_data: ScheduleConfigPut,
-        context: Optional[ScheduleConfigContextKwargs] = None,
+        context: ScheduleConfigContextKwargs | None = None,
         **update_fields: Any,
     ) -> ScheduleConfig | None:
         exists = await self.repo.get_by_pk(session, obj_id)
@@ -100,7 +100,7 @@ class ScheduleConfigService(
         session: AsyncSession,
         obj_id: uuid.UUID,
         obj_data: ScheduleConfigPatch,
-        context: Optional[ScheduleConfigContextKwargs] = None,
+        context: ScheduleConfigContextKwargs | None = None,
         **update_fields: Any,
     ) -> ScheduleConfig | None:
         exists = await self.repo.get_by_pk(session, obj_id)

@@ -36,6 +36,8 @@ def settings() -> SchedulerDefaults:
         GLOBAL_TIMEOUT_SECONDS=60,
         GLOBAL_TIMEOUT_BUFFER=10,
         MAX_CONCURRENT_TASKS=5,
+        MAX_RETRY_ATTEMPTS=3,
+        MAX_DISPATCH_LIMIT=200,
     )
 
 
@@ -53,14 +55,14 @@ async def _create_schedule_config(session: AsyncSession, **kwargs) -> ScheduleCo
     config = ScheduleConfig(
         name=kwargs.get("name", f"cfg-{uuid.uuid4().hex[:6]}"),
         task_func=kwargs.get("task_func", "hello_world"),
-        cron_expression=kwargs.get("cron_expression", None),
+        cron_expression=kwargs.get("cron_expression"),
         interval_seconds=kwargs.get("interval_seconds", 60),
         payload=kwargs.get("payload", {}),
         enabled=kwargs.get("enabled", True),
-        start_at=kwargs.get("start_at", None),
-        end_at=kwargs.get("end_at", None),
-        next_run_at=kwargs.get("next_run_at", None),
-        last_run_at=kwargs.get("last_run_at", None),
+        start_at=kwargs.get("start_at"),
+        end_at=kwargs.get("end_at"),
+        next_run_at=kwargs.get("next_run_at"),
+        last_run_at=kwargs.get("last_run_at"),
     )
     session.add(config)
     await session.flush()
@@ -75,9 +77,9 @@ async def _create_schedule_job(session: AsyncSession, config: ScheduleConfig, **
         dispatcher_run_id=uuid.uuid4(),
         status=kwargs.get("status", ScheduleJobStatus.PENDING),
         started_at=kwargs.get("started_at", NOW - timedelta(minutes=1)),
-        finished_at=kwargs.get("finished_at", None),
+        finished_at=kwargs.get("finished_at"),
         payload=kwargs.get("payload", {}),
-        error_message=kwargs.get("error_message", None),
+        error_message=kwargs.get("error_message"),
         retry_need=kwargs.get("retry_need", False),
         retry_attempts=kwargs.get("retry_attempts", 0),
         retry_max=kwargs.get("retry_max", 3),
@@ -139,7 +141,7 @@ class TestExampleTaskDispatch:
 
     async def test_hello_world_task_completes_with_success_status(self, service, session, hello_world_job):
         """hello_world task should run successfully without mocking and set job status to SUCCESS."""
-        job_obj, job_dto, config_dto, run_id = hello_world_job
+        _job_obj, job_dto, config_dto, run_id = hello_world_job
 
         await service.dispatch_jobs([(job_dto, config_dto)], run_id)
 
@@ -154,7 +156,7 @@ class TestExampleTaskDispatch:
 
     async def test_hello_world_task_with_custom_message_payload(self, service, session, hello_world_job_with_message):
         """hello_world task should accept a custom message payload and still succeed."""
-        job_obj, job_dto, config_dto, run_id = hello_world_job_with_message
+        _job_obj, job_dto, config_dto, run_id = hello_world_job_with_message
 
         await service.dispatch_jobs([(job_dto, config_dto)], run_id)
 
@@ -239,7 +241,7 @@ class TestNoPayloadTaskDispatch:
 
     async def test_no_payload_task_completes_with_success_status(self, service, session, no_payload_job):
         """no_payload_task should run successfully and set job status to SUCCESS."""
-        job_obj, job_dto, config_dto, run_id = no_payload_job
+        _job_obj, job_dto, config_dto, run_id = no_payload_job
 
         await service.dispatch_jobs([(job_dto, config_dto)], run_id)
 

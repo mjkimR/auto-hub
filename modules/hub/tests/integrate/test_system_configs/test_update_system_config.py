@@ -31,6 +31,7 @@ class TestUpdateSystemConfig:
         )
         updated = await use_case.execute(config.id, update_data, context=context)
 
+        assert updated is not None
         assert updated.id == config.id
         assert updated.data == {"new": "value", "updated": True}
 
@@ -54,6 +55,7 @@ class TestUpdateSystemConfig:
         patch_data = SystemConfigPatch(data={"change": "new"})
         patched = await use_case.execute(config.id, patch_data, context=context)
 
+        assert patched is not None
         assert patched.id == config.id
         assert patched.data == {"change": "new"}
 
@@ -74,6 +76,7 @@ class TestUpdateSystemConfig:
         patch_data = SystemConfigPatch(name="new_config_name")
         patched = await use_case.execute(config.id, patch_data, context=context)
 
+        assert patched is not None
         assert patched.name == "new_config_name"
 
         await session.refresh(config)

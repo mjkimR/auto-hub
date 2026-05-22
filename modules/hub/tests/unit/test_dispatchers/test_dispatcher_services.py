@@ -29,8 +29,8 @@ def _make_schedule_config(**kwargs) -> MagicMock:
     config = MagicMock(spec=ScheduleConfig)
     config.id = kwargs.get("id", uuid.uuid4())
     config.name = kwargs.get("name", "test-schedule")
-    config.cron_expression = kwargs.get("cron_expression", None)
-    config.interval_seconds = kwargs.get("interval_seconds", None)
+    config.cron_expression = kwargs.get("cron_expression")
+    config.interval_seconds = kwargs.get("interval_seconds")
     return config
 
 
@@ -41,7 +41,7 @@ def _make_schedule_config_read(**kwargs) -> ScheduleConfigRead:
         id=kwargs.get("id", uuid.uuid4()),
         name=kwargs.get("name", "test-schedule"),
         task_func=kwargs.get("task_func", "hello_world"),
-        cron_expression=kwargs.get("cron_expression", None),
+        cron_expression=kwargs.get("cron_expression"),
         interval_seconds=kwargs.get("interval_seconds", 60),
         payload=kwargs.get("payload", {}),
         enabled=True,
@@ -220,7 +220,7 @@ class TestRunDispatch:
         """On asyncio.TimeoutError, status should be FAILURE and retry_need should be True."""
 
         async def _timeout_task(**kwargs):
-            raise asyncio.TimeoutError
+            raise TimeoutError
 
         job_obj = self._mock_job_obj()
 

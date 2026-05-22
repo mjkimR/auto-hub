@@ -1,4 +1,4 @@
-from typing import Any, Type, TypeVar, get_args
+from typing import Any, get_args
 
 import pytest
 from app_base.base.models.mixin import Base
@@ -11,10 +11,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from tests.fixtures import factory as ft
 from tests.utils.fastapi import resolve_dependency
 
-T = TypeVar("T", bound=BaseModel)
 
-
-def get_model_factory(model_class: Type[T], _use_default: bool = False) -> Type[ModelFactory]:
+def get_model_factory[T: BaseModel](model_class: type[T], _use_default: bool = False) -> type[ModelFactory]:
     """Get the corresponding ModelFactory for a given Pydantic model class."""
     from app.features.schedule_configs.schemas import ScheduleConfigCreate
     from app.features.schedule_jobs.schemas import ScheduleJobCreate
@@ -44,7 +42,7 @@ def make():
     - kwargs: fields to override in the factory
     """
 
-    def _make(model_class: Type[T], _use_default: bool = False, **kwargs: Any) -> T:
+    def _make[T: BaseModel](model_class: type[T], _use_default: bool = False, **kwargs: Any) -> T:
         factory = get_model_factory(model_class, _use_default)
         return factory.build(**kwargs)
 
@@ -62,7 +60,9 @@ def make_batch():
     - kwargs: fields to override in the factory
     """
 
-    def _make_batch(model_class: Type[T], _size: int = 3, _use_default: bool = False, **kwargs: Any) -> list[T]:
+    def _make_batch[T: BaseModel](
+        model_class: type[T], _size: int = 3, _use_default: bool = False, **kwargs: Any
+    ) -> list[T]:
         factory = get_model_factory(model_class, _use_default)
         return factory.batch(size=_size, **kwargs)
 
@@ -170,7 +170,9 @@ def make_api(client: AsyncClient):
     - kwargs: fields to override in the factory
     """
 
-    async def _make_api(endpoint: str, model_class: Type[T], _use_default: bool = False, **kwargs: Any) -> T:
+    async def _make_api[T: BaseModel](
+        endpoint: str, model_class: type[T], _use_default: bool = False, **kwargs: Any
+    ) -> T:
         factory = get_model_factory(model_class, _use_default)
         data = factory.build(**kwargs)
         response = await client.post(endpoint, json=data.model_dump())
@@ -192,8 +194,8 @@ def make_api_batch(client: AsyncClient):
     - kwargs: fields to override in the factory
     """
 
-    async def _make_api_batch(
-        endpoint: str, model_class: Type[T], _size: int = 3, _use_default: bool = False, **kwargs: Any
+    async def _make_api_batch[T: BaseModel](
+        endpoint: str, model_class: type[T], _size: int = 3, _use_default: bool = False, **kwargs: Any
     ) -> list[T]:
         factory = get_model_factory(model_class, _use_default)
         data_list = factory.batch(size=_size, **kwargs)

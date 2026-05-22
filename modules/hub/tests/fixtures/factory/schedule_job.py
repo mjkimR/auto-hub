@@ -11,4 +11,4 @@ class ScheduleJobCreateFactory(ModelFactory):
     status = ScheduleJobStatus.PENDING
     finished_at = None
     error_message = None
-    payload = {}
+    payload = dict

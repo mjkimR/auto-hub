@@ -36,6 +36,7 @@ class TestUpdateScheduleConfig:
         )
         updated = await use_case.execute(config.id, update_data, context=context)
 
+        assert updated is not None
         assert updated.id == config.id
         assert updated.task_func == "tasks.new_task"
         assert updated.interval_seconds == 120
@@ -67,6 +68,7 @@ class TestUpdateScheduleConfig:
         patch_data = ScheduleConfigPatch(enabled=False)
         patched = await use_case.execute(config.id, patch_data, context=context)
 
+        assert patched is not None
         assert patched.id == config.id
         assert patched.enabled is False
 
@@ -91,6 +93,7 @@ class TestUpdateScheduleConfig:
         patch_data = ScheduleConfigPatch(task_func="tasks.new_func")
         patched = await use_case.execute(config.id, patch_data, context=context)
 
+        assert patched is not None
         assert patched.task_func == "tasks.new_func"
 
         await session.refresh(config)
@@ -116,6 +119,7 @@ class TestUpdateScheduleConfig:
         patch_data = ScheduleConfigPatch(interval_seconds=300)
         patched = await use_case.execute(config.id, patch_data, context=context)
 
+        assert patched is not None
         assert patched.interval_seconds == 300
         assert patched.next_run_at is not None
         assert isinstance(patched.next_run_at, datetime)
@@ -140,6 +144,7 @@ class TestUpdateScheduleConfig:
         patch_data = ScheduleConfigPatch(interval_seconds=None)
         patched = await use_case.execute(config.id, patch_data, context=context)
 
+        assert patched is not None
         assert patched.interval_seconds is None
         assert patched.cron_expression is None
         assert patched.next_run_at is None

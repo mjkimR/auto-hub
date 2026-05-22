@@ -1,4 +1,4 @@
-from typing import Annotated, Optional
+from typing import Annotated
 
 from app.features.system_configs.models import SystemConfig
 from app.features.system_configs.repos import SystemConfigRepository
@@ -22,8 +22,10 @@ class SystemConfigContextKwargs(BaseContextKwargs):
 
 
 class SystemConfigService(
-    UniqueConstraintHooksMixin[SystemConfigContextKwargs],  # Ensure unique constraints before create/update
-    ExistsCheckHooksMixin[SystemConfigContextKwargs],  # Ensure existence checks before operations
+    UniqueConstraintHooksMixin[
+        SystemConfig, SystemConfigContextKwargs
+    ],  # Ensure unique constraints before create/update
+    ExistsCheckHooksMixin[SystemConfig, SystemConfigContextKwargs],  # Ensure existence checks before operations
     BaseCreateServiceMixin[SystemConfigRepository, SystemConfig, SystemConfigCreate, SystemConfigContextKwargs],
     BaseGetMultiServiceMixin[SystemConfigRepository, SystemConfig, SystemConfigContextKwargs],
     BaseGetServiceMixin[SystemConfigRepository, SystemConfig, SystemConfigContextKwargs],
@@ -55,7 +57,7 @@ class SystemConfigService(
         self,
         session: AsyncSession,
         name: str,
-        context: Optional[SystemConfigContextKwargs] = None,
+        context: SystemConfigContextKwargs | None = None,
     ) -> SystemConfig | None:
         """Get a SystemConfig by its name."""
         return await self.repo.get(session, where=self.repo.model.name == name)

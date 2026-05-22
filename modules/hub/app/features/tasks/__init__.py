@@ -5,4 +5,4 @@ from app.features.tasks.core.registry import (
     task,
 )
 
-__all__ = ["task", "get", "all_tasks", "autodiscover"]
+__all__ = ["all_tasks", "autodiscover", "get", "task"]

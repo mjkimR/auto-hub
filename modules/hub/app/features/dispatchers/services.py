@@ -1,7 +1,8 @@
 import asyncio
+from collections.abc import Sequence
 from datetime import UTC, datetime
 from inspect import iscoroutinefunction
-from typing import Annotated, Sequence
+from typing import Annotated
 from uuid import UUID
 
 from app.common.config import SchedulerDefaults, get_scheduler_defaults

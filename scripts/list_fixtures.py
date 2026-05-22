@@ -23,7 +23,7 @@ def list_fixtures(module_path):
         if not file_path.exists() or file_path.name == "__init__.py":
             continue
 
-        with open(file_path, "r") as f:
+        with open(file_path) as f:
             content = f.read()
 
         try:
@@ -45,9 +45,8 @@ def list_fixtures(module_path):
 
                             # Check for name= override
                             for kw in decorator.keywords:
-                                if kw.arg == "name":
-                                    if isinstance(kw.value, ast.Constant):
-                                        actual_name = kw.value.value
+                                if kw.arg == "name" and isinstance(kw.value, ast.Constant):
+                                    actual_name = kw.value.value
 
                         elif isinstance(decorator, ast.Attribute):
                             dec_name = decorator.attr

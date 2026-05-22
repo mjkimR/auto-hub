@@ -52,14 +52,14 @@ async def _create_schedule_config(session: AsyncSession, **kwargs) -> ScheduleCo
     config = ScheduleConfig(
         name=kwargs.get("name", f"cfg-{uuid.uuid4().hex[:6]}"),
         task_func=kwargs.get("task_func", "hello_world"),
-        cron_expression=kwargs.get("cron_expression", None),
+        cron_expression=kwargs.get("cron_expression"),
         interval_seconds=kwargs.get("interval_seconds", 60),
         payload=kwargs.get("payload", {}),
         enabled=kwargs.get("enabled", True),
-        start_at=kwargs.get("start_at", None),
-        end_at=kwargs.get("end_at", None),
-        next_run_at=kwargs.get("next_run_at", None),
-        last_run_at=kwargs.get("last_run_at", None),
+        start_at=kwargs.get("start_at"),
+        end_at=kwargs.get("end_at"),
+        next_run_at=kwargs.get("next_run_at"),
+        last_run_at=kwargs.get("last_run_at"),
     )
     session.add(config)
     await session.flush()
@@ -290,7 +290,7 @@ class TestDispatchJobs:
         """On task success, the ScheduleJob status should be updated to SUCCESS."""
         from sqlalchemy import select
 
-        job_obj, job_dto, config_dto, run_id = config_and_job
+        _job_obj, job_dto, config_dto, run_id = config_and_job
 
         async def _mock_hello_world(**kwargs):
             pass
@@ -311,7 +311,7 @@ class TestDispatchJobs:
         """On task failure, the ScheduleJob status should be FAILURE and error_message should be set."""
         from sqlalchemy import select
 
-        job_obj, job_dto, config_dto, run_id = config_and_job
+        _job_obj, job_dto, config_dto, run_id = config_and_job
 
         async def _mock_failing(**kwargs):
             raise RuntimeError("boom")

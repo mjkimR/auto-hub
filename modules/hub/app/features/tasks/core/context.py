@@ -1,9 +1,9 @@
 from __future__ import annotations
 
+from collections.abc import Generator
 from contextlib import contextmanager
 from contextvars import ContextVar, Token
 from dataclasses import dataclass
-from typing import Generator
 from uuid import UUID
 
 
@@ -24,7 +24,7 @@ _task_meta_var: ContextVar[TaskMeta | None] = ContextVar("task_meta", default=No
 
 
 @contextmanager
-def task_context(*, config_id: UUID, config_name: str, run_id: UUID) -> Generator[TaskMeta, None, None]:
+def task_context(*, config_id: UUID, config_name: str, run_id: UUID) -> Generator[TaskMeta]:
     """Set :class:`TaskMeta` for the duration of a ``with`` block.
 
     The previous context value is restored on exit (including on exception),

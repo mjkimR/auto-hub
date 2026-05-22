@@ -39,7 +39,7 @@ class TestDispatcherTriggerAPI:
     """E2E tests for POST /api/v1/dispatchers/trigger."""
 
     # ------------------------------------------------------------------
-    # Happy path – due configs are dispatched
+    # Happy path - due configs are dispatched
     # ------------------------------------------------------------------
     async def test_trigger_dispatches_due_config(
         self,
@@ -107,7 +107,7 @@ class TestDispatcherTriggerAPI:
         assert response.json()["dispatched"] >= 3
 
     # ------------------------------------------------------------------
-    # Config filtering – disabled / future / expired are skipped
+    # Config filtering - disabled / future / expired are skipped
     # ------------------------------------------------------------------
 
     async def test_trigger_skips_disabled_config(
@@ -312,7 +312,7 @@ class TestDispatcherTriggerAPI:
         assert_status_code(response, 200)
 
         await session.refresh(job)
-        # Status must remain FAILURE – no retry was attempted
+        # Status must remain FAILURE - no retry was attempted
         assert job.status == ScheduleJobStatus.FAILURE
 
     # ------------------------------------------------------------------

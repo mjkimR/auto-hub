@@ -1,24 +1,25 @@
 import inspect
+from collections.abc import Callable
 from types import SimpleNamespace
-from typing import Annotated, Any, Callable, TypeVar, get_args, get_origin
+from typing import Annotated, Any, cast, get_args, get_origin
 
 from fastapi import Request
 from fastapi.params import Depends
-
-T = TypeVar("T")
 
 
 class MockRequest:
     """Mock class that mimics the state of a FastAPI Request object"""
 
-    def __init__(self, state_attrs: dict[str, Any] = None):
+    def __init__(self, state_attrs: dict[str, Any] | None = None):
         # Convert dict to object for attribute access (e.g., request.state.db)
         self.state = SimpleNamespace(**(state_attrs or {}))
         self.scope = {"type": "http"}  # Basic scope info (expand if needed)
 
 
-def resolve_dependency(
-    target: Callable[..., T] | type[T], state: dict[str, Any] = None, overrides: dict[Callable, Any] = None
+def resolve_dependency[T](
+    target: Callable[..., T] | type[T],
+    state: dict[str, Any] | None = None,
+    overrides: dict[Callable, Any] | None = None,
 ) -> T:
     """
     Test helper that resolves FastAPI dependency trees and creates objects.
@@ -38,17 +39,17 @@ def resolve_dependency(
     # 2. Inject MockRequest when Request object is needed
     # (Type hint is Request or FastAPI Request class itself)
     if target is Request:
-        return MockRequest(state)
+        return cast(T, MockRequest(state))
 
     # 3. Check if callable (Function or Class)
     if inspect.isclass(target):
-        func = target.__init__
+        sig_func = target.__init__
     elif callable(target):
-        func = target
+        sig_func = target
     else:
         return target  # Return if already an instance
 
-    sig = inspect.signature(func)
+    sig = inspect.signature(sig_func)
     kwargs = {}
 
     for param_name, param in sig.parameters.items():
@@ -85,6 +86,6 @@ def resolve_dependency(
 
     # 4. Instantiate and return object
     if inspect.isclass(target):
-        return target(**kwargs)
+        return cast(T, target(**kwargs))
     else:
-        return func(**kwargs)
+        return cast(Callable[..., T], target)(**kwargs)

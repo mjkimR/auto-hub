@@ -38,6 +38,7 @@ class TestUpdateScheduleJob:
         )
         updated = await use_case.execute(job.id, update_data, context=context)
 
+        assert updated is not None
         assert updated.id == job.id
         assert updated.status == ScheduleJobStatus.SUCCESS
         assert updated.finished_at is not None
@@ -69,6 +70,7 @@ class TestUpdateScheduleJob:
         )
         patched = await use_case.execute(job.id, patch_data, context=context)
 
+        assert patched is not None
         assert patched.id == job.id
         assert patched.status == ScheduleJobStatus.FAILURE
         assert patched.error_message == "Task timed out"
@@ -96,6 +98,7 @@ class TestUpdateScheduleJob:
 
         patched = await use_case.execute(job.id, ScheduleJobPatch(name="new_job_name"), context=context)
 
+        assert patched is not None
         assert patched.name == "new_job_name"
 
         await session.refresh(job)

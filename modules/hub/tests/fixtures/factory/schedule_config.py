@@ -7,4 +7,4 @@ class ScheduleConfigCreateFactory(ModelFactory):
 
     cron_expression = None
     interval_seconds = 60
-    payload = {}
+    payload = dict
