@@ -18,7 +18,6 @@ Use the provided scripts to install it automatically:
 - **Generate Migration**: `just db-revision "<message>"`
 - **Start Development Server**: `just dev-run hub` (Runs hub module in dev mode)
 - **Lint & Format**: `just lint` (Runs ruff format and check)
-- **Type Checking**: `pyright` (Run manually as needed)
 
 ## Testing Instructions
 

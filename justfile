@@ -1,4 +1,5 @@
 available_modules := "hub"
+default_test_path := "modules/hub"
 
 # Print available commands
 default:
@@ -13,10 +14,6 @@ init:
 lint:
     uv run ruff format
     uv run ruff check --fix
-
-# Run all tests
-test db="sqlite":
-    cd modules/hub && uv run pytest --db-type "{{db}}"
 
 # Install pre-commit hooks
 hooks-install:
@@ -41,3 +38,15 @@ db-revision message:
 # Apply database migrations to head for hub
 db-upgrade:
     cd modules/hub && uv run alembic upgrade head
+
+# Run tests with specified database type and paths
+_run_tests db_type +paths:
+    uv run pytest --db-type {{db_type}} {{paths}}
+
+# Run tests with SQLite (default)
+test +paths=default_test_path:
+    @just _run_tests sqlite {{paths}}
+
+# Run tests with PostgreSQL
+test-pg +paths=default_test_path:
+    @just _run_tests postgres {{paths}}
