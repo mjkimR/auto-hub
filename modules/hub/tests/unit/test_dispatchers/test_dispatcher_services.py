@@ -9,7 +9,7 @@ Covers:
 
 import asyncio
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -36,7 +36,7 @@ def _make_schedule_config(**kwargs) -> MagicMock:
 
 def _make_schedule_config_read(**kwargs) -> ScheduleConfigRead:
     """Create a minimal ScheduleConfigRead DTO."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     return ScheduleConfigRead(
         id=kwargs.get("id", uuid.uuid4()),
         name=kwargs.get("name", "test-schedule"),
@@ -56,7 +56,7 @@ def _make_schedule_config_read(**kwargs) -> ScheduleConfigRead:
 
 def _make_schedule_job_read(**kwargs) -> ScheduleJobRead:
     """Create a minimal ScheduleJobRead DTO."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     return ScheduleJobRead(
         id=kwargs.get("id", uuid.uuid4()),
         name=kwargs.get("name", "test-schedule"),
@@ -111,7 +111,7 @@ class TestCalcNextRun:
         from app.common.utils.calc_schedule import calc_next_run as util_calc_next_run
 
         config = _make_schedule_config(interval_seconds=300)
-        now = datetime(2026, 5, 13, 12, 0, 0, tzinfo=timezone.utc)
+        now = datetime(2026, 5, 13, 12, 0, 0, tzinfo=UTC)
 
         expected = util_calc_next_run(config.cron_expression, config.interval_seconds, now)
         result = DispatcherService.calc_next_run(config, now)

@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 from app.features.schedule_jobs.models import ScheduleJob, ScheduleJobStatus
@@ -18,7 +18,7 @@ class TestUpdateScheduleJob:
         session: AsyncSession,
         make_db,
     ):
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         job: ScheduleJob = await make_db(
             ScheduleJobRepository,
             name="put_target_job",
@@ -50,7 +50,7 @@ class TestUpdateScheduleJob:
         session: AsyncSession,
         make_db,
     ):
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         job: ScheduleJob = await make_db(
             ScheduleJobRepository,
             name="patch_target_job",
@@ -82,7 +82,7 @@ class TestUpdateScheduleJob:
         session: AsyncSession,
         make_db,
     ):
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         job: ScheduleJob = await make_db(
             ScheduleJobRepository,
             name="old_job_name",

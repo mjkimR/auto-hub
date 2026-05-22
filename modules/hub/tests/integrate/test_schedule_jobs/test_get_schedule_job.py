@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 from app.features.schedule_jobs.models import ScheduleJob, ScheduleJobStatus
@@ -22,8 +22,8 @@ class TestGetScheduleJob:
             obj_in=ScheduleJobCreate(
                 name="get_test_job",
                 status=ScheduleJobStatus.SUCCESS,
-                started_at=datetime.now(timezone.utc),
-                finished_at=datetime.now(timezone.utc),
+                started_at=datetime.now(UTC),
+                finished_at=datetime.now(UTC),
             ),
         )
 
@@ -42,7 +42,7 @@ class TestGetScheduleJob:
         session: AsyncSession,
     ):
         repo = resolve_dependency(ScheduleJobRepository)
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         for i in range(3):
             await repo.create(
                 session,

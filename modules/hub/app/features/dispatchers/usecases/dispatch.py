@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Annotated
 
 from app.features.dispatchers.services import DispatcherService
@@ -23,7 +23,7 @@ class DispatchUseCase(BaseUseCase):
 
     async def execute(self) -> int:
         """Receive a trigger request, execute due schedules, and return the number of dispatched schedules."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         run_id = uuid.uuid4()
         schedule_jobs = []
 

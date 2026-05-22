@@ -7,7 +7,7 @@ discovered and executed end-to-end through DispatcherService.dispatch_jobs.
 
 import asyncio
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 # Ensure hello_world is registered in task_registry before tests run
 import app.features.tasks.examples  # noqa: F401
@@ -27,7 +27,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 # Fixtures
 # ---------------------------------------------------------------------------
 
-NOW = datetime(2026, 5, 14, 12, 0, 0, tzinfo=timezone.utc)
+NOW = datetime(2026, 5, 14, 12, 0, 0, tzinfo=UTC)
 
 
 @pytest.fixture

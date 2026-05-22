@@ -7,7 +7,7 @@ with actual ORM models and transactions.
 
 import asyncio
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from unittest.mock import patch
 
 import pytest
@@ -23,7 +23,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 # Fixtures
 # ---------------------------------------------------------------------------
 
-NOW = datetime(2026, 5, 13, 12, 0, 0, tzinfo=timezone.utc)
+NOW = datetime(2026, 5, 13, 12, 0, 0, tzinfo=UTC)
 
 
 @pytest.fixture

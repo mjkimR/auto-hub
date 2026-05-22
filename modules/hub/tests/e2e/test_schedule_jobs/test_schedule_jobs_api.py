@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 from app.features.schedule_configs.models import ScheduleConfig
@@ -46,7 +46,7 @@ class TestScheduleJobsAPI:
             name="Test Job",
             schedule_config_id=config.id,
             status=ScheduleJobStatus.PENDING,
-            started_at=datetime.now(timezone.utc),
+            started_at=datetime.now(UTC),
         )
 
         response = await client.post(self.base_url(), json=payload.model_dump(mode="json"))
@@ -64,8 +64,8 @@ class TestScheduleJobsAPI:
         payload = ScheduleJobCreate(
             name="Standalone Job",
             status=ScheduleJobStatus.SUCCESS,
-            started_at=datetime.now(timezone.utc),
-            finished_at=datetime.now(timezone.utc),
+            started_at=datetime.now(UTC),
+            finished_at=datetime.now(UTC),
         )
 
         response = await client.post(self.base_url(), json=payload.model_dump(mode="json"))
@@ -174,7 +174,7 @@ class TestScheduleJobsAPI:
         put_payload = ScheduleJobCreate(
             name="Replaced Job",
             status=ScheduleJobStatus.FAILURE,
-            started_at=datetime.now(timezone.utc),
+            started_at=datetime.now(UTC),
             error_message="Something went wrong",
         )
 

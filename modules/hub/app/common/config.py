@@ -24,7 +24,7 @@ class SchedulerDefaults(BaseSettings):
         return self.GLOBAL_TIMEOUT_SECONDS - self.GLOBAL_TIMEOUT_BUFFER
 
 
-@lru_cache()
+@lru_cache
 def get_scheduler_defaults() -> SchedulerDefaults:
     """Get an instance of SchedulerDefaults with values loaded from environment variables or defaults."""
     return SchedulerDefaults(**{})

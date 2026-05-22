@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 from app.features.schedule_configs.repos import ScheduleConfigRepository
@@ -28,7 +28,7 @@ class TestCreateScheduleJob:
         use_case = resolve_dependency(CreateScheduleJobUseCase)
         context: ScheduleJobContextKwargs = {}
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         job_in = ScheduleJobCreate(
             name="test_job",
             schedule_config_id=config.id,
@@ -54,7 +54,7 @@ class TestCreateScheduleJob:
         use_case = resolve_dependency(CreateScheduleJobUseCase)
         context: ScheduleJobContextKwargs = {}
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         job_in = ScheduleJobCreate(
             name="orphan_job",
             schedule_config_id=None,
@@ -77,7 +77,7 @@ class TestCreateScheduleJob:
         use_case = resolve_dependency(CreateScheduleJobUseCase)
         context: ScheduleJobContextKwargs = {}
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         job_in = ScheduleJobCreate(
             name="failed_job",
             schedule_config_id=None,

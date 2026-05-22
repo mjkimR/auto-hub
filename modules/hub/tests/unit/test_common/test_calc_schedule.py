@@ -4,7 +4,7 @@ This module owns all behavioural tests for the shared scheduling utility,
 since both DispatcherService and ScheduleConfigService delegate to it.
 """
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from app.common.utils.calc_schedule import calc_next_run
@@ -13,7 +13,7 @@ from app.common.utils.calc_schedule import calc_next_run
 class TestCalcNextRun:
     """Behavioural tests for calc_next_run()."""
 
-    NOW = datetime(2026, 5, 13, 12, 0, 0, tzinfo=timezone.utc)
+    NOW = datetime(2026, 5, 13, 12, 0, 0, tzinfo=UTC)
 
     # ------------------------------------------------------------------
     # cron_expression
@@ -21,7 +21,7 @@ class TestCalcNextRun:
 
     def test_cron_expression_returns_next_datetime(self):
         """A valid cron expression should return the next matching datetime via croniter."""
-        now = datetime(2026, 5, 11, 8, 0, 0, tzinfo=timezone.utc)  # Monday 08:00 UTC
+        now = datetime(2026, 5, 11, 8, 0, 0, tzinfo=UTC)  # Monday 08:00 UTC
 
         result = calc_next_run(cron_expression="0 9 * * 1-5", interval_seconds=None, now=now)
 
@@ -59,9 +59,9 @@ class TestCalcNextRun:
 
     def test_default_now_uses_utc(self):
         """When `now` is omitted the function should default to the current UTC time."""
-        before = datetime.now(timezone.utc)
+        before = datetime.now(UTC)
         result = calc_next_run(cron_expression=None, interval_seconds=60)
-        after = datetime.now(timezone.utc)
+        after = datetime.now(UTC)
 
         assert before + timedelta(seconds=60) <= result <= after + timedelta(seconds=60)
 

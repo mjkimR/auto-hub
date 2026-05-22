@@ -4,7 +4,7 @@ Centralises the next-run-time logic so that both the dispatcher and the
 schedule-config service can share it without creating circular imports.
 """
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from croniter import croniter
 
@@ -35,7 +35,7 @@ def calc_next_run(
             ``None`` / falsy.
     """
     if now is None:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
     if cron_expression:
         return croniter(cron_expression, now).get_next(datetime)

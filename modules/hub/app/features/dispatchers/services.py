@@ -1,5 +1,5 @@
 import asyncio
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from inspect import iscoroutinefunction
 from typing import Annotated, Sequence
 from uuid import UUID
@@ -173,7 +173,7 @@ class DispatcherService:
                 asyncio.gather(*[self._dispatch(job, config, run_id=run_id) for job, config in jobs]),
                 timeout=self.global_timeout,
             )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.error(
                 f"tick() gather timed out after {self.global_timeout}s",
             )
@@ -218,7 +218,7 @@ class DispatcherService:
                 else:
                     raise TypeError(f"Task function '{config.task_func}' must be an async function.")
                 logger.debug(f"{prefix} Dispatched schedule")
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 status = ScheduleJobStatus.FAILURE
                 error_message = f"Task timed out after {self.global_timeout}s"
                 logger.error(f"{prefix} timed out individually")
@@ -235,7 +235,7 @@ class DispatcherService:
                 error_trace = get_exception_traceback_str(e)
                 logger.error(f"{prefix} failed: {e}\n{error_trace}")
 
-            finished_at = datetime.now(timezone.utc)
+            finished_at = datetime.now(UTC)
 
             # Update schedule job
             async with AsyncTransaction() as session:

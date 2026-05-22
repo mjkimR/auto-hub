@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 from app.features.schedule_jobs.models import ScheduleJob, ScheduleJobStatus
@@ -21,8 +21,8 @@ class TestDeleteScheduleJob:
             ScheduleJobRepository,
             name="delete_target_job",
             status=ScheduleJobStatus.SUCCESS,
-            started_at=datetime.now(timezone.utc),
-            finished_at=datetime.now(timezone.utc),
+            started_at=datetime.now(UTC),
+            finished_at=datetime.now(UTC),
         )
 
         use_case = resolve_dependency(DeleteScheduleJobUseCase)
