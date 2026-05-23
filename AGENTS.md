@@ -1,54 +1,51 @@
 # AGENTS.md - Guide for AI Assistants
 
-This repository is a Python-based **Scheduler Manager** that provides a lightweight hub for dispatching scheduled jobs (
-cron/interval). It follows Clean Architecture principles and is designed for deployment on Google Cloud Platform.
+This repository is a full-stack **Scheduler Manager** (cron/interval orchestrator) for Google Cloud Platform.
+- **Backend**: `modules/hub` (Python, FastAPI, Clean Architecture)
+- **Frontend**: `modules/hub-ui` (React 19, Vite, Ant Design v6, React Query v5, Zustand)
+
+---
 
 ## Tooling & Commands
 
-We use **just** as a command runner.
-Use the provided scripts to install it automatically:
+We use **just** as the primary command runner and task orchestrator.
 
-- **macOS / Linux**: `./scripts/install-just.sh`
-- **Windows**: `scripts\install-just.bat`
+> [!IMPORTANT]
+> **The `justfile` is the Single Source of Truth (SSOT).**
+> Do NOT rely on hardcoded arguments in documentation. Always read the `justfile` directly to inspect available targets, aliases (e.g., `back`/`front`), parameter defaults, and task implementation scripts.
 
-### Core Commands
+### Scripts & Shared Infrastructure
+- **Separation of Concerns**: Avoid writing complex bash commands inline in `justfile` recipes. Delegate execution logic to dedicated shell scripts inside the `scripts/` directory to keep the `justfile` as a thin orchestration layer.
 
-- **Initialize Project**: `just init` (Syncs dependencies and installs git hooks)
-- **Database Migrations**: `just db-upgrade` (Applies migrations to head for the hub module)
-- **Generate Migration**: `just db-revision "<message>"`
-- **Start Development Server**: `just dev-run hub` (Runs hub module in dev mode)
-- **Lint & Format**: `just lint` (Runs ruff format and check)
+### Quick Command Reference Examples
+- **Initialize Modules**: `just init` (Initializes all) | `just init hub` (Backend only) | `just init hub-ui` (Frontend only)
+- **Launch Development Servers**: `just dev-run` (Launches backend) | `just dev-run hub-ui` (Launches frontend dev-server)
+- **Linting & Code Formatting**: `just lint` (Lints all) | `just lint hub-ui` (Frontend only)
+- **Type Checking & Compilation**: `just check` (Checks all) | `just check hub-ui` (Frontend only)
+- **Generate API Client**: `just gen-ui-api` (Syncs backend OpenAPI schemas with frontend React Query SDK)
+- **Database Migrations**: `just db-upgrade` | `just db-revision "<message>"`
 
-## Testing Instructions
-
-When writing or fixing tests, especially for the **hub** module, please refer to the specialized testing skill:
-
-- **Skill**: `hub-testing-expert`
-- **Guide**: [Detailed Testing Guide](.agents/skills/hub-testing-expert/references/TESTING_GUIDE.md)
-
-This skill contains our Test Trophy model, shared fixtures, and standard patterns for E2E, Integration, and Unit tests.
-
-### Quick Commands
-
-- **Run All Tests**: `just test`
-- **Targeted Test**: `just test <path>` (Runs Pytest for specific files/directories via `+paths`; use this instead of calling `uv run pytest` directly for individual file tests)
+---
 
 ## Architecture & Code Style
 
-- **Flow**: `API (Router) -> UseCase -> Service -> Repository`.
-- **Structure**: Feature-based organization under `app/features/`.
-- **DI**: Extensively use FastAPI's `Depends` and `Annotated`.
-- **Tasks**:
-    - Decorate with `@task(name="namespace.name")`.
-    - Must reside in `app/features/tasks` (for autodiscovery).
-    - Always use Pydantic models for payloads.
+### Backend (`modules/hub`)
+- **Flow**: `API (Router) -> UseCase -> Service -> Repository` (Clean Architecture).
+- **DI**: Use FastAPI's `Depends` and `Annotated`.
+- **Tasks**: Decorate with `@task(name="namespace.name")` in `app/features/tasks`. Always use Pydantic models for payloads.
 
-## CRITICAL CONSTRAINTS (DO NOT IGNORE)
+### Frontend (`modules/hub-ui`)
+- **Tech Stack**: React 19, TypeScript, Ant Design v6, React Query v5, Zustand.
+- **Styling**: Vanilla CSS variable overrides for tailored HSL light/dark themes and glassmorphic designs.
+- **Client Integration**: Never use `fetch` directly. Always import client resources from `src/generated/api/sdk.gen.ts`.
 
-1. **Security & Secrets**: **NEVER** commit `.env` files. **NEVER** log PII.
-2. **Commit Formatting**:
-    - Use concise, imperative messages (e.g., "Add user-defined timeout").
-    - **NO EMOJIS** in commit messages or PR titles.
-    - Keep changes surgical and strictly scoped to the prompt.
-3. **Pre-flight Checks**: Always ensure tests and `just lint` would pass before proposing a final solution.
+---
+
+## Critical Constraints
+
+1. **Security**: NEVER commit `.env` files. NEVER log PII.
+2. **Commits**: Concise, imperative, and **no emojis** (e.g., "Add user-defined timeout").
+3. **Pre-flight Checks**: Always run `just lint` and verification builds before proposing a final solution.
+
+
 

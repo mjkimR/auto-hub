@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
-set -e
+set -euo pipefail
+source "$(dirname "$0")/_lib.sh"
 
-MODULE=$1
-TAG=$2
+MODULE=${1:?Usage: docker-build.sh <module> [tag]}
+TAG=${2:-latest}
 
 if [ "$MODULE" = "all" ]; then
     for m in $AVAILABLE_MODULES; do
+        [ "$m" = "all" ] && continue
         script="./docker/build_$m.sh"
         if [ -f "$script" ]; then
             echo "Running $script -t $TAG"
@@ -15,23 +17,12 @@ if [ "$MODULE" = "all" ]; then
         fi
     done
 else
-    matched=0
-    for m in $AVAILABLE_MODULES; do
-        if [ "$m" = "$MODULE" ]; then
-            matched=1
-            break
-        fi
-    done
-    if [ "$matched" -eq 1 ]; then
-        script="./docker/build_$MODULE.sh"
-        if [ -f "$script" ]; then
-            bash "$script" -t "$TAG"
-        else
-            echo "Error: Build script $script not found."
-            exit 1
-        fi
+    target=$(resolve_module "$MODULE")
+    script="./docker/build_$target.sh"
+    if [ -f "$script" ]; then
+        bash "$script" -t "$TAG"
     else
-        echo "Error: Unknown module '$MODULE'"
+        echo "Error: Build script $script not found."
         echo "Available modules are: $AVAILABLE_MODULES"
         exit 1
     fi

@@ -1,25 +1,64 @@
-available_modules := "hub"
 default_test_path := "modules/hub"
-default_pytest_options := "-q --tb=short --disable-warnings --no-header"
-default_pytest_progress_line_filter := "^[\\.sFxFw]*\\s+\\[.*\\]$"
 
 # Print available commands
 default:
     @just --list
 
-# Initialize the project (sync dependencies, install hooks, etc)
-init:
-    uv sync
-    just hooks-install
+# Initialize project modules (all, hub, or hub-ui)
+init module="all":
+    #!/usr/bin/env bash
+    source ./scripts/_lib.sh
+    target=$(resolve_module "{{ module }}")
 
-# Run ruff format and lint
-lint:
-    uv run ruff format
-    uv run ruff check --fix
+    if should_run "$target" "hub"; then
+        path=$(resolve_module_path "hub")
+        echo "Initializing Python backend ($path)..."
+        uv sync
+        just hooks-install
+    fi
 
-# Run pyright static type checking
-check:
-    uv run pyright
+    if should_run "$target" "hub-ui"; then
+        path=$(resolve_module_path "hub-ui")
+        echo "Initializing React frontend ($path)..."
+        npm --prefix "$path" install
+    fi
+
+# Run linters for a specific module (all, hub, or hub-ui)
+lint module="all":
+    #!/usr/bin/env bash
+    source ./scripts/_lib.sh
+    target=$(resolve_module "{{ module }}")
+
+    if should_run "$target" "hub"; then
+        path=$(resolve_module_path "hub")
+        echo "Linting Python backend ($path)..."
+        uv run --directory "$path" ruff format
+        uv run --directory "$path" ruff check --fix
+    fi
+
+    if should_run "$target" "hub-ui"; then
+        path=$(resolve_module_path "hub-ui")
+        echo "Linting React frontend ($path)..."
+        npm --prefix "$path" run lint
+    fi
+
+# Run static type checks for a specific module (all, hub, or hub-ui)
+check module="all":
+    #!/usr/bin/env bash
+    source ./scripts/_lib.sh
+    target=$(resolve_module "{{ module }}")
+
+    if should_run "$target" "hub"; then
+        path=$(resolve_module_path "hub")
+        echo "Type checking Python backend ($path)..."
+        uv run --directory "$path" pyright
+    fi
+
+    if should_run "$target" "hub-ui"; then
+        path=$(resolve_module_path "hub-ui")
+        echo "Compiling and type checking React frontend ($path)..."
+        npm --prefix "$path" run build
+    fi
 
 # Install pre-commit hooks
 hooks-install:
@@ -29,46 +68,55 @@ hooks-install:
 hooks-run:
     uv run pre-commit run --all-files
 
-# Run backend server for a specific module in development mode
-dev-run module:
-    @AVAILABLE_MODULES="{{available_modules}}" bash ./scripts/dev-run.sh "{{module}}"
+# Run server for a specific module in development mode (hub or hub-ui)
+dev-run module="hub":
+    #!/usr/bin/env bash
+    source ./scripts/_lib.sh
+    target=$(resolve_module "{{ module }}")
+    bash ./scripts/dev-run.sh "$target"
+
+# Compile frontend production bundle
+build-ui:
+    #!/usr/bin/env bash
+    source ./scripts/_lib.sh
+    path=$(resolve_module_path "hub-ui")
+    npm --prefix "$path" run build
 
 # Build docker image for a specific module or all modules
 docker-build module="all" tag="latest":
-    @AVAILABLE_MODULES="{{available_modules}}" bash ./scripts/docker-build.sh "{{module}}" "{{tag}}"
+    #!/usr/bin/env bash
+    source ./scripts/_lib.sh
+    target=$(resolve_module "{{ module }}")
+    bash ./scripts/docker-build.sh "$target" "{{ tag }}"
 
 # Generate a new database migration for hub
 db-revision message module="hub":
-    cd modules/{{module}} && uv run alembic revision --autogenerate -m "{{message}}"
+    #!/usr/bin/env bash
+    source ./scripts/_lib.sh
+    target=$(resolve_module "{{ module }}")
+    path=$(resolve_module_path "$target")
+    uv run --directory "$path" alembic revision --autogenerate -m "{{ message }}"
 
 # Apply database migrations to head for hub
 db-upgrade module="hub":
-    cd modules/{{module}} && uv run alembic upgrade head
-
-# Run tests with specified database type and paths
-_run_tests db_type +paths:
     #!/usr/bin/env bash
-    set -u
-    tmp="$(mktemp)"
-    trap 'rm -f "$tmp"' EXIT
-    status=0
-    uv run pytest {{default_pytest_options}} --db-type {{db_type}} {{paths}} >"$tmp" 2>&1 || status=$?
-    grep -vE '{{default_pytest_progress_line_filter}}' "$tmp" || true
-    exit "$status"
+    source ./scripts/_lib.sh
+    target=$(resolve_module "{{ module }}")
+    path=$(resolve_module_path "$target")
+    uv run --directory "$path" alembic upgrade head
 
 # Run tests with SQLite (default)
 test +paths=default_test_path:
-    @just _run_tests sqlite {{paths}}
+    @bash ./scripts/run-tests.sh sqlite {{ paths }}
 
 # Run tests with PostgreSQL
 test-pg +paths=default_test_path:
-    @just _run_tests postgres {{paths}}
+    @bash ./scripts/run-tests.sh postgres {{ paths }}
 
-# Generate OpenAPI client for the frontend UI module
+# Run frontend tests (not yet configured)
+test-ui:
+    @echo "⚠ hub-ui tests are not configured yet. Add vitest and run 'npm --prefix modules/hub-ui test'."
+
+# Generate OpenAPI client for the frontend UI module from Python backend schema
 gen-ui-api:
-    @echo "Exporting OpenAPI JSON from Python backend..."
-    cd modules/hub && PYTHONPATH=. uv run python -c "import json; from app.main import create_app; print(json.dumps(create_app().openapi()))" > ../hub-ui/openapi.json
-    @echo "Generating API client..."
-    cd modules/hub-ui && npm run gen:api
-    @rm -f modules/hub-ui/openapi.json
-    @echo "Frontend API client successfully generated!"
+    @bash ./scripts/gen-ui-api.sh
