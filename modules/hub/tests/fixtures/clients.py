@@ -49,12 +49,19 @@ async def client_fixture(app):
 
     Note: LifespanManager is not used, so lifespan events are not triggered.
     """
+    from app.common.config import get_auth_config
+
+    try:
+        api_key = get_auth_config().APP_SECRET_KEY.get_secret_value()
+    except Exception:
+        api_key = "test"
+
     async with AsyncClientWithJson(
         transport=ASGITransport(app=app),
         base_url="http://testserver/",
         follow_redirects=True,
         headers={
-            # "Authorization": "...",
+            "X-API-Key": api_key,
         },
     ) as client:
         yield client

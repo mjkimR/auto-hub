@@ -1,6 +1,7 @@
 import React from 'react';
 import { Layout as AntdLayout, Menu, Button, Space, Badge, Tooltip } from 'antd';
 import { useThemeStore } from '../store/themeStore';
+import { useAuthStore } from '../store/authStore';
 import {
   LayoutDashboard,
   Clock,
@@ -10,7 +11,8 @@ import {
   Sun,
   Moon,
   Server,
-  RefreshCw
+  RefreshCw,
+  LogOut
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { healthApiHealthGet } from '../generated/api/sdk.gen';
@@ -23,6 +25,7 @@ interface LayoutProps {
 
 export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const { isDarkMode, activeTab, toggleDarkMode, setActiveTab } = useThemeStore();
+  const { logout } = useAuthStore();
 
   // Live polling for API Health
   const { data: healthData, isError, refetch, isFetching } = useQuery({
@@ -207,6 +210,25 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                 shape="circle"
                 icon={isDarkMode ? <Sun size={20} color="#eab308" /> : <Moon size={20} color="#4f46e5" />}
                 onClick={toggleDarkMode}
+                style={{
+                  width: 42,
+                  height: 42,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  border: '1px solid var(--border-color)',
+                  background: 'var(--bg-card)',
+                }}
+              />
+            </Tooltip>
+
+            {/* Logout Button */}
+            <Tooltip title="Log Out">
+              <Button
+                type="text"
+                shape="circle"
+                icon={<LogOut size={20} color="var(--text-secondary)" />}
+                onClick={logout}
                 style={{
                   width: 42,
                   height: 42,

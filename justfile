@@ -75,6 +75,18 @@ dev-run module="all":
     target=$(resolve_module "{{ module }}")
     bash ./scripts/dev-run.sh "$target"
 
+# Kill any dangling development servers (FastAPI on 8389, Vite on 5173)
+kill:
+    #!/usr/bin/env bash
+    echo "Terminating dangling development processes..."
+    # Release ports 8389 (backend) and 5173 (frontend)
+    fuser -k 8389/tcp 2>/dev/null || true
+    fuser -k 5173/tcp 2>/dev/null || true
+    # Fallback to process name-based termination (disabled to prevent race conditions and accidental termination of unrelated servers)
+    # pkill -f "uvicorn.*app.main:create_app" 2>/dev/null || true
+    # pkill -f "vite" 2>/dev/null || true
+    echo "Development servers cleaned up."
+
 # Compile frontend production bundle
 build-ui:
     #!/usr/bin/env bash

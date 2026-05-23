@@ -1,9 +1,11 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { ConfigProvider, theme, App as AntdApp } from 'antd';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { client } from './generated/api/client.gen';
 import { useThemeStore } from './store/themeStore';
+import { useAuthStore } from './store/authStore';
 import { Layout } from './components/Layout';
+import { Login } from './components/Login';
 import { Dashboard } from './components/Dashboard';
 import { ScheduleConfigs } from './components/ScheduleConfigs';
 import { ScheduleJobs } from './components/ScheduleJobs';
@@ -46,6 +48,11 @@ const ContentSwitcher: React.FC = () => {
 
 export default function App() {
   const { isDarkMode } = useThemeStore();
+  const { isAuthenticated, initializeAuth } = useAuthStore();
+
+  useEffect(() => {
+    initializeAuth();
+  }, [initializeAuth]);
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -60,9 +67,13 @@ export default function App() {
         }}
       >
         <AntdApp>
-          <Layout>
-            <ContentSwitcher />
-          </Layout>
+          {isAuthenticated ? (
+            <Layout>
+              <ContentSwitcher />
+            </Layout>
+          ) : (
+            <Login />
+          )}
         </AntdApp>
       </ConfigProvider>
     </QueryClientProvider>

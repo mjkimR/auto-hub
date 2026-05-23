@@ -1,10 +1,12 @@
 from functools import lru_cache
 
-from pydantic import Field
-from pydantic_settings import BaseSettings
+from pydantic import Field, SecretStr
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class SchedulerDefaults(BaseSettings):
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+
     GLOBAL_TIMEOUT_SECONDS: int = Field(300, description="Default global timeout for scheduled tasks in seconds")
     GLOBAL_TIMEOUT_BUFFER: int = Field(
         30,
@@ -24,7 +26,19 @@ class SchedulerDefaults(BaseSettings):
         return self.GLOBAL_TIMEOUT_SECONDS - self.GLOBAL_TIMEOUT_BUFFER
 
 
+class AuthConfig(BaseSettings):
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+
+    APP_SECRET_KEY: SecretStr = Field(..., description="Secret key for authentication")
+
+
 @lru_cache
 def get_scheduler_defaults() -> SchedulerDefaults:
     """Get an instance of SchedulerDefaults with values loaded from environment variables or defaults."""
     return SchedulerDefaults(**{})
+
+
+@lru_cache
+def get_auth_config() -> AuthConfig:
+    """Get an instance of AuthConfig with values loaded from environment variables or defaults."""
+    return AuthConfig(**{})

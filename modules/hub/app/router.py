@@ -1,5 +1,6 @@
 from typing import Annotated
 
+from app.auth import verify_api_key
 from app.features.dispatchers.api.v1 import router as v1_dispatchers_router
 from app.features.schedule_configs.api.v1 import router as v1_schedule_configs_router
 from app.features.schedule_jobs.api.v1 import router as v1_schedule_jobs_router
@@ -11,12 +12,12 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter(prefix="/api")
-v1_router = APIRouter(prefix="/v1", dependencies=[])
+v1_router = APIRouter(prefix="/v1", dependencies=[Depends(verify_api_key)])
 
 
-@router.get("/health", status_code=204)
+@router.get("/health", status_code=status.HTTP_200_OK)
 async def health():
-    return Response(status_code=204)
+    return {"status": "ok"}
 
 
 @router.get("/health/deep", status_code=status.HTTP_200_OK)
