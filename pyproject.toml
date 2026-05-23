@@ -5,7 +5,7 @@ members = ["modules/hub"]
 members = ["modules/hub"]
 
 [tool.ruff]
-exclude = [".git", ".venv", "migrations"]
+exclude = [".git", ".venv", "migrations", "node_modules"]
 line-length = 120
 target-version = "py313"
 
