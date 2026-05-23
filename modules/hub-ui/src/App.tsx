@@ -112,7 +112,7 @@ const MainDashboard: React.FC = () => {
     {
       title: 'Actions',
       key: 'actions',
-      render: (_: any, record: Job) => (
+      render: (_: unknown, record: Job) => (
         <Space size="middle">
           <Button
             size="small"
@@ -146,7 +146,7 @@ const MainDashboard: React.FC = () => {
     message.success('Job deleted successfully');
   };
 
-  const handleCreateJob = (data: any) => {
+  const handleCreateJob = (data: { formData?: { name: string; cronExpression: string; enabled?: boolean; maxRetries?: number } }) => {
     const formData = data.formData;
     if (!formData) return;
     const newJob: Job = {

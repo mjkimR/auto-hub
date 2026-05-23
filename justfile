@@ -63,3 +63,12 @@ test +paths=default_test_path:
 # Run tests with PostgreSQL
 test-pg +paths=default_test_path:
     @just _run_tests postgres {{paths}}
+
+# Generate OpenAPI client for the frontend UI module
+gen-ui-api:
+    @echo "Exporting OpenAPI JSON from Python backend..."
+    cd modules/hub && PYTHONPATH=. uv run python -c "import json; from app.main import create_app; print(json.dumps(create_app().openapi()))" > ../hub-ui/openapi.json
+    @echo "Generating API client..."
+    cd modules/hub-ui && npm run gen:api
+    @rm -f modules/hub-ui/openapi.json
+    @echo "Frontend API client successfully generated!"

@@ -14,7 +14,7 @@ This project is built using the following primary technologies:
 - **Data Fetching**: [TanStack Query](https://tanstack.com/query/latest) (v5)
 - **UI Components & Styling**: [Ant Design (antd)](https://ant.design/) (v6)
 - **Schema-Based Forms**: [React JSON Schema Form (RJSF)](https://rjsf-team.github.io/react-jsonschema-form/) (v6) with [Ant Design Theme](https://www.npmjs.com/package/@rjsf/antd)
-- **API Client**: [openapi-typescript-codegen](https://github.com/ferdikoomen/openapi-typescript-codegen) (OpenAPI-based client generation)
+- **API Client**: [@hey-api/openapi-ts](https://github.com/hey-api/openapi-ts) with [@hey-api/client-fetch](https://github.com/hey-api/client-fetch) (Modern OpenAPI-based client generation)
 
 ---
 
@@ -55,8 +55,16 @@ npm run dev
 
 ### 3. Generate API Client
 
-The backend server (JobRunner Hub) must be running (either at `http://localhost:8389` or as specified by the `VITE_API_BASE_URL` environment variable).
+You can generate the type-safe API client using either of the following methods:
 
+**Method A: Recommended (From the project root)**
+Run the `just` command, which automatically exports the OpenAPI schema from the Python backend and generates the frontend client without requiring a running server:
+```bash
+just gen-ui-api
+```
+
+**Method B: Manual (From the `modules/hub-ui` directory)**
+If you have a running backend server (JobRunner Hub at `http://localhost:8389` or specified by `VITE_API_BASE_URL`):
 ```bash
 npm run gen:api
 ```
