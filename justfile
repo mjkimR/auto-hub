@@ -69,7 +69,7 @@ hooks-run:
     uv run pre-commit run --all-files
 
 # Run server for a specific module in development mode (hub or hub-ui)
-dev-run module="hub":
+dev-run module="all":
     #!/usr/bin/env bash
     source ./scripts/_lib.sh
     target=$(resolve_module "{{ module }}")

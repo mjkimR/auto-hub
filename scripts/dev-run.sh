@@ -17,6 +17,7 @@ fi
 if should_run "$target" "hub"; then
     path=$(resolve_module_path "hub")
     echo "Starting Python backend ($path)..."
+    just db-upgrade
     uv run --directory "$path" uvicorn app.main:create_app --port 8389 --reload &
     PID_HUB=$!
 fi
