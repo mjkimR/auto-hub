@@ -14,12 +14,12 @@ import {
 } from '../generated/api/sdk.gen';
 import { useThemeStore } from '../store/themeStore';
 import { 
-  Plus, Search, Edit3, Trash2, AlertTriangle, 
+  Plus, Edit3, Trash2, AlertTriangle, 
   Clock, Calendar, RefreshCw
 } from 'lucide-react';
 import dayjs from 'dayjs';
 
-const { Text } = Typography;
+const { Text, Title } = Typography;
 const { Option } = Select;
 
 export const ScheduleConfigs: React.FC = () => {
@@ -27,7 +27,16 @@ export const ScheduleConfigs: React.FC = () => {
   const queryClient = useQueryClient();
   const { preselectedTask, setPreselectedTask } = useThemeStore();
 
-  const [searchTerm, setSearchTerm] = useState('');
+  const [currentInput, setCurrentInput] = useState('');
+  const [confirmedFilter, setConfirmedFilter] = useState('');
+  const [taskFilter, setTaskFilter] = useState<string>('all');
+  const [enabledFilter, setEnabledFilter] = useState<string>('all');
+  
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [sortField, setSortField] = useState<string>('created_at');
+  const [sortOrder, setSortOrder] = useState<'ascend' | 'descend'>('descend');
+
   const [isDrawerVisible, setIsDrawerVisible] = useState(false);
   const [editingConfig, setEditingConfig] = useState<any>(null);
   const [scheduleType, setScheduleType] = useState<'cron' | 'interval'>('cron');
@@ -36,8 +45,18 @@ export const ScheduleConfigs: React.FC = () => {
 
   // 1. Fetch Schedule Configs
   const { data: configsData, isLoading, refetch } = useQuery({
-    queryKey: ['scheduleConfigs'],
-    queryFn: () => getScheduleConfigsApiV1ScheduleConfigsGet({ throwOnError: true }),
+    queryKey: ['scheduleConfigs', confirmedFilter, taskFilter, enabledFilter, page, pageSize, sortField, sortOrder],
+    queryFn: () => getScheduleConfigsApiV1ScheduleConfigsGet({ 
+      query: {
+        name: confirmedFilter || undefined,
+        task_func: taskFilter === 'all' ? undefined : taskFilter,
+        enabled: enabledFilter === 'all' ? undefined : enabledFilter === 'active',
+        offset: (page - 1) * pageSize,
+        limit: pageSize,
+        order_by: `${sortOrder === 'descend' ? '-' : ''}${sortField}`
+      },
+      throwOnError: true 
+    }),
   });
 
   // 2. Fetch Tasks list for Task dropdown selection
@@ -197,17 +216,15 @@ export const ScheduleConfigs: React.FC = () => {
   };
 
   const tasksList = specsData?.data || [];
-  const configs = configsData?.data?.items || [];
-  const filteredConfigs = configs.filter((c: any) =>
-    c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    c.task_func.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredConfigs = configsData?.data?.items || [];
 
   const columns = [
     {
       title: 'Schedule Name',
       dataIndex: 'name',
       key: 'name',
+      sorter: true,
+      sortOrder: sortField === 'name' ? sortOrder : undefined,
       render: (text: string, record: any) => (
         <Space direction="vertical" size={2}>
           <Text strong style={{ fontSize: '14px' }}>{text}</Text>
@@ -219,6 +236,8 @@ export const ScheduleConfigs: React.FC = () => {
       title: 'Task Path',
       dataIndex: 'task_func',
       key: 'task_func',
+      sorter: true,
+      sortOrder: sortField === 'task_func' ? sortOrder : undefined,
       render: (text: string) => <code style={{ color: 'var(--accent-primary)', fontSize: '12px' }}>{text}</code>,
     },
     {
@@ -256,6 +275,8 @@ export const ScheduleConfigs: React.FC = () => {
       title: 'Next Run',
       dataIndex: 'next_run_at',
       key: 'next_run_at',
+      sorter: true,
+      sortOrder: sortField === 'next_run_at' ? sortOrder : undefined,
       render: (dateStr: string) => {
         if (!dateStr) return <Text type="secondary">-</Text>;
         try {
@@ -310,41 +331,84 @@ export const ScheduleConfigs: React.FC = () => {
         style={{ 
           padding: '24px', 
           display: 'flex', 
-          justifyContent: 'space-between', 
-          alignItems: 'center', 
-          flexWrap: 'wrap', 
-          gap: '16px' 
+          flexDirection: 'column', 
+          gap: '16px'
         }}
       >
-        <Input
-          prefix={<Search size={16} style={{ color: 'var(--text-muted)' }} />}
-          placeholder="Search schedules by name or task func..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          style={{
-            maxWidth: '350px',
-            borderRadius: '8px',
-            border: '1px solid var(--border-color)',
-            background: 'rgba(0,0,0,0.01)'
-          }}
-        />
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+          <div>
+            <Title level={4} style={{ margin: 0, background: 'var(--accent-gradient)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }} className="font-outfit">
+              Schedule Configurations
+            </Title>
+            <Text type="secondary">
+              Configure and orchestrate recurring cloud task schedules.
+            </Text>
+          </div>
+          
+          <Space>
+            <Button icon={<RefreshCw size={14} />} onClick={() => refetch()}>Refresh</Button>
+            <Button 
+              type="primary" 
+              icon={<Plus size={16} />} 
+              onClick={handleOpenCreate}
+              style={{ 
+                background: 'var(--accent-gradient)', 
+                border: 0,
+                boxShadow: '0 4px 12px var(--accent-glow)' 
+              }}
+              className="hover-glow"
+            >
+              Create Schedule Config
+            </Button>
+          </Space>
+        </div>
 
-        <Space>
-          <Button icon={<RefreshCw size={14} />} onClick={() => refetch()}>Refresh</Button>
-          <Button 
-            type="primary" 
-            icon={<Plus size={16} />} 
-            onClick={handleOpenCreate}
-            style={{ 
-              background: 'var(--accent-gradient)', 
-              border: 0,
-              boxShadow: '0 4px 12px var(--accent-glow)' 
+        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
+          <Input.Search
+            placeholder="Search schedules by name (Press Enter)..."
+            value={currentInput}
+            onChange={(e) => setCurrentInput(e.target.value)}
+            onSearch={(value) => {
+              setConfirmedFilter(value);
+              setPage(1);
             }}
-            className="hover-glow"
+            className="glass-search-input"
+            style={{ maxWidth: '280px' }}
+            allowClear
+          />
+
+          <Select
+            value={taskFilter}
+            onChange={(value) => {
+              setTaskFilter(value);
+              setPage(1);
+              setCurrentInput(confirmedFilter);
+            }}
+            style={{ width: '220px' }}
+            dropdownStyle={{ backdropFilter: 'blur(10px)' }}
+            placeholder="Filter by Task"
           >
-            Create Schedule Config
-          </Button>
-        </Space>
+            <Option value="all">All Tasks</Option>
+            {tasksList.map((t: any, idx: number) => (
+              <Option key={idx} value={t.name}>{t.name}</Option>
+            ))}
+          </Select>
+
+          <Select
+            value={enabledFilter}
+            onChange={(value) => {
+              setEnabledFilter(value);
+              setPage(1);
+              setCurrentInput(confirmedFilter);
+            }}
+            style={{ width: '130px' }}
+            dropdownStyle={{ backdropFilter: 'blur(10px)' }}
+          >
+            <Option value="all">All States</Option>
+            <Option value="active">Active Only</Option>
+            <Option value="inactive">Inactive Only</Option>
+          </Select>
+        </div>
       </div>
 
       {/* Main Configurations Table */}
@@ -354,7 +418,24 @@ export const ScheduleConfigs: React.FC = () => {
           dataSource={filteredConfigs} 
           rowKey="id" 
           loading={isLoading} 
-          className="premium-table"
+          className="glass-table"
+          onChange={(pagination, _filters, sorter: any) => {
+            setCurrentInput(confirmedFilter);
+            if (pagination) {
+              setPage(pagination.current || 1);
+              setPageSize(pagination.pageSize || 10);
+            }
+            if (sorter && sorter.field) {
+              setSortField(sorter.field);
+              setSortOrder(sorter.order || 'descend');
+            }
+          }}
+          pagination={{
+            current: page,
+            pageSize: pageSize,
+            total: configsData?.data?.total_count || 0,
+            showSizeChanger: true,
+          }}
         />
       </div>
 

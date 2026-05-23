@@ -1,6 +1,7 @@
 from typing import Annotated
 from uuid import UUID
 
+from app.features.schedule_jobs.query_options import schedule_job_query_options
 from app.features.schedule_jobs.schemas import ScheduleJobCreate, ScheduleJobPatch, ScheduleJobPut, ScheduleJobRead
 from app.features.schedule_jobs.usecases.crud import (
     CreateScheduleJobUseCase,
@@ -10,7 +11,6 @@ from app.features.schedule_jobs.usecases.crud import (
     PatchScheduleJobUseCase,
     PutScheduleJobUseCase,
 )
-from app_base.base.deps.params.page import PaginationParam
 from app_base.base.exceptions.basic import NotFoundException
 from app_base.base.repos.query_options import ListQueryOptions
 from app_base.base.schemas.delete_resp import DeleteResponse
@@ -31,9 +31,9 @@ async def create_schedule_job(
 @router.get("", response_model=PaginatedList[ScheduleJobRead])
 async def get_schedule_jobs(
     use_case: Annotated[GetMultiScheduleJobUseCase, Depends()],
-    pagination: PaginationParam,
+    query_options: Annotated[ListQueryOptions, Depends(schedule_job_query_options)],
 ):
-    return await use_case.execute(ListQueryOptions(offset=pagination.offset, limit=pagination.limit))
+    return await use_case.execute(query_options)
 
 
 @router.get("/{schedule_job_id}", response_model=ScheduleJobRead)

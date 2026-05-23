@@ -36,8 +36,12 @@ def _compute_task_specs() -> list[TaskSpecResponse]:
 
 
 class GetTaskSpecUseCase(BaseUseCase):
-    async def execute(self) -> list[TaskSpecResponse]:
-        return _compute_task_specs()
+    async def execute(self, name: str | None = None) -> list[TaskSpecResponse]:
+        specs = _compute_task_specs()
+        if name:
+            name_lower = name.lower()
+            return [spec for spec in specs if name_lower in spec.name.lower()]
+        return specs
 
     @classmethod
     def clear_cache(cls):

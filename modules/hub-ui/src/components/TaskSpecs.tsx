@@ -3,17 +3,21 @@ import { Row, Col, Typography, Button, Badge, Space, Empty, Spin, Input, Tooltip
 import { useQuery } from '@tanstack/react-query';
 import { getTaskSpecsApiV1TasksSpecsGet } from '../generated/api/sdk.gen';
 import { useThemeStore } from '../store/themeStore';
-import { Cpu, Plus, Search, FileJson } from 'lucide-react';
+import { Cpu, Plus, FileJson } from 'lucide-react';
 
 const { Title, Text, Paragraph } = Typography;
 
 export const TaskSpecs: React.FC = () => {
   const { setActiveTab, setPreselectedTask } = useThemeStore();
-  const [searchTerm, setSearchTerm] = React.useState('');
+  const [currentInput, setCurrentInput] = React.useState('');
+  const [confirmedFilter, setConfirmedFilter] = React.useState('');
 
   const { data: specsData, isLoading } = useQuery({
-    queryKey: ['taskSpecs'],
-    queryFn: () => getTaskSpecsApiV1TasksSpecsGet({ throwOnError: true }),
+    queryKey: ['taskSpecs', confirmedFilter],
+    queryFn: () => getTaskSpecsApiV1TasksSpecsGet({ 
+      query: { name: confirmedFilter || undefined }, 
+      throwOnError: true 
+    }),
   });
 
   const handleScheduleTask = (taskName: string) => {
@@ -22,10 +26,7 @@ export const TaskSpecs: React.FC = () => {
   };
 
   const specs = specsData?.data || [];
-  const filteredSpecs = specs.filter((spec: any) =>
-    spec.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (spec.description && spec.description.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  const filteredSpecs = specs;
 
   return (
     <Space direction="vertical" size="large" style={{ width: '100%' }}>
@@ -52,17 +53,15 @@ export const TaskSpecs: React.FC = () => {
           <Badge count={`${filteredSpecs.length} Active`} style={{ backgroundColor: 'var(--accent-primary)', fontSize: '13px', fontWeight: 600, padding: '0 8px' }} />
         </div>
 
-        <Input
-          prefix={<Search size={16} style={{ color: 'var(--text-muted)' }} />}
-          placeholder="Filter tasks by dotted path name or description..."
+        <Input.Search
+          placeholder="Search tasks by dotted path name (Press Enter)..."
           size="large"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          style={{
-            borderRadius: '10px',
-            border: '1px solid var(--border-color)',
-            background: 'rgba(0,0,0,0.02)'
-          }}
+          value={currentInput}
+          onChange={(e) => setCurrentInput(e.target.value)}
+          onSearch={(value) => setConfirmedFilter(value)}
+          className="glass-search-input"
+          allowClear
+          enterButton
         />
       </div>
 

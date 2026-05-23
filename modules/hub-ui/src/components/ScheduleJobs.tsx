@@ -9,7 +9,7 @@ import {
   deleteScheduleJobApiV1ScheduleJobsScheduleJobIdDelete
 } from '../generated/api/sdk.gen';
 import { 
-  Search, Trash2, AlertTriangle, RefreshCw, Clock, 
+  Trash2, AlertTriangle, RefreshCw, Clock, 
   Terminal, Eye, ShieldAlert 
 } from 'lucide-react';
 import dayjs from 'dayjs';
@@ -23,15 +23,30 @@ export const ScheduleJobs: React.FC = () => {
   const { message } = AntdApp.useApp();
   const queryClient = useQueryClient();
 
-  const [searchTerm, setSearchTerm] = useState('');
+  const [currentInput, setCurrentInput] = useState('');
+  const [confirmedFilter, setConfirmedFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [sortField, setSortField] = useState<string>('started_at');
+  const [sortOrder, setSortOrder] = useState<'ascend' | 'descend'>('descend');
+
   const [selectedJob, setSelectedJob] = useState<any>(null);
   const [isDrawerVisible, setIsDrawerVisible] = useState(false);
 
   // 1. Fetch Execution Jobs
   const { data: jobsData, isLoading, refetch } = useQuery({
-    queryKey: ['scheduleJobs'],
-    queryFn: () => getScheduleJobsApiV1ScheduleJobsGet({ throwOnError: true }),
+    queryKey: ['scheduleJobs', confirmedFilter, statusFilter, page, pageSize, sortField, sortOrder],
+    queryFn: () => getScheduleJobsApiV1ScheduleJobsGet({ 
+      query: {
+        name: confirmedFilter || undefined,
+        status: statusFilter === 'all' ? undefined : statusFilter as any,
+        offset: (page - 1) * pageSize,
+        limit: pageSize,
+        order_by: `${sortOrder === 'descend' ? '-' : ''}${sortField}`
+      },
+      throwOnError: true 
+    }),
   });
 
   // 2. Delete Job Mutation
@@ -58,23 +73,15 @@ export const ScheduleJobs: React.FC = () => {
     setIsDrawerVisible(true);
   };
 
-  const jobs = jobsData?.data?.items || [];
-  
-  // Filter jobs based on search term & status select
-  const filteredJobs = jobs.filter((job: any) => {
-    const matchesSearch = job.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          (job.error_message && job.error_message.toLowerCase().includes(searchTerm.toLowerCase()));
-    
-    const matchesStatus = statusFilter === 'all' ? true : job.status === statusFilter;
-    
-    return matchesSearch && matchesStatus;
-  });
+  const filteredJobs = jobsData?.data?.items || [];
 
   const columns = [
     {
       title: 'Job Name / ID',
       dataIndex: 'name',
       key: 'name',
+      sorter: true,
+      sortOrder: sortField === 'name' ? sortOrder : undefined,
       render: (text: string, record: any) => (
         <Space direction="vertical" size={2}>
           <Text strong style={{ fontSize: '14px' }}>{text}</Text>
@@ -86,6 +93,8 @@ export const ScheduleJobs: React.FC = () => {
       title: 'Execution Status',
       dataIndex: 'status',
       key: 'status',
+      sorter: true,
+      sortOrder: sortField === 'status' ? sortOrder : undefined,
       render: (status: string) => {
         let badgeClass = 'pending';
         let displayText = 'Pending';
@@ -97,7 +106,7 @@ export const ScheduleJobs: React.FC = () => {
           displayText = 'Failure';
         }
         return (
-          <span className={`premium-status-badge ${badgeClass}`}>
+          <span className={`glass-status-badge ${badgeClass}`}>
             {displayText}
           </span>
         );
@@ -107,6 +116,8 @@ export const ScheduleJobs: React.FC = () => {
       title: 'Triggered At',
       dataIndex: 'started_at',
       key: 'started_at',
+      sorter: true,
+      sortOrder: sortField === 'started_at' ? sortOrder : undefined,
       render: (dateStr: string) => dayjs(dateStr).format('YYYY-MM-DD HH:mm:ss'),
     },
     {
@@ -176,22 +187,26 @@ export const ScheduleJobs: React.FC = () => {
         }}
       >
         <Space size="middle" style={{ flexWrap: 'wrap' }}>
-          <Input
-            prefix={<Search size={16} style={{ color: 'var(--text-muted)' }} />}
-            placeholder="Search executions by job name..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            style={{
-              width: '280px',
-              borderRadius: '8px',
-              border: '1px solid var(--border-color)',
-              background: 'rgba(0,0,0,0.01)'
+          <Input.Search
+            placeholder="Search executions by job name (Press Enter)..."
+            value={currentInput}
+            onChange={(e) => setCurrentInput(e.target.value)}
+            onSearch={(value) => {
+              setConfirmedFilter(value);
+              setPage(1);
             }}
+            className="glass-search-input"
+            style={{ width: '320px' }}
+            allowClear
           />
 
           <Select
             value={statusFilter}
-            onChange={(value) => setStatusFilter(value)}
+            onChange={(value) => {
+              setStatusFilter(value);
+              setPage(1);
+              setCurrentInput(confirmedFilter);
+            }}
             style={{ width: '150px' }}
             dropdownStyle={{ backdropFilter: 'blur(10px)' }}
           >
@@ -214,7 +229,24 @@ export const ScheduleJobs: React.FC = () => {
           dataSource={filteredJobs} 
           rowKey="id" 
           loading={isLoading} 
-          className="premium-table"
+          className="glass-table"
+          onChange={(pagination, _filters, sorter: any) => {
+            setCurrentInput(confirmedFilter);
+            if (pagination) {
+              setPage(pagination.current || 1);
+              setPageSize(pagination.pageSize || 10);
+            }
+            if (sorter && sorter.field) {
+              setSortField(sorter.field);
+              setSortOrder(sorter.order || 'descend');
+            }
+          }}
+          pagination={{
+            current: page,
+            pageSize: pageSize,
+            total: jobsData?.data?.total_count || 0,
+            showSizeChanger: true,
+          }}
         />
       </div>
 
@@ -252,7 +284,7 @@ export const ScheduleJobs: React.FC = () => {
             >
               <div>
                 <Text type="secondary" style={{ fontSize: '11px', display: 'block' }}>STATUS</Text>
-                <span className={`premium-status-badge ${selectedJob.status === 'success' ? 'success' : selectedJob.status === 'failure' ? 'failure' : 'pending'}`} style={{ marginTop: '4px' }}>
+                <span className={`glass-status-badge ${selectedJob.status === 'success' ? 'success' : selectedJob.status === 'failure' ? 'failure' : 'pending'}`} style={{ marginTop: '4px' }}>
                   {selectedJob.status.toUpperCase()}
                 </span>
               </div>

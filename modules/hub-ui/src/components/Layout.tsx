@@ -78,7 +78,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
 
   return (
     <AntdLayout style={{ minHeight: '100vh', background: 'var(--bg-app)' }}>
-      {/* Premium Sidebar */}
+      {/* Glass Sidebar */}
       <Sider
         breakpoint="lg"
         collapsedWidth="0"
@@ -142,7 +142,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
             borderRight: 0,
             padding: '12px 10px',
           }}
-          className="premium-menu"
+          className="glass-menu"
         />
 
         {/* System Health Panel at Bottom of Sider */}
@@ -180,7 +180,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
 
       {/* Main Content Area */}
       <AntdLayout style={{ marginLeft: 260, minHeight: '100vh', background: 'transparent' }}>
-        {/* Premium Header */}
+        {/* Glass Header */}
         <Header 
           className="glass-header"
           style={{

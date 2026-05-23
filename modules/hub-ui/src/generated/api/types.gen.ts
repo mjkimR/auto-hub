@@ -926,10 +926,8 @@ export type HealthApiHealthGetResponses = {
     /**
      * Successful Response
      */
-    204: void;
+    200: unknown;
 };
-
-export type HealthApiHealthGetResponse = HealthApiHealthGetResponses[keyof HealthApiHealthGetResponses];
 
 export type DeepHealthCheckApiHealthDeepGetData = {
     body?: never;
@@ -961,6 +959,42 @@ export type GetScheduleConfigsApiV1ScheduleConfigsGetData = {
          * limit for pagination
          */
         limit?: number;
+        /**
+         * Name
+         *
+         * Filter by name (case-insensitive substring)
+         */
+        name?: string | null;
+        /**
+         * Task Func
+         *
+         * Filter by task function path (case-insensitive substring)
+         */
+        task_func?: string | null;
+        /**
+         * Enabled
+         *
+         * Filter by enabled status
+         */
+        enabled?: boolean | null;
+        /**
+         * Order By
+         *
+         * **Order by options:**
+         *
+         * * `name`: Sort by name
+         * * `created_at`: Sort by creation time
+         * * `updated_at`: Sort by update time
+         * * `next_run_at`: Sort by next run time
+         * * `last_run_at`: Sort by last run time
+         * * `id`: Sort by ID
+         *
+         * **Usage:**
+         * * Prefix with `-` for descending order (e.g., `-title`).
+         * * Multiple fields can be separated by commas (e.g., `-created_at,title`).
+         * * **Default:** `-created_at`
+         */
+        order_by?: string | null;
     };
     url: '/api/v1/schedule_configs';
 };
@@ -1144,6 +1178,28 @@ export type GetSystemConfigsApiV1SystemConfigsGetData = {
          * limit for pagination
          */
         limit?: number;
+        /**
+         * Name
+         *
+         * Filter by name (case-insensitive substring)
+         */
+        name?: string | null;
+        /**
+         * Order By
+         *
+         * **Order by options:**
+         *
+         * * `name`: Sort by name
+         * * `created_at`: Sort by creation time
+         * * `updated_at`: Sort by update time
+         * * `id`: Sort by ID
+         *
+         * **Usage:**
+         * * Prefix with `-` for descending order (e.g., `-title`).
+         * * Multiple fields can be separated by commas (e.g., `-created_at,title`).
+         * * **Default:** `-created_at`
+         */
+        order_by?: string | null;
     };
     url: '/api/v1/system_configs';
 };
@@ -1327,6 +1383,55 @@ export type GetScheduleJobsApiV1ScheduleJobsGetData = {
          * limit for pagination
          */
         limit?: number;
+        /**
+         * Name
+         *
+         * Filter by name (case-insensitive substring)
+         */
+        name?: string | null;
+        /**
+         * Status
+         *
+         * Filter by execution status
+         */
+        status?: ScheduleJobStatus | null;
+        /**
+         * Schedule Config Id
+         *
+         * Filter by schedule configuration ID
+         */
+        schedule_config_id?: string | null;
+        /**
+         * Dispatcher Run Id
+         *
+         * Filter by dispatcher run ID
+         */
+        dispatcher_run_id?: string | null;
+        /**
+         * Retry Need
+         *
+         * Filter by whether retry is needed
+         */
+        retry_need?: boolean | null;
+        /**
+         * Order By
+         *
+         * **Order by options:**
+         *
+         * * `name`: Sort by name
+         * * `status`: Sort by status
+         * * `started_at`: Sort by execution start time
+         * * `finished_at`: Sort by execution finish time
+         * * `created_at`: Sort by creation time
+         * * `updated_at`: Sort by update time
+         * * `id`: Sort by ID
+         *
+         * **Usage:**
+         * * Prefix with `-` for descending order (e.g., `-title`).
+         * * Multiple fields can be separated by commas (e.g., `-created_at,title`).
+         * * **Default:** `-started_at`
+         */
+        order_by?: string | null;
     };
     url: '/api/v1/schedule_jobs';
 };
@@ -1525,9 +1630,25 @@ export type TriggerDispatchApiV1DispatchersTriggerPostResponse = TriggerDispatch
 export type GetTaskSpecsApiV1TasksSpecsGetData = {
     body?: never;
     path?: never;
-    query?: never;
+    query?: {
+        /**
+         * Name
+         *
+         * Filter task specs by name (case-insensitive substring)
+         */
+        name?: string | null;
+    };
     url: '/api/v1/tasks/specs';
 };
+
+export type GetTaskSpecsApiV1TasksSpecsGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetTaskSpecsApiV1TasksSpecsGetError = GetTaskSpecsApiV1TasksSpecsGetErrors[keyof GetTaskSpecsApiV1TasksSpecsGetErrors];
 
 export type GetTaskSpecsApiV1TasksSpecsGetResponses = {
     /**

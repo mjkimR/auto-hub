@@ -14,7 +14,7 @@
   --accent-gradient: linear-gradient(135deg, #2563eb 0%, #4f46e5 100%);
   --accent-glow: rgba(79, 70, 229, 0.15);
   --glass-blur: 20px;
-  --box-shadow-premium: 0 10px 30px -10px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0, 0, 0, 0.02);
+  --box-shadow-glass: 0 10px 30px -10px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0, 0, 0, 0.02);
 }
 
 .dark-theme {
@@ -33,7 +33,7 @@
   --accent-gradient: linear-gradient(135deg, #00f2fe 0%, #4facfe 100%);
   --accent-glow: rgba(0, 242, 254, 0.15);
   --glass-blur: 25px;
-  --box-shadow-premium: 0 10px 40px -15px rgba(0, 0, 0, 0.5), 0 0 1px rgba(255, 255, 255, 0.05);
+  --box-shadow-glass: 0 10px 40px -15px rgba(0, 0, 0, 0.5), 0 0 1px rgba(255, 255, 255, 0.05);
 }
 
 * {
@@ -51,13 +51,13 @@ body {
   transition: background-color 0.4s ease, color 0.4s ease;
 }
 
-/* Premium Glassmorphism classes */
+/* Glassmorphism classes */
 .glass-panel {
   background: var(--bg-card);
   backdrop-filter: blur(var(--glass-blur));
   -webkit-backdrop-filter: blur(var(--glass-blur));
   border: 1px solid var(--border-color);
-  box-shadow: var(--box-shadow-premium);
+  box-shadow: var(--box-shadow-glass);
   border-radius: 16px;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -143,7 +143,7 @@ body {
 }
 
 /* Custom styled badge */
-.premium-status-badge {
+.glass-status-badge {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -153,21 +153,32 @@ body {
   font-weight: 600;
 }
 
-.premium-status-badge.success {
+.glass-status-badge.success {
   background: rgba(82, 196, 26, 0.1);
   color: #52c41a;
   border: 1px solid rgba(82, 196, 26, 0.2);
 }
 
-.premium-status-badge.pending {
+.glass-status-badge.pending {
   background: rgba(250, 173, 20, 0.1);
   color: #faad14;
   border: 1px solid rgba(250, 173, 20, 0.2);
 }
 
-.premium-status-badge.failure {
+.glass-status-badge.failure {
   background: rgba(255, 77, 79, 0.1);
   color: #ff4d4f;
   border: 1px solid rgba(255, 77, 79, 0.2);
+}
+
+/* Glass Search Input */
+.glass-search-input {
+  border-radius: 8px !important;
+  background: rgba(0,0,0,0.02) !important;
+  transition: all 0.3s ease;
+}
+
+.dark-theme .glass-search-input {
+  background: rgba(255,255,255,0.03) !important;
 }
 

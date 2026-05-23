@@ -136,7 +136,7 @@ export const Dashboard: React.FC = () => {
           displayText = 'Failure';
         }
         return (
-          <span className={`premium-status-badge ${badgeClass}`}>
+          <span className={`glass-status-badge ${badgeClass}`}>
             {displayText}
           </span>
         );
@@ -344,7 +344,7 @@ export const Dashboard: React.FC = () => {
               pagination={false}
               loading={jobsLoading}
               locale={{ emptyText: <Empty description="No executions recorded yet" /> }}
-              className="premium-table"
+              className="glass-table"
               style={{ background: 'transparent' }}
             />
           </div>

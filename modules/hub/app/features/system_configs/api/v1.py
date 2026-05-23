@@ -1,6 +1,7 @@
 from typing import Annotated
 from uuid import UUID
 
+from app.features.system_configs.query_options import system_config_query_options
 from app.features.system_configs.schemas import SystemConfigCreate, SystemConfigPatch, SystemConfigPut, SystemConfigRead
 from app.features.system_configs.usecases.crud import (
     CreateSystemConfigUseCase,
@@ -10,7 +11,6 @@ from app.features.system_configs.usecases.crud import (
     PatchSystemConfigUseCase,
     PutSystemConfigUseCase,
 )
-from app_base.base.deps.params.page import PaginationParam
 from app_base.base.exceptions.basic import NotFoundException
 from app_base.base.repos.query_options import ListQueryOptions
 from app_base.base.schemas.delete_resp import DeleteResponse
@@ -31,9 +31,9 @@ async def create_system_config(
 @router.get("", response_model=PaginatedList[SystemConfigRead])
 async def get_system_configs(
     use_case: Annotated[GetMultiSystemConfigUseCase, Depends()],
-    pagination: PaginationParam,
+    query_options: Annotated[ListQueryOptions, Depends(system_config_query_options)],
 ):
-    return await use_case.execute(ListQueryOptions(offset=pagination.offset, limit=pagination.limit))
+    return await use_case.execute(query_options)
 
 
 @router.get("/{system_config_id}", response_model=SystemConfigRead)

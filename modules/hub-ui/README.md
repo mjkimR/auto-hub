@@ -87,7 +87,7 @@ npm run lint
 
 This project leverages **Ant Design (antd) v6** as its primary design system and UI library. Ant Design v6 uses a modern **CSS-in-JS** styling engine, enabling dynamic, token-based runtime styling.
 
-To maintain a consistent design system and premium user experience, follow the patterns and guidelines below.
+To maintain a consistent design system and high-quality user experience, follow the patterns and guidelines below.
 
 ### 1. Dynamic Theme Customization
 

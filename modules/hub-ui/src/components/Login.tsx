@@ -33,7 +33,7 @@ export const Login: React.FC = () => {
         overflow: 'hidden',
       }}
     >
-      {/* Decorative premium background glows */}
+      {/* Decorative background glows */}
       <div
         style={{
           position: 'absolute',
@@ -84,7 +84,7 @@ export const Login: React.FC = () => {
         </Tooltip>
       </div>
 
-      {/* Premium Glassmorphic Login Card */}
+      {/* Glassmorphic Login Card */}
       <Card
         className="glass-panel hover-glow"
         style={{
@@ -92,7 +92,7 @@ export const Login: React.FC = () => {
           maxWidth: 420,
           padding: '28px 12px 12px 12px',
           border: '1px solid var(--border-color)',
-          boxShadow: 'var(--box-shadow-premium)',
+          boxShadow: 'var(--box-shadow-glass)',
           background: 'var(--bg-card)',
           zIndex: 1,
         }}

@@ -1,6 +1,7 @@
 from typing import Annotated
 from uuid import UUID
 
+from app.features.schedule_configs.query_options import schedule_config_query_options
 from app.features.schedule_configs.schemas import (
     ScheduleConfigCreate,
     ScheduleConfigPatch,
@@ -15,7 +16,6 @@ from app.features.schedule_configs.usecases.crud import (
     PatchScheduleConfigUseCase,
     PutScheduleConfigUseCase,
 )
-from app_base.base.deps.params.page import PaginationParam
 from app_base.base.exceptions.basic import NotFoundException
 from app_base.base.repos.query_options import ListQueryOptions
 from app_base.base.schemas.delete_resp import DeleteResponse
@@ -36,9 +36,9 @@ async def create_schedule_config(
 @router.get("", response_model=PaginatedList[ScheduleConfigRead])
 async def get_schedule_configs(
     use_case: Annotated[GetMultiScheduleConfigUseCase, Depends()],
-    pagination: PaginationParam,
+    query_options: Annotated[ListQueryOptions, Depends(schedule_config_query_options)],
 ):
-    return await use_case.execute(ListQueryOptions(offset=pagination.offset, limit=pagination.limit))
+    return await use_case.execute(query_options)
 
 
 @router.get("/{schedule_config_id}", response_model=ScheduleConfigRead)

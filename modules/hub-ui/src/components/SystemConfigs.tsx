@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { 
   Row, Col, Typography, Button, Drawer, Form, Input, 
-  App as AntdApp, Space, Popconfirm, Empty, Tooltip 
+  App as AntdApp, Space, Popconfirm, Empty, Tooltip, Pagination 
 } from 'antd';
 import dayjs from 'dayjs';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -22,15 +22,25 @@ export const SystemConfigs: React.FC = () => {
   const { message } = AntdApp.useApp();
   const queryClient = useQueryClient();
 
-  const [isDrawerVisible, setIsDrawerVisible] = useState(false);
-  const [editingConfig, setEditingConfig] = useState<any>(null);
+  const [currentInput, setCurrentInput] = useState('');
+  const [confirmedFilter, setConfirmedFilter] = useState('');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(6);
 
   const [form] = Form.useForm();
 
   // 1. Fetch System Configs
   const { data: systemConfigsData, isLoading, refetch } = useQuery({
-    queryKey: ['systemConfigs'],
-    queryFn: () => getSystemConfigsApiV1SystemConfigsGet({ throwOnError: true }),
+    queryKey: ['systemConfigs', confirmedFilter, page, pageSize],
+    queryFn: () => getSystemConfigsApiV1SystemConfigsGet({ 
+      query: {
+        name: confirmedFilter || undefined,
+        offset: (page - 1) * pageSize,
+        limit: pageSize,
+        order_by: '-created_at'
+      },
+      throwOnError: true 
+    }),
   });
 
   // 2. Create Mutation
@@ -82,6 +92,9 @@ export const SystemConfigs: React.FC = () => {
       message.error(`Delete failed: ${err.message}`);
     }
   });
+
+  const [isDrawerVisible, setIsDrawerVisible] = useState(false);
+  const [editingConfig, setEditingConfig] = useState<any>(null);
 
   const handleOpenCreate = () => {
     setEditingConfig(null);
@@ -140,13 +153,28 @@ export const SystemConfigs: React.FC = () => {
           gap: '16px' 
         }}
       >
-        <div>
-          <Title level={4} style={{ margin: 0 }} className="font-outfit">
-            System Meta Parameters
-          </Title>
-          <Text type="secondary">
-            Manage global schedule engine properties, timeouts, and orchestrator boundaries.
-          </Text>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '24px', flexWrap: 'wrap', flex: 1, justifyContent: 'space-between' }}>
+          <div>
+            <Title level={4} style={{ margin: 0 }} className="font-outfit">
+              System Meta Parameters
+            </Title>
+            <Text type="secondary">
+              Manage global schedule engine properties, timeouts, and orchestrator boundaries.
+            </Text>
+          </div>
+
+          <Input.Search
+            placeholder="Search parameters by name (Press Enter)..."
+            value={currentInput}
+            onChange={(e) => setCurrentInput(e.target.value)}
+            onSearch={(value) => {
+              setConfirmedFilter(value);
+              setPage(1);
+            }}
+            className="glass-search-input"
+            style={{ maxWidth: '320px' }}
+            allowClear
+          />
         </div>
 
         <Space>
@@ -266,6 +294,23 @@ export const SystemConfigs: React.FC = () => {
           ))}
         </Row>
       )}
+
+      {systemConfigsData?.data?.total_count && systemConfigsData.data.total_count > 0 ? (
+        <div style={{ display: 'flex', justifyContent: 'center', marginTop: '24px' }}>
+          <Pagination
+            current={page}
+            pageSize={pageSize}
+            total={systemConfigsData.data.total_count}
+            onChange={(p, ps) => {
+              setPage(p);
+              setPageSize(ps);
+              setCurrentInput(confirmedFilter);
+            }}
+            showSizeChanger
+            pageSizeOptions={['6', '12', '24']}
+          />
+        </div>
+      ) : null}
 
       {/* Slide-out Drawer Panel Form */}
       <Drawer

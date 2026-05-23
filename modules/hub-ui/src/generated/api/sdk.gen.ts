@@ -2,7 +2,7 @@
 
 import type { Client, Options as Options2, TDataShape } from './client';
 import { client } from './client.gen';
-import type { CreateScheduleConfigApiV1ScheduleConfigsPostData, CreateScheduleConfigApiV1ScheduleConfigsPostErrors, CreateScheduleConfigApiV1ScheduleConfigsPostResponses, CreateScheduleJobApiV1ScheduleJobsPostData, CreateScheduleJobApiV1ScheduleJobsPostErrors, CreateScheduleJobApiV1ScheduleJobsPostResponses, CreateSystemConfigApiV1SystemConfigsPostData, CreateSystemConfigApiV1SystemConfigsPostErrors, CreateSystemConfigApiV1SystemConfigsPostResponses, DeepHealthCheckApiHealthDeepGetData, DeepHealthCheckApiHealthDeepGetResponses, DeleteScheduleConfigApiV1ScheduleConfigsScheduleConfigIdDeleteData, DeleteScheduleConfigApiV1ScheduleConfigsScheduleConfigIdDeleteErrors, DeleteScheduleConfigApiV1ScheduleConfigsScheduleConfigIdDeleteResponses, DeleteScheduleJobApiV1ScheduleJobsScheduleJobIdDeleteData, DeleteScheduleJobApiV1ScheduleJobsScheduleJobIdDeleteErrors, DeleteScheduleJobApiV1ScheduleJobsScheduleJobIdDeleteResponses, DeleteSystemConfigApiV1SystemConfigsSystemConfigIdDeleteData, DeleteSystemConfigApiV1SystemConfigsSystemConfigIdDeleteErrors, DeleteSystemConfigApiV1SystemConfigsSystemConfigIdDeleteResponses, GetScheduleConfigApiV1ScheduleConfigsScheduleConfigIdGetData, GetScheduleConfigApiV1ScheduleConfigsScheduleConfigIdGetErrors, GetScheduleConfigApiV1ScheduleConfigsScheduleConfigIdGetResponses, GetScheduleConfigsApiV1ScheduleConfigsGetData, GetScheduleConfigsApiV1ScheduleConfigsGetErrors, GetScheduleConfigsApiV1ScheduleConfigsGetResponses, GetScheduleJobApiV1ScheduleJobsScheduleJobIdGetData, GetScheduleJobApiV1ScheduleJobsScheduleJobIdGetErrors, GetScheduleJobApiV1ScheduleJobsScheduleJobIdGetResponses, GetScheduleJobsApiV1ScheduleJobsGetData, GetScheduleJobsApiV1ScheduleJobsGetErrors, GetScheduleJobsApiV1ScheduleJobsGetResponses, GetSystemConfigApiV1SystemConfigsSystemConfigIdGetData, GetSystemConfigApiV1SystemConfigsSystemConfigIdGetErrors, GetSystemConfigApiV1SystemConfigsSystemConfigIdGetResponses, GetSystemConfigsApiV1SystemConfigsGetData, GetSystemConfigsApiV1SystemConfigsGetErrors, GetSystemConfigsApiV1SystemConfigsGetResponses, GetTaskSpecsApiV1TasksSpecsGetData, GetTaskSpecsApiV1TasksSpecsGetResponses, HealthApiHealthGetData, HealthApiHealthGetResponses, PatchScheduleConfigApiV1ScheduleConfigsScheduleConfigIdPatchData, PatchScheduleConfigApiV1ScheduleConfigsScheduleConfigIdPatchErrors, PatchScheduleConfigApiV1ScheduleConfigsScheduleConfigIdPatchResponses, PatchScheduleJobApiV1ScheduleJobsScheduleJobIdPatchData, PatchScheduleJobApiV1ScheduleJobsScheduleJobIdPatchErrors, PatchScheduleJobApiV1ScheduleJobsScheduleJobIdPatchResponses, PatchSystemConfigApiV1SystemConfigsSystemConfigIdPatchData, PatchSystemConfigApiV1SystemConfigsSystemConfigIdPatchErrors, PatchSystemConfigApiV1SystemConfigsSystemConfigIdPatchResponses, PutScheduleConfigApiV1ScheduleConfigsScheduleConfigIdPutData, PutScheduleConfigApiV1ScheduleConfigsScheduleConfigIdPutErrors, PutScheduleConfigApiV1ScheduleConfigsScheduleConfigIdPutResponses, PutScheduleJobApiV1ScheduleJobsScheduleJobIdPutData, PutScheduleJobApiV1ScheduleJobsScheduleJobIdPutErrors, PutScheduleJobApiV1ScheduleJobsScheduleJobIdPutResponses, PutSystemConfigApiV1SystemConfigsSystemConfigIdPutData, PutSystemConfigApiV1SystemConfigsSystemConfigIdPutErrors, PutSystemConfigApiV1SystemConfigsSystemConfigIdPutResponses, RootGetData, RootGetResponses, TriggerDispatchApiV1DispatchersTriggerPostData, TriggerDispatchApiV1DispatchersTriggerPostErrors, TriggerDispatchApiV1DispatchersTriggerPostResponses } from './types.gen';
+import type { CreateScheduleConfigApiV1ScheduleConfigsPostData, CreateScheduleConfigApiV1ScheduleConfigsPostErrors, CreateScheduleConfigApiV1ScheduleConfigsPostResponses, CreateScheduleJobApiV1ScheduleJobsPostData, CreateScheduleJobApiV1ScheduleJobsPostErrors, CreateScheduleJobApiV1ScheduleJobsPostResponses, CreateSystemConfigApiV1SystemConfigsPostData, CreateSystemConfigApiV1SystemConfigsPostErrors, CreateSystemConfigApiV1SystemConfigsPostResponses, DeepHealthCheckApiHealthDeepGetData, DeepHealthCheckApiHealthDeepGetResponses, DeleteScheduleConfigApiV1ScheduleConfigsScheduleConfigIdDeleteData, DeleteScheduleConfigApiV1ScheduleConfigsScheduleConfigIdDeleteErrors, DeleteScheduleConfigApiV1ScheduleConfigsScheduleConfigIdDeleteResponses, DeleteScheduleJobApiV1ScheduleJobsScheduleJobIdDeleteData, DeleteScheduleJobApiV1ScheduleJobsScheduleJobIdDeleteErrors, DeleteScheduleJobApiV1ScheduleJobsScheduleJobIdDeleteResponses, DeleteSystemConfigApiV1SystemConfigsSystemConfigIdDeleteData, DeleteSystemConfigApiV1SystemConfigsSystemConfigIdDeleteErrors, DeleteSystemConfigApiV1SystemConfigsSystemConfigIdDeleteResponses, GetScheduleConfigApiV1ScheduleConfigsScheduleConfigIdGetData, GetScheduleConfigApiV1ScheduleConfigsScheduleConfigIdGetErrors, GetScheduleConfigApiV1ScheduleConfigsScheduleConfigIdGetResponses, GetScheduleConfigsApiV1ScheduleConfigsGetData, GetScheduleConfigsApiV1ScheduleConfigsGetErrors, GetScheduleConfigsApiV1ScheduleConfigsGetResponses, GetScheduleJobApiV1ScheduleJobsScheduleJobIdGetData, GetScheduleJobApiV1ScheduleJobsScheduleJobIdGetErrors, GetScheduleJobApiV1ScheduleJobsScheduleJobIdGetResponses, GetScheduleJobsApiV1ScheduleJobsGetData, GetScheduleJobsApiV1ScheduleJobsGetErrors, GetScheduleJobsApiV1ScheduleJobsGetResponses, GetSystemConfigApiV1SystemConfigsSystemConfigIdGetData, GetSystemConfigApiV1SystemConfigsSystemConfigIdGetErrors, GetSystemConfigApiV1SystemConfigsSystemConfigIdGetResponses, GetSystemConfigsApiV1SystemConfigsGetData, GetSystemConfigsApiV1SystemConfigsGetErrors, GetSystemConfigsApiV1SystemConfigsGetResponses, GetTaskSpecsApiV1TasksSpecsGetData, GetTaskSpecsApiV1TasksSpecsGetErrors, GetTaskSpecsApiV1TasksSpecsGetResponses, HealthApiHealthGetData, HealthApiHealthGetResponses, PatchScheduleConfigApiV1ScheduleConfigsScheduleConfigIdPatchData, PatchScheduleConfigApiV1ScheduleConfigsScheduleConfigIdPatchErrors, PatchScheduleConfigApiV1ScheduleConfigsScheduleConfigIdPatchResponses, PatchScheduleJobApiV1ScheduleJobsScheduleJobIdPatchData, PatchScheduleJobApiV1ScheduleJobsScheduleJobIdPatchErrors, PatchScheduleJobApiV1ScheduleJobsScheduleJobIdPatchResponses, PatchSystemConfigApiV1SystemConfigsSystemConfigIdPatchData, PatchSystemConfigApiV1SystemConfigsSystemConfigIdPatchErrors, PatchSystemConfigApiV1SystemConfigsSystemConfigIdPatchResponses, PutScheduleConfigApiV1ScheduleConfigsScheduleConfigIdPutData, PutScheduleConfigApiV1ScheduleConfigsScheduleConfigIdPutErrors, PutScheduleConfigApiV1ScheduleConfigsScheduleConfigIdPutResponses, PutScheduleJobApiV1ScheduleJobsScheduleJobIdPutData, PutScheduleJobApiV1ScheduleJobsScheduleJobIdPutErrors, PutScheduleJobApiV1ScheduleJobsScheduleJobIdPutResponses, PutSystemConfigApiV1SystemConfigsSystemConfigIdPutData, PutSystemConfigApiV1SystemConfigsSystemConfigIdPutErrors, PutSystemConfigApiV1SystemConfigsSystemConfigIdPutResponses, RootGetData, RootGetResponses, TriggerDispatchApiV1DispatchersTriggerPostData, TriggerDispatchApiV1DispatchersTriggerPostErrors, TriggerDispatchApiV1DispatchersTriggerPostResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -36,12 +36,17 @@ export const deepHealthCheckApiHealthDeepGet = <ThrowOnError extends boolean = f
 /**
  * Get Schedule Configs
  */
-export const getScheduleConfigsApiV1ScheduleConfigsGet = <ThrowOnError extends boolean = false>(options?: Options<GetScheduleConfigsApiV1ScheduleConfigsGetData, ThrowOnError>) => (options?.client ?? client).get<GetScheduleConfigsApiV1ScheduleConfigsGetResponses, GetScheduleConfigsApiV1ScheduleConfigsGetErrors, ThrowOnError>({ url: '/api/v1/schedule_configs', ...options });
+export const getScheduleConfigsApiV1ScheduleConfigsGet = <ThrowOnError extends boolean = false>(options?: Options<GetScheduleConfigsApiV1ScheduleConfigsGetData, ThrowOnError>) => (options?.client ?? client).get<GetScheduleConfigsApiV1ScheduleConfigsGetResponses, GetScheduleConfigsApiV1ScheduleConfigsGetErrors, ThrowOnError>({
+    security: [{ name: 'X-API-Key', type: 'apiKey' }],
+    url: '/api/v1/schedule_configs',
+    ...options
+});
 
 /**
  * Create Schedule Config
  */
 export const createScheduleConfigApiV1ScheduleConfigsPost = <ThrowOnError extends boolean = false>(options: Options<CreateScheduleConfigApiV1ScheduleConfigsPostData, ThrowOnError>) => (options.client ?? client).post<CreateScheduleConfigApiV1ScheduleConfigsPostResponses, CreateScheduleConfigApiV1ScheduleConfigsPostErrors, ThrowOnError>({
+    security: [{ name: 'X-API-Key', type: 'apiKey' }],
     url: '/api/v1/schedule_configs',
     ...options,
     headers: {
@@ -53,17 +58,26 @@ export const createScheduleConfigApiV1ScheduleConfigsPost = <ThrowOnError extend
 /**
  * Delete Schedule Config
  */
-export const deleteScheduleConfigApiV1ScheduleConfigsScheduleConfigIdDelete = <ThrowOnError extends boolean = false>(options: Options<DeleteScheduleConfigApiV1ScheduleConfigsScheduleConfigIdDeleteData, ThrowOnError>) => (options.client ?? client).delete<DeleteScheduleConfigApiV1ScheduleConfigsScheduleConfigIdDeleteResponses, DeleteScheduleConfigApiV1ScheduleConfigsScheduleConfigIdDeleteErrors, ThrowOnError>({ url: '/api/v1/schedule_configs/{schedule_config_id}', ...options });
+export const deleteScheduleConfigApiV1ScheduleConfigsScheduleConfigIdDelete = <ThrowOnError extends boolean = false>(options: Options<DeleteScheduleConfigApiV1ScheduleConfigsScheduleConfigIdDeleteData, ThrowOnError>) => (options.client ?? client).delete<DeleteScheduleConfigApiV1ScheduleConfigsScheduleConfigIdDeleteResponses, DeleteScheduleConfigApiV1ScheduleConfigsScheduleConfigIdDeleteErrors, ThrowOnError>({
+    security: [{ name: 'X-API-Key', type: 'apiKey' }],
+    url: '/api/v1/schedule_configs/{schedule_config_id}',
+    ...options
+});
 
 /**
  * Get Schedule Config
  */
-export const getScheduleConfigApiV1ScheduleConfigsScheduleConfigIdGet = <ThrowOnError extends boolean = false>(options: Options<GetScheduleConfigApiV1ScheduleConfigsScheduleConfigIdGetData, ThrowOnError>) => (options.client ?? client).get<GetScheduleConfigApiV1ScheduleConfigsScheduleConfigIdGetResponses, GetScheduleConfigApiV1ScheduleConfigsScheduleConfigIdGetErrors, ThrowOnError>({ url: '/api/v1/schedule_configs/{schedule_config_id}', ...options });
+export const getScheduleConfigApiV1ScheduleConfigsScheduleConfigIdGet = <ThrowOnError extends boolean = false>(options: Options<GetScheduleConfigApiV1ScheduleConfigsScheduleConfigIdGetData, ThrowOnError>) => (options.client ?? client).get<GetScheduleConfigApiV1ScheduleConfigsScheduleConfigIdGetResponses, GetScheduleConfigApiV1ScheduleConfigsScheduleConfigIdGetErrors, ThrowOnError>({
+    security: [{ name: 'X-API-Key', type: 'apiKey' }],
+    url: '/api/v1/schedule_configs/{schedule_config_id}',
+    ...options
+});
 
 /**
  * Patch Schedule Config
  */
 export const patchScheduleConfigApiV1ScheduleConfigsScheduleConfigIdPatch = <ThrowOnError extends boolean = false>(options: Options<PatchScheduleConfigApiV1ScheduleConfigsScheduleConfigIdPatchData, ThrowOnError>) => (options.client ?? client).patch<PatchScheduleConfigApiV1ScheduleConfigsScheduleConfigIdPatchResponses, PatchScheduleConfigApiV1ScheduleConfigsScheduleConfigIdPatchErrors, ThrowOnError>({
+    security: [{ name: 'X-API-Key', type: 'apiKey' }],
     url: '/api/v1/schedule_configs/{schedule_config_id}',
     ...options,
     headers: {
@@ -76,6 +90,7 @@ export const patchScheduleConfigApiV1ScheduleConfigsScheduleConfigIdPatch = <Thr
  * Put Schedule Config
  */
 export const putScheduleConfigApiV1ScheduleConfigsScheduleConfigIdPut = <ThrowOnError extends boolean = false>(options: Options<PutScheduleConfigApiV1ScheduleConfigsScheduleConfigIdPutData, ThrowOnError>) => (options.client ?? client).put<PutScheduleConfigApiV1ScheduleConfigsScheduleConfigIdPutResponses, PutScheduleConfigApiV1ScheduleConfigsScheduleConfigIdPutErrors, ThrowOnError>({
+    security: [{ name: 'X-API-Key', type: 'apiKey' }],
     url: '/api/v1/schedule_configs/{schedule_config_id}',
     ...options,
     headers: {
@@ -87,12 +102,17 @@ export const putScheduleConfigApiV1ScheduleConfigsScheduleConfigIdPut = <ThrowOn
 /**
  * Get System Configs
  */
-export const getSystemConfigsApiV1SystemConfigsGet = <ThrowOnError extends boolean = false>(options?: Options<GetSystemConfigsApiV1SystemConfigsGetData, ThrowOnError>) => (options?.client ?? client).get<GetSystemConfigsApiV1SystemConfigsGetResponses, GetSystemConfigsApiV1SystemConfigsGetErrors, ThrowOnError>({ url: '/api/v1/system_configs', ...options });
+export const getSystemConfigsApiV1SystemConfigsGet = <ThrowOnError extends boolean = false>(options?: Options<GetSystemConfigsApiV1SystemConfigsGetData, ThrowOnError>) => (options?.client ?? client).get<GetSystemConfigsApiV1SystemConfigsGetResponses, GetSystemConfigsApiV1SystemConfigsGetErrors, ThrowOnError>({
+    security: [{ name: 'X-API-Key', type: 'apiKey' }],
+    url: '/api/v1/system_configs',
+    ...options
+});
 
 /**
  * Create System Config
  */
 export const createSystemConfigApiV1SystemConfigsPost = <ThrowOnError extends boolean = false>(options: Options<CreateSystemConfigApiV1SystemConfigsPostData, ThrowOnError>) => (options.client ?? client).post<CreateSystemConfigApiV1SystemConfigsPostResponses, CreateSystemConfigApiV1SystemConfigsPostErrors, ThrowOnError>({
+    security: [{ name: 'X-API-Key', type: 'apiKey' }],
     url: '/api/v1/system_configs',
     ...options,
     headers: {
@@ -104,17 +124,26 @@ export const createSystemConfigApiV1SystemConfigsPost = <ThrowOnError extends bo
 /**
  * Delete System Config
  */
-export const deleteSystemConfigApiV1SystemConfigsSystemConfigIdDelete = <ThrowOnError extends boolean = false>(options: Options<DeleteSystemConfigApiV1SystemConfigsSystemConfigIdDeleteData, ThrowOnError>) => (options.client ?? client).delete<DeleteSystemConfigApiV1SystemConfigsSystemConfigIdDeleteResponses, DeleteSystemConfigApiV1SystemConfigsSystemConfigIdDeleteErrors, ThrowOnError>({ url: '/api/v1/system_configs/{system_config_id}', ...options });
+export const deleteSystemConfigApiV1SystemConfigsSystemConfigIdDelete = <ThrowOnError extends boolean = false>(options: Options<DeleteSystemConfigApiV1SystemConfigsSystemConfigIdDeleteData, ThrowOnError>) => (options.client ?? client).delete<DeleteSystemConfigApiV1SystemConfigsSystemConfigIdDeleteResponses, DeleteSystemConfigApiV1SystemConfigsSystemConfigIdDeleteErrors, ThrowOnError>({
+    security: [{ name: 'X-API-Key', type: 'apiKey' }],
+    url: '/api/v1/system_configs/{system_config_id}',
+    ...options
+});
 
 /**
  * Get System Config
  */
-export const getSystemConfigApiV1SystemConfigsSystemConfigIdGet = <ThrowOnError extends boolean = false>(options: Options<GetSystemConfigApiV1SystemConfigsSystemConfigIdGetData, ThrowOnError>) => (options.client ?? client).get<GetSystemConfigApiV1SystemConfigsSystemConfigIdGetResponses, GetSystemConfigApiV1SystemConfigsSystemConfigIdGetErrors, ThrowOnError>({ url: '/api/v1/system_configs/{system_config_id}', ...options });
+export const getSystemConfigApiV1SystemConfigsSystemConfigIdGet = <ThrowOnError extends boolean = false>(options: Options<GetSystemConfigApiV1SystemConfigsSystemConfigIdGetData, ThrowOnError>) => (options.client ?? client).get<GetSystemConfigApiV1SystemConfigsSystemConfigIdGetResponses, GetSystemConfigApiV1SystemConfigsSystemConfigIdGetErrors, ThrowOnError>({
+    security: [{ name: 'X-API-Key', type: 'apiKey' }],
+    url: '/api/v1/system_configs/{system_config_id}',
+    ...options
+});
 
 /**
  * Patch System Config
  */
 export const patchSystemConfigApiV1SystemConfigsSystemConfigIdPatch = <ThrowOnError extends boolean = false>(options: Options<PatchSystemConfigApiV1SystemConfigsSystemConfigIdPatchData, ThrowOnError>) => (options.client ?? client).patch<PatchSystemConfigApiV1SystemConfigsSystemConfigIdPatchResponses, PatchSystemConfigApiV1SystemConfigsSystemConfigIdPatchErrors, ThrowOnError>({
+    security: [{ name: 'X-API-Key', type: 'apiKey' }],
     url: '/api/v1/system_configs/{system_config_id}',
     ...options,
     headers: {
@@ -127,6 +156,7 @@ export const patchSystemConfigApiV1SystemConfigsSystemConfigIdPatch = <ThrowOnEr
  * Put System Config
  */
 export const putSystemConfigApiV1SystemConfigsSystemConfigIdPut = <ThrowOnError extends boolean = false>(options: Options<PutSystemConfigApiV1SystemConfigsSystemConfigIdPutData, ThrowOnError>) => (options.client ?? client).put<PutSystemConfigApiV1SystemConfigsSystemConfigIdPutResponses, PutSystemConfigApiV1SystemConfigsSystemConfigIdPutErrors, ThrowOnError>({
+    security: [{ name: 'X-API-Key', type: 'apiKey' }],
     url: '/api/v1/system_configs/{system_config_id}',
     ...options,
     headers: {
@@ -138,12 +168,17 @@ export const putSystemConfigApiV1SystemConfigsSystemConfigIdPut = <ThrowOnError 
 /**
  * Get Schedule Jobs
  */
-export const getScheduleJobsApiV1ScheduleJobsGet = <ThrowOnError extends boolean = false>(options?: Options<GetScheduleJobsApiV1ScheduleJobsGetData, ThrowOnError>) => (options?.client ?? client).get<GetScheduleJobsApiV1ScheduleJobsGetResponses, GetScheduleJobsApiV1ScheduleJobsGetErrors, ThrowOnError>({ url: '/api/v1/schedule_jobs', ...options });
+export const getScheduleJobsApiV1ScheduleJobsGet = <ThrowOnError extends boolean = false>(options?: Options<GetScheduleJobsApiV1ScheduleJobsGetData, ThrowOnError>) => (options?.client ?? client).get<GetScheduleJobsApiV1ScheduleJobsGetResponses, GetScheduleJobsApiV1ScheduleJobsGetErrors, ThrowOnError>({
+    security: [{ name: 'X-API-Key', type: 'apiKey' }],
+    url: '/api/v1/schedule_jobs',
+    ...options
+});
 
 /**
  * Create Schedule Job
  */
 export const createScheduleJobApiV1ScheduleJobsPost = <ThrowOnError extends boolean = false>(options: Options<CreateScheduleJobApiV1ScheduleJobsPostData, ThrowOnError>) => (options.client ?? client).post<CreateScheduleJobApiV1ScheduleJobsPostResponses, CreateScheduleJobApiV1ScheduleJobsPostErrors, ThrowOnError>({
+    security: [{ name: 'X-API-Key', type: 'apiKey' }],
     url: '/api/v1/schedule_jobs',
     ...options,
     headers: {
@@ -155,17 +190,26 @@ export const createScheduleJobApiV1ScheduleJobsPost = <ThrowOnError extends bool
 /**
  * Delete Schedule Job
  */
-export const deleteScheduleJobApiV1ScheduleJobsScheduleJobIdDelete = <ThrowOnError extends boolean = false>(options: Options<DeleteScheduleJobApiV1ScheduleJobsScheduleJobIdDeleteData, ThrowOnError>) => (options.client ?? client).delete<DeleteScheduleJobApiV1ScheduleJobsScheduleJobIdDeleteResponses, DeleteScheduleJobApiV1ScheduleJobsScheduleJobIdDeleteErrors, ThrowOnError>({ url: '/api/v1/schedule_jobs/{schedule_job_id}', ...options });
+export const deleteScheduleJobApiV1ScheduleJobsScheduleJobIdDelete = <ThrowOnError extends boolean = false>(options: Options<DeleteScheduleJobApiV1ScheduleJobsScheduleJobIdDeleteData, ThrowOnError>) => (options.client ?? client).delete<DeleteScheduleJobApiV1ScheduleJobsScheduleJobIdDeleteResponses, DeleteScheduleJobApiV1ScheduleJobsScheduleJobIdDeleteErrors, ThrowOnError>({
+    security: [{ name: 'X-API-Key', type: 'apiKey' }],
+    url: '/api/v1/schedule_jobs/{schedule_job_id}',
+    ...options
+});
 
 /**
  * Get Schedule Job
  */
-export const getScheduleJobApiV1ScheduleJobsScheduleJobIdGet = <ThrowOnError extends boolean = false>(options: Options<GetScheduleJobApiV1ScheduleJobsScheduleJobIdGetData, ThrowOnError>) => (options.client ?? client).get<GetScheduleJobApiV1ScheduleJobsScheduleJobIdGetResponses, GetScheduleJobApiV1ScheduleJobsScheduleJobIdGetErrors, ThrowOnError>({ url: '/api/v1/schedule_jobs/{schedule_job_id}', ...options });
+export const getScheduleJobApiV1ScheduleJobsScheduleJobIdGet = <ThrowOnError extends boolean = false>(options: Options<GetScheduleJobApiV1ScheduleJobsScheduleJobIdGetData, ThrowOnError>) => (options.client ?? client).get<GetScheduleJobApiV1ScheduleJobsScheduleJobIdGetResponses, GetScheduleJobApiV1ScheduleJobsScheduleJobIdGetErrors, ThrowOnError>({
+    security: [{ name: 'X-API-Key', type: 'apiKey' }],
+    url: '/api/v1/schedule_jobs/{schedule_job_id}',
+    ...options
+});
 
 /**
  * Patch Schedule Job
  */
 export const patchScheduleJobApiV1ScheduleJobsScheduleJobIdPatch = <ThrowOnError extends boolean = false>(options: Options<PatchScheduleJobApiV1ScheduleJobsScheduleJobIdPatchData, ThrowOnError>) => (options.client ?? client).patch<PatchScheduleJobApiV1ScheduleJobsScheduleJobIdPatchResponses, PatchScheduleJobApiV1ScheduleJobsScheduleJobIdPatchErrors, ThrowOnError>({
+    security: [{ name: 'X-API-Key', type: 'apiKey' }],
     url: '/api/v1/schedule_jobs/{schedule_job_id}',
     ...options,
     headers: {
@@ -178,6 +222,7 @@ export const patchScheduleJobApiV1ScheduleJobsScheduleJobIdPatch = <ThrowOnError
  * Put Schedule Job
  */
 export const putScheduleJobApiV1ScheduleJobsScheduleJobIdPut = <ThrowOnError extends boolean = false>(options: Options<PutScheduleJobApiV1ScheduleJobsScheduleJobIdPutData, ThrowOnError>) => (options.client ?? client).put<PutScheduleJobApiV1ScheduleJobsScheduleJobIdPutResponses, PutScheduleJobApiV1ScheduleJobsScheduleJobIdPutErrors, ThrowOnError>({
+    security: [{ name: 'X-API-Key', type: 'apiKey' }],
     url: '/api/v1/schedule_jobs/{schedule_job_id}',
     ...options,
     headers: {
@@ -193,6 +238,7 @@ export const putScheduleJobApiV1ScheduleJobsScheduleJobIdPut = <ThrowOnError ext
  * Processes due schedules using FOR UPDATE SKIP LOCKED to prevent duplicate execution.
  */
 export const triggerDispatchApiV1DispatchersTriggerPost = <ThrowOnError extends boolean = false>(options?: Options<TriggerDispatchApiV1DispatchersTriggerPostData, ThrowOnError>) => (options?.client ?? client).post<TriggerDispatchApiV1DispatchersTriggerPostResponses, TriggerDispatchApiV1DispatchersTriggerPostErrors, ThrowOnError>({
+    security: [{ name: 'X-API-Key', type: 'apiKey' }],
     url: '/api/v1/dispatchers/trigger',
     ...options,
     headers: {
@@ -204,6 +250,10 @@ export const triggerDispatchApiV1DispatchersTriggerPost = <ThrowOnError extends 
 /**
  * Get Task Specs
  *
- * Retrieve all registered task specifications.
+ * Retrieve all registered task specifications, optionally filtered by name.
  */
-export const getTaskSpecsApiV1TasksSpecsGet = <ThrowOnError extends boolean = false>(options?: Options<GetTaskSpecsApiV1TasksSpecsGetData, ThrowOnError>) => (options?.client ?? client).get<GetTaskSpecsApiV1TasksSpecsGetResponses, unknown, ThrowOnError>({ url: '/api/v1/tasks/specs', ...options });
+export const getTaskSpecsApiV1TasksSpecsGet = <ThrowOnError extends boolean = false>(options?: Options<GetTaskSpecsApiV1TasksSpecsGetData, ThrowOnError>) => (options?.client ?? client).get<GetTaskSpecsApiV1TasksSpecsGetResponses, GetTaskSpecsApiV1TasksSpecsGetErrors, ThrowOnError>({
+    security: [{ name: 'X-API-Key', type: 'apiKey' }],
+    url: '/api/v1/tasks/specs',
+    ...options
+});
