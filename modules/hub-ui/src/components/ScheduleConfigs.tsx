@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Table, Button, Switch, Space, Input, Drawer, Form, 
-  InputNumber, DatePicker, Select, App as AntdApp, Tooltip, 
-  Popconfirm, Radio, Typography
+import {
+  Table, Button, Switch, Space, Input, Drawer, Form,
+  InputNumber, DatePicker, Select, App as AntdApp, Tooltip,
+  Popconfirm, Radio, Typography, Segmented
 } from 'antd';
+import RJSFForm from '@rjsf/antd';
+import validator from '@rjsf/validator-ajv8';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { 
+import {
   getScheduleConfigsApiV1ScheduleConfigsGet,
   createScheduleConfigApiV1ScheduleConfigsPost,
   deleteScheduleConfigApiV1ScheduleConfigsScheduleConfigIdDelete,
@@ -13,8 +15,8 @@ import {
   getTaskSpecsApiV1TasksSpecsGet
 } from '../generated/api/sdk.gen';
 import { useThemeStore } from '../store/themeStore';
-import { 
-  Plus, Edit3, Trash2, AlertTriangle, 
+import {
+  Plus, Edit3, Trash2, AlertTriangle,
   Clock, Calendar, RefreshCw
 } from 'lucide-react';
 import dayjs from 'dayjs';
@@ -31,7 +33,7 @@ export const ScheduleConfigs: React.FC = () => {
   const [confirmedFilter, setConfirmedFilter] = useState('');
   const [taskFilter, setTaskFilter] = useState<string>('all');
   const [enabledFilter, setEnabledFilter] = useState<string>('all');
-  
+
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [sortField, setSortField] = useState<string>('created_at');
@@ -43,10 +45,14 @@ export const ScheduleConfigs: React.FC = () => {
 
   const [form] = Form.useForm();
 
+  // State for RJSF integration
+  const [payloadObject, setPayloadObject] = useState<any>({});
+  const [isRawJsonMode, setIsRawJsonMode] = useState<boolean>(false);
+
   // 1. Fetch Schedule Configs
   const { data: configsData, isLoading, refetch } = useQuery({
     queryKey: ['scheduleConfigs', confirmedFilter, taskFilter, enabledFilter, page, pageSize, sortField, sortOrder],
-    queryFn: () => getScheduleConfigsApiV1ScheduleConfigsGet({ 
+    queryFn: () => getScheduleConfigsApiV1ScheduleConfigsGet({
       query: {
         name: confirmedFilter || undefined,
         task_func: taskFilter === 'all' ? undefined : taskFilter,
@@ -55,7 +61,7 @@ export const ScheduleConfigs: React.FC = () => {
         limit: pageSize,
         order_by: `${sortOrder === 'descend' ? '-' : ''}${sortField}`
       },
-      throwOnError: true 
+      throwOnError: true
     }),
   });
 
@@ -81,11 +87,11 @@ export const ScheduleConfigs: React.FC = () => {
 
   // 4. Update Mutation
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: any }) => 
-      patchScheduleConfigApiV1ScheduleConfigsScheduleConfigIdPatch({ 
-        path: { schedule_config_id: id }, 
-        body: data, 
-        throwOnError: true 
+    mutationFn: ({ id, data }: { id: string; data: any }) =>
+      patchScheduleConfigApiV1ScheduleConfigsScheduleConfigIdPatch({
+        path: { schedule_config_id: id },
+        body: data,
+        throwOnError: true
       }),
     onSuccess: () => {
       message.success('Schedule Configuration updated successfully!');
@@ -101,10 +107,10 @@ export const ScheduleConfigs: React.FC = () => {
 
   // 5. Delete Mutation
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => 
-      deleteScheduleConfigApiV1ScheduleConfigsScheduleConfigIdDelete({ 
-        path: { schedule_config_id: id }, 
-        throwOnError: true 
+    mutationFn: (id: string) =>
+      deleteScheduleConfigApiV1ScheduleConfigsScheduleConfigIdDelete({
+        path: { schedule_config_id: id },
+        throwOnError: true
       }),
     onSuccess: () => {
       message.success('Schedule deleted successfully');
@@ -132,6 +138,18 @@ export const ScheduleConfigs: React.FC = () => {
     }
   });
 
+  // Resolve payload schema based on selected task func
+  const selectedTaskFunc = Form.useWatch('task_func', form);
+  const selectedTaskSpec = (specsData?.data || []).find((t: any) => t.name === selectedTaskFunc);
+  const selectedTaskSchema = selectedTaskSpec?.payload_schema;
+
+  // Default to visual form editor on task selection change
+  useEffect(() => {
+    if (selectedTaskFunc) {
+      setIsRawJsonMode(false);
+    }
+  }, [selectedTaskFunc]);
+
   // Auto-open drawer when redirected from Task Specs
   useEffect(() => {
     if (preselectedTask) {
@@ -150,6 +168,7 @@ export const ScheduleConfigs: React.FC = () => {
     form.resetFields();
     form.setFieldsValue({ enabled: true });
     setScheduleType('cron');
+    setPayloadObject({});
     setIsDrawerVisible(true);
   };
 
@@ -158,13 +177,20 @@ export const ScheduleConfigs: React.FC = () => {
     setEditingConfig(record);
     setIsDrawerVisible(true);
     setScheduleType(record.interval_seconds ? 'interval' : 'cron');
-    
+
     // Parse times
     const startAt = record.start_at ? dayjs(record.start_at) : null;
     const endAt = record.end_at ? dayjs(record.end_at) : null;
-    
+
     // Format payload back to string representation
     const payloadStr = record.payload ? JSON.stringify(record.payload, null, 2) : '{}';
+    setPayloadObject(record.payload || {});
+
+    // Set initial editing mode
+    if (record.task_func) {
+      const spec = (specsData?.data || []).find((t: any) => t.name === record.task_func);
+      setIsRawJsonMode(!spec?.payload_schema);
+    }
 
     form.setFieldsValue({
       name: record.name,
@@ -187,13 +213,17 @@ export const ScheduleConfigs: React.FC = () => {
 
     // Parse payload safely
     let payload = {};
-    if (values.payload) {
-      try {
-        payload = JSON.parse(values.payload);
-      } catch {
-        message.error('Payload must be a valid JSON string!');
-        return;
+    if (isRawJsonMode) {
+      if (values.payload) {
+        try {
+          payload = JSON.parse(values.payload);
+        } catch {
+          message.error('Payload must be a valid JSON string!');
+          return;
+        }
       }
+    } else {
+      payload = payloadObject;
     }
 
     const payloadBody: any = {
@@ -265,9 +295,9 @@ export const ScheduleConfigs: React.FC = () => {
       dataIndex: 'enabled',
       key: 'enabled',
       render: (enabled: boolean, record: any) => (
-        <Switch 
-          checked={enabled} 
-          onChange={(checked) => toggleEnabledMutation.mutate({ id: record.id, enabled: checked })} 
+        <Switch
+          checked={enabled}
+          onChange={(checked) => toggleEnabledMutation.mutate({ id: record.id, enabled: checked })}
         />
       ),
     },
@@ -292,11 +322,11 @@ export const ScheduleConfigs: React.FC = () => {
       render: (_: any, record: any) => (
         <Space size="middle">
           <Tooltip title="Edit Schedule Configuration">
-            <Button 
-              size="small" 
-              type="text" 
-              icon={<Edit3 size={14} />} 
-              onClick={() => handleOpenEdit(record)} 
+            <Button
+              size="small"
+              type="text"
+              icon={<Edit3 size={14} />}
+              onClick={() => handleOpenEdit(record)}
             />
           </Tooltip>
 
@@ -310,11 +340,11 @@ export const ScheduleConfigs: React.FC = () => {
             okButtonProps={{ danger: true }}
           >
             <Tooltip title="Delete Schedule">
-              <Button 
-                size="small" 
-                type="text" 
-                danger 
-                icon={<Trash2 size={14} />} 
+              <Button
+                size="small"
+                type="text"
+                danger
+                icon={<Trash2 size={14} />}
               />
             </Tooltip>
           </Popconfirm>
@@ -326,12 +356,12 @@ export const ScheduleConfigs: React.FC = () => {
   return (
     <Space direction="vertical" size="large" style={{ width: '100%' }}>
       {/* Search and Action Bar */}
-      <div 
-        className="glass-panel" 
-        style={{ 
-          padding: '24px', 
-          display: 'flex', 
-          flexDirection: 'column', 
+      <div
+        className="glass-panel"
+        style={{
+          padding: '24px',
+          display: 'flex',
+          flexDirection: 'column',
           gap: '16px'
         }}
       >
@@ -344,17 +374,17 @@ export const ScheduleConfigs: React.FC = () => {
               Configure and orchestrate recurring cloud task schedules.
             </Text>
           </div>
-          
+
           <Space>
             <Button icon={<RefreshCw size={14} />} onClick={() => refetch()}>Refresh</Button>
-            <Button 
-              type="primary" 
-              icon={<Plus size={16} />} 
+            <Button
+              type="primary"
+              icon={<Plus size={16} />}
               onClick={handleOpenCreate}
-              style={{ 
-                background: 'var(--accent-gradient)', 
+              style={{
+                background: 'var(--accent-gradient)',
                 border: 0,
-                boxShadow: '0 4px 12px var(--accent-glow)' 
+                boxShadow: '0 4px 12px var(--accent-glow)'
               }}
               className="hover-glow"
             >
@@ -413,11 +443,11 @@ export const ScheduleConfigs: React.FC = () => {
 
       {/* Main Configurations Table */}
       <div className="glass-panel" style={{ padding: '24px' }}>
-        <Table 
-          columns={columns} 
-          dataSource={filteredConfigs} 
-          rowKey="id" 
-          loading={isLoading} 
+        <Table
+          columns={columns}
+          dataSource={filteredConfigs}
+          rowKey="id"
+          loading={isLoading}
           className="glass-table"
           onChange={(pagination, _filters, sorter: any) => {
             setCurrentInput(confirmedFilter);
@@ -448,9 +478,9 @@ export const ScheduleConfigs: React.FC = () => {
         bodyStyle={{ paddingBottom: 80 }}
         style={{ backdropFilter: 'blur(10px)' }}
       >
-        <Form 
-          form={form} 
-          layout="vertical" 
+        <Form
+          form={form}
+          layout="vertical"
           onFinish={handleFormSubmit}
           requiredMark="optional"
         >
@@ -479,8 +509,8 @@ export const ScheduleConfigs: React.FC = () => {
           </Form.Item>
 
           <Form.Item label="Execution Rule Configuration">
-            <Radio.Group 
-              value={scheduleType} 
+            <Radio.Group
+              value={scheduleType}
               onChange={(e) => setScheduleType(e.target.value)}
               style={{ marginBottom: '16px' }}
             >
@@ -502,23 +532,115 @@ export const ScheduleConfigs: React.FC = () => {
                 rules={[{ required: scheduleType === 'interval', message: 'Interval is mandatory' }]}
                 noStyle
               >
-                <InputNumber 
-                  min={1} 
-                  style={{ width: '100%' }} 
-                  placeholder="Interval window in seconds (e.g. 300)" 
+                <InputNumber
+                  min={1}
+                  style={{ width: '100%' }}
+                  placeholder="Interval window in seconds (e.g. 300)"
                   addonBefore={<Clock size={14} />}
                 />
               </Form.Item>
             )}
           </Form.Item>
 
-          <Form.Item name="payload" label="Task Payload Arguments (JSON string)">
-            <Input.TextArea 
-              rows={5} 
-              placeholder={`{\n  "message": "hello"\n}`} 
-              style={{ fontFamily: 'monospace' }} 
+          <div style={{ marginBottom: '24px' }}>
+            <span style={{ display: 'block', marginBottom: '8px', color: 'var(--text-primary)', fontWeight: 500 }}>
+              Task Payload Arguments
+            </span>
+
+            <Segmented
+              options={[
+                { label: 'Visual Form Editor', value: 'visual' },
+                { label: 'Raw JSON Editor', value: 'json' }
+              ]}
+              value={isRawJsonMode ? 'json' : 'visual'}
+              onChange={(value) => {
+                if (value === 'visual') {
+                  const rawText = form.getFieldValue('payload');
+                  if (rawText) {
+                    try {
+                      const parsed = JSON.parse(rawText);
+                      setPayloadObject(parsed);
+                      setIsRawJsonMode(false);
+                    } catch {
+                      message.error('Cannot switch to Visual Form: Current input is not a valid JSON string.');
+                    }
+                  } else {
+                    setIsRawJsonMode(false);
+                  }
+                } else {
+                  form.setFieldsValue({ payload: JSON.stringify(payloadObject, null, 2) });
+                  setIsRawJsonMode(true);
+                }
+              }}
+              style={{ marginBottom: '12px', width: '100%' }}
             />
-          </Form.Item>
+
+            {isRawJsonMode ? (
+              <Form.Item name="payload" noStyle>
+                <Input.TextArea
+                  rows={5}
+                  placeholder={`{\n  "message": "hello"\n}`}
+                  style={{ fontFamily: 'monospace' }}
+                  onChange={(e) => {
+                    try {
+                      const parsed = JSON.parse(e.target.value);
+                      setPayloadObject(parsed);
+                    } catch {
+                      // ignore intermediate invalid states
+                    }
+                  }}
+                />
+              </Form.Item>
+            ) : (
+              !selectedTaskFunc ? (
+                <div
+                  style={{
+                    textAlign: 'center',
+                    padding: '24px',
+                    color: 'var(--text-secondary)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '8px',
+                    background: 'rgba(0,0,0,0.01)'
+                  }}
+                >
+                  <Text type="secondary">Please select a backend task above to load its payload form.</Text>
+                </div>
+              ) : (!selectedTaskSchema || !selectedTaskSchema.properties || Object.keys(selectedTaskSchema.properties).length === 0) ? (
+                <div
+                  style={{
+                    textAlign: 'center',
+                    padding: '24px',
+                    color: 'var(--text-secondary)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '8px',
+                    background: 'rgba(0,0,0,0.01)'
+                  }}
+                >
+                  <Text type="secondary">No payload parameters are required for this task.</Text>
+                </div>
+              ) : (
+                <div
+                  className="rjsf-container"
+                  style={{
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '8px',
+                    padding: '16px',
+                    background: 'rgba(0,0,0,0.01)'
+                  }}
+                >
+                  <RJSFForm
+                    schema={selectedTaskSchema}
+                    formData={payloadObject}
+                    onChange={(e) => setPayloadObject(e.formData)}
+                    validator={validator}
+                    showErrorList={false}
+                  >
+                    <></>
+                  </RJSFForm>
+                </div>
+              )
+            )}
+          </div>
 
           <Space size="large" style={{ width: '100%', justifyContent: 'space-between' }}>
             <Form.Item name="start_at" label="Active Period Start">
@@ -534,7 +656,7 @@ export const ScheduleConfigs: React.FC = () => {
             <Switch defaultChecked />
           </Form.Item>
 
-          <div 
+          <div
             style={{
               position: 'absolute',
               right: 0,
