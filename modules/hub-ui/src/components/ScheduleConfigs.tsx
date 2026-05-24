@@ -39,7 +39,7 @@ export const ScheduleConfigs: React.FC = () => {
   const [sortField, setSortField] = useState<string>('created_at');
   const [sortOrder, setSortOrder] = useState<'ascend' | 'descend'>('descend');
 
-  const [isDrawerVisible, setIsDrawerVisible] = useState(false);
+  const [isDrawerVisible, setIsDrawerVisible] = useState(() => !!preselectedTask);
   const [editingConfig, setEditingConfig] = useState<any>(null);
   const [scheduleType, setScheduleType] = useState<'cron' | 'interval'>('cron');
 
@@ -143,22 +143,24 @@ export const ScheduleConfigs: React.FC = () => {
   const selectedTaskSpec = (specsData?.data || []).find((t: any) => t.name === selectedTaskFunc);
   const selectedTaskSchema = selectedTaskSpec?.payload_schema;
 
-  // Default to visual form editor on task selection change
-  useEffect(() => {
+  // Adjust isRawJsonMode state during rendering when selectedTaskFunc changes
+  const [prevSelectedTaskFunc, setPrevSelectedTaskFunc] = useState<string | undefined>(undefined);
+  if (selectedTaskFunc !== prevSelectedTaskFunc) {
+    setPrevSelectedTaskFunc(selectedTaskFunc);
     if (selectedTaskFunc) {
       setIsRawJsonMode(false);
     }
-  }, [selectedTaskFunc]);
+  }
 
-  // Auto-open drawer when redirected from Task Specs
+  // Auto-fill drawer form when redirected from Task Specs
   useEffect(() => {
     if (preselectedTask) {
-      setEditingConfig(null);
-      form.resetFields();
       form.setFieldsValue({ task_func: preselectedTask });
-      setIsDrawerVisible(true);
-      // Consume the task spec selection
-      setPreselectedTask(null);
+      // Consume the preselected task spec selection asynchronously to avoid synchronous cascading renders
+      const timer = setTimeout(() => {
+        setPreselectedTask(null);
+      }, 0);
+      return () => clearTimeout(timer);
     }
   }, [preselectedTask, form, setPreselectedTask]);
 
