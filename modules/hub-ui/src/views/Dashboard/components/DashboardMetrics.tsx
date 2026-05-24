@@ -84,7 +84,7 @@ export const DashboardMetrics: React.FC<DashboardMetricsProps> = ({
             />
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <Space direction="vertical" size={2}>
+              <Space orientation="vertical" size={2}>
                 <Text className="font-outfit" style={{ color: 'var(--text-muted)', fontSize: '13px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                   {m.title}
                 </Text>

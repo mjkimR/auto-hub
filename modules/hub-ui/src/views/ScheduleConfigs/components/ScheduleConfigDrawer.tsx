@@ -10,7 +10,6 @@ import dayjs from 'dayjs';
 import type { ScheduleConfigRecord } from './ScheduleTable';
 
 const { Text } = Typography;
-const { Option } = Select;
 
 interface TaskSpec {
   name: string;
@@ -58,44 +57,39 @@ export const ScheduleConfigDrawer: React.FC<ScheduleConfigDrawerProps> = ({
   // Handle drawer open / mode set
   useEffect(() => {
     if (isDrawerVisible) {
-      const timer = setTimeout(() => {
-        if (editingConfig) {
-          setScheduleType(editingConfig.interval_seconds ? 'interval' : 'cron');
+      if (editingConfig) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setScheduleType(editingConfig.interval_seconds ? 'interval' : 'cron');
+        setPayloadObject(editingConfig.payload || {});
 
-          // Parse times
-          const startAt = editingConfig.start_at ? dayjs(editingConfig.start_at) : null;
-          const endAt = editingConfig.end_at ? dayjs(editingConfig.end_at) : null;
+        const spec = tasksList.find((t) => t.name === editingConfig.task_func);
+        setIsRawJsonMode(!spec?.payload_schema);
 
-          // Format payload back to string representation
-          const payloadStr = editingConfig.payload ? JSON.stringify(editingConfig.payload, null, 2) : '{}';
-          setPayloadObject(editingConfig.payload || {});
+        // Parse times
+        const startAt = editingConfig.start_at ? dayjs(editingConfig.start_at) : null;
+        const endAt = editingConfig.end_at ? dayjs(editingConfig.end_at) : null;
 
-          // Set initial editing mode
-          if (editingConfig.task_func) {
-            const spec = tasksList.find((t) => t.name === editingConfig.task_func);
-            setIsRawJsonMode(!spec?.payload_schema);
-          }
+        // Format payload back to string representation
+        const payloadStr = editingConfig.payload ? JSON.stringify(editingConfig.payload, null, 2) : '{}';
 
-          form.setFieldsValue({
-            name: editingConfig.name,
-            description: editingConfig.description,
-            task_func: editingConfig.task_func,
-            cron_expression: editingConfig.cron_expression,
-            interval_seconds: editingConfig.interval_seconds,
-            enabled: editingConfig.enabled,
-            start_at: startAt,
-            end_at: endAt,
-            payload: payloadStr,
-          });
-        } else {
-          form.resetFields();
-          form.setFieldsValue({ enabled: true });
-          setScheduleType('cron');
-          setPayloadObject({});
-          setIsRawJsonMode(false);
-        }
-      }, 0);
-      return () => clearTimeout(timer);
+        form.setFieldsValue({
+          name: editingConfig.name,
+          description: editingConfig.description,
+          task_func: editingConfig.task_func,
+          cron_expression: editingConfig.cron_expression,
+          interval_seconds: editingConfig.interval_seconds,
+          enabled: editingConfig.enabled,
+          start_at: startAt,
+          end_at: endAt,
+          payload: payloadStr,
+        });
+      } else {
+        setScheduleType('cron');
+        setPayloadObject({});
+        setIsRawJsonMode(false);
+        form.resetFields();
+        form.setFieldsValue({ enabled: true });
+      }
     }
   }, [isDrawerVisible, editingConfig, form, tasksList]);
 
@@ -106,10 +100,11 @@ export const ScheduleConfigDrawer: React.FC<ScheduleConfigDrawerProps> = ({
   return (
     <Drawer
       title={editingConfig ? 'Update Schedule Config' : 'Register New Schedule Config'}
-      width={560}
+      size={560}
       onClose={onClose}
       open={isDrawerVisible}
-      bodyStyle={{ paddingBottom: 80 }}
+      destroyOnHidden
+      styles={{ body: { paddingBottom: 80 } }}
       style={{ backdropFilter: 'blur(10px)' }}
     >
       <Form
@@ -135,11 +130,10 @@ export const ScheduleConfigDrawer: React.FC<ScheduleConfigDrawerProps> = ({
           label="Dotted Task Path"
           rules={[{ required: true, message: 'Please select a backend registered task' }]}
         >
-          <Select placeholder="Select which Python task gets executed">
-            {tasksList.map((t, idx) => (
-              <Option key={idx} value={t.name}>{t.name}</Option>
-            ))}
-          </Select>
+          <Select
+            placeholder="Select which Python task gets executed"
+            options={tasksList.map((t) => ({ label: t.name, value: t.name }))}
+          />
         </Form.Item>
 
         <Form.Item label="Execution Rule Configuration">
@@ -158,7 +152,7 @@ export const ScheduleConfigDrawer: React.FC<ScheduleConfigDrawerProps> = ({
               rules={[{ required: scheduleType === 'cron', message: 'Cron expression is mandatory' }]}
               noStyle
             >
-              <Input placeholder="e.g. 0 0 * * * (Every midnight)" addonBefore={<Calendar size={14} />} />
+              <Input placeholder="e.g. 0 0 * * * (Every midnight)" prefix={<Calendar size={14} />} />
             </Form.Item>
           ) : (
             <Form.Item
@@ -170,7 +164,7 @@ export const ScheduleConfigDrawer: React.FC<ScheduleConfigDrawerProps> = ({
                 min={1}
                 style={{ width: '100%' }}
                 placeholder="Interval window in seconds (e.g. 300)"
-                addonBefore={<Clock size={14} />}
+                prefix={<Clock size={14} />}
               />
             </Form.Item>
           )}

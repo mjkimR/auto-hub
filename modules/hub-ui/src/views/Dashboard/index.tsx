@@ -7,7 +7,7 @@ import {
   triggerDispatchApiV1DispatchersTriggerPost,
   getSystemConfigsApiV1SystemConfigsGet
 } from '../../generated/api/sdk.gen';
-import type { ScheduleConfigRead, ScheduleJobRead, SystemConfigRead } from '../../generated/api/types.gen';
+import type { ScheduleConfigRead, ScheduleJobRead, SystemConfigRead, DispatchResponse } from '../../generated/api/types.gen';
 import { useThemeStore } from '../../stores/themeStore';
 import { formatDistanceToNow, parseISO } from 'date-fns';
 
@@ -40,13 +40,16 @@ export const Dashboard: React.FC = () => {
   });
 
   // 4. Manual Trigger Dispatch Mutation
-  const triggerMutation = useMutation({
+  const triggerMutation = useMutation<
+    { data?: DispatchResponse },
+    unknown
+  >({
     mutationFn: () => triggerDispatchApiV1DispatchersTriggerPost({ throwOnError: true }),
     onMutate: () => {
       setTriggerLoading(true);
     },
-    onSuccess: (res: unknown) => {
-      const dispatchedCount = (res as { data?: { dispatched?: number } }).data?.dispatched ?? 0;
+    onSuccess: (res) => {
+      const dispatchedCount = res.data?.dispatched ?? 0;
       message.success(`Dispatcher triggered successfully! Dispatched ${dispatchedCount} jobs.`);
       queryClient.invalidateQueries({ queryKey: ['scheduleJobs'] });
       queryClient.invalidateQueries({ queryKey: ['scheduleConfigs'] });
@@ -79,7 +82,7 @@ export const Dashboard: React.FC = () => {
   const systemConfigs = (systemConfigsData?.data?.items || []) as SystemConfigRead[];
 
   return (
-    <Space direction="vertical" size="large" style={{ width: '100%' }}>
+    <Space orientation="vertical" size="large" style={{ width: '100%' }}>
       {/* 1. KPIs Metrics Row */}
       <DashboardMetrics
         configsLoading={configsLoading}
@@ -96,7 +99,7 @@ export const Dashboard: React.FC = () => {
       <Row gutter={[24, 24]}>
         {/* Left Side: Dispatcher Control Board */}
         <Col xs={24} lg={10}>
-          <Space direction="vertical" size="large" style={{ width: '100%' }}>
+          <Space orientation="vertical" size="large" style={{ width: '100%' }}>
             <DispatcherConsole
               triggerLoading={triggerLoading}
               onTrigger={() => triggerMutation.mutate()}

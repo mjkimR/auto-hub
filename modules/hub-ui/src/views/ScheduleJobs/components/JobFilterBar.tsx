@@ -2,7 +2,7 @@ import React from 'react';
 import { Space, Input, Select, Button } from 'antd';
 import { RefreshCw } from 'lucide-react';
 
-const { Option } = Select;
+
 
 interface JobFilterBarProps {
   currentInput: string;
@@ -59,13 +59,14 @@ export const JobFilterBar: React.FC<JobFilterBarProps> = ({
             setCurrentInput(confirmedFilter);
           }}
           style={{ width: '150px' }}
-          dropdownStyle={{ backdropFilter: 'blur(10px)' }}
-        >
-          <Option value="all">All Statuses</Option>
-          <Option value="success">Success Only</Option>
-          <Option value="failure">Failure Only</Option>
-          <Option value="pending">Pending Only</Option>
-        </Select>
+          styles={{ popup: { root: { backdropFilter: 'blur(10px)' } } }}
+          options={[
+            { label: 'All Statuses', value: 'all' },
+            { label: 'Success Only', value: 'success' },
+            { label: 'Failure Only', value: 'failure' },
+            { label: 'Pending Only', value: 'pending' }
+          ]}
+        />
       </Space>
 
       <Button icon={<RefreshCw size={14} />} onClick={refetch}>

@@ -3,7 +3,6 @@ import { Space, Button, Input, Select, Typography } from 'antd';
 import { Plus, RefreshCw } from 'lucide-react';
 
 const { Text, Title } = Typography;
-const { Option } = Select;
 
 interface TaskSpec {
   name: string;
@@ -99,14 +98,13 @@ export const ScheduleFilterBar: React.FC<ScheduleFilterBarProps> = ({
             setCurrentInput(confirmedFilter);
           }}
           style={{ width: '220px' }}
-          dropdownStyle={{ backdropFilter: 'blur(10px)' }}
+          styles={{ popup: { root: { backdropFilter: 'blur(10px)' } } }}
           placeholder="Filter by Task"
-        >
-          <Option value="all">All Tasks</Option>
-          {tasksList.map((t, idx) => (
-            <Option key={idx} value={t.name}>{t.name}</Option>
-          ))}
-        </Select>
+          options={[
+            { label: 'All Tasks', value: 'all' },
+            ...tasksList.map((t) => ({ label: t.name, value: t.name }))
+          ]}
+        />
 
         <Select
           value={enabledFilter}
@@ -116,12 +114,13 @@ export const ScheduleFilterBar: React.FC<ScheduleFilterBarProps> = ({
             setCurrentInput(confirmedFilter);
           }}
           style={{ width: '130px' }}
-          dropdownStyle={{ backdropFilter: 'blur(10px)' }}
-        >
-          <Option value="all">All States</Option>
-          <Option value="active">Active Only</Option>
-          <Option value="inactive">Inactive Only</Option>
-        </Select>
+          styles={{ popup: { root: { backdropFilter: 'blur(10px)' } } }}
+          options={[
+            { label: 'All States', value: 'all' },
+            { label: 'Active Only', value: 'active' },
+            { label: 'Inactive Only', value: 'inactive' }
+          ]}
+        />
       </div>
     </div>
   );

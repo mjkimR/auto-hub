@@ -137,7 +137,7 @@ export const Login: React.FC = () => {
         {/* Form and errors */}
         {errorMsg && (
           <Alert
-            message={
+            title={
               <span className="font-outfit" style={{ fontSize: '13px', fontWeight: 500 }}>
                 {errorMsg}
               </span>

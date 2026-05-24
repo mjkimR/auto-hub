@@ -1,5 +1,6 @@
 import React from 'react';
 import { Table, Button, Switch, Space, Typography, Tooltip, Popconfirm } from 'antd';
+import type { SorterResult } from 'antd/es/table/interface';
 import { Calendar, Clock, Edit3, Trash2, AlertTriangle } from 'lucide-react';
 import dayjs from 'dayjs';
 
@@ -64,7 +65,7 @@ export const ScheduleTable: React.FC<ScheduleTableProps> = ({
       sorter: true,
       sortOrder: sortField === 'name' ? sortOrder : undefined,
       render: (text: string, record: ScheduleConfigRecord) => (
-        <Space direction="vertical" size={2}>
+        <Space orientation="vertical" size={2}>
           <Text strong style={{ fontSize: '14px' }}>{text}</Text>
           <Text type="secondary" style={{ fontSize: '11px' }}>{record.description || 'No description'}</Text>
         </Space>
@@ -169,16 +170,16 @@ export const ScheduleTable: React.FC<ScheduleTableProps> = ({
         rowKey="id"
         loading={isLoading}
         className="glass-table"
-        onChange={(pagination, _filters, sorter: unknown) => {
+        onChange={(pagination, _filters, sorter) => {
           setCurrentInput(confirmedFilter);
           if (pagination) {
             setPage(pagination.current || 1);
             setPageSize(pagination.pageSize || 10);
           }
-          const s = sorter as { field?: string; order?: 'ascend' | 'descend' };
-          if (s && s.field) {
-            setSortField(s.field);
-            setSortOrder(s.order || 'descend');
+          const singleSorter = Array.isArray(sorter) ? sorter[0] : (sorter as SorterResult<ScheduleConfigRecord>);
+          if (singleSorter && singleSorter.field) {
+            setSortField(singleSorter.field as string);
+            setSortOrder(singleSorter.order || 'descend');
           }
         }}
         pagination={{

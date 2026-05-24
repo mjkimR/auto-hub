@@ -68,7 +68,7 @@ export const ConfigCardGrid: React.FC<ConfigCardGridProps> = ({
                 position: 'relative',
               }}
             >
-              <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+              <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <div style={{ background: 'var(--accent-glow)', padding: '6px', borderRadius: '6px' }}>

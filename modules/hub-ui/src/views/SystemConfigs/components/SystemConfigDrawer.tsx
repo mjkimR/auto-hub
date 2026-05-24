@@ -39,10 +39,10 @@ export const SystemConfigDrawer: React.FC<SystemConfigDrawerProps> = ({
   return (
     <Drawer
       title={editingConfig ? 'Update System Config' : 'Register New System Configuration'}
-      width={460}
+      size={460}
       onClose={onClose}
       open={isDrawerVisible}
-      bodyStyle={{ paddingBottom: 80 }}
+      styles={{ body: { paddingBottom: 80 } }}
       style={{ backdropFilter: 'blur(10px)' }}
     >
       <Form

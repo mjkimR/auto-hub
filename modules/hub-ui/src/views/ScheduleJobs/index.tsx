@@ -69,7 +69,7 @@ export const ScheduleJobs: React.FC = () => {
   const totalCount = jobsData?.data?.total_count || 0;
 
   return (
-    <Space direction="vertical" size="large" style={{ width: '100%' }}>
+    <Space orientation="vertical" size="large" style={{ width: '100%' }}>
       <JobFilterBar
         currentInput={currentInput}
         setCurrentInput={setCurrentInput}

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Space, App as AntdApp } from 'antd';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import dayjs from 'dayjs';
 import {
   getScheduleConfigsApiV1ScheduleConfigsGet,
   createScheduleConfigApiV1ScheduleConfigsPost,
@@ -148,8 +149,8 @@ export const ScheduleConfigs: React.FC = () => {
   // Drawer Form submission handler
   const handleDrawerSubmit = (values: Record<string, unknown>, isRawJsonMode: boolean, payloadObject: Record<string, unknown>) => {
     // Format date payloads to ISO strings
-    const start_at = values.start_at ? (values.start_at as { toISOString: () => string }).toISOString() : null;
-    const end_at = values.end_at ? (values.end_at as { toISOString: () => string }).toISOString() : null;
+    const start_at = dayjs.isDayjs(values.start_at) ? values.start_at.toISOString() : null;
+    const end_at = dayjs.isDayjs(values.end_at) ? values.end_at.toISOString() : null;
 
     // Parse payload safely
     let payload = {};
@@ -190,7 +191,7 @@ export const ScheduleConfigs: React.FC = () => {
   const totalCount = configsData?.data?.total_count || 0;
 
   return (
-    <Space direction="vertical" size="large" style={{ width: '100%' }}>
+    <Space orientation="vertical" size="large" style={{ width: '100%' }}>
       <ScheduleFilterBar
         currentInput={currentInput}
         setCurrentInput={setCurrentInput}

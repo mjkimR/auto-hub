@@ -68,19 +68,22 @@ client.interceptors.request.use((request) => {
   return request;
 });
 
-client.interceptors.error.use((error: unknown, response: Response | undefined) => {
-  let status: number | undefined = response?.status;
-  
-  if (!status && error && typeof error === 'object') {
-    if ('status' in error) {
-      status = (error as { status: number }).status;
-    } else if ('response' in error) {
-      const errResp = (error as { response: unknown }).response;
-      if (errResp && typeof errResp === 'object' && 'status' in errResp) {
-        status = (errResp as { status: number }).status;
-      }
+function getStatusFromError(error: unknown): number | undefined {
+  if (!error || typeof error !== 'object') return undefined;
+  if ('status' in error && typeof (error as { status: unknown }).status === 'number') {
+    return (error as { status: number }).status;
+  }
+  if ('response' in error) {
+    const errResp = (error as { response: unknown }).response;
+    if (errResp && typeof errResp === 'object' && 'status' in errResp && typeof (errResp as { status: unknown }).status === 'number') {
+      return (errResp as { status: number }).status;
     }
   }
+  return undefined;
+}
+
+client.interceptors.error.use((error: unknown, response: Response | undefined) => {
+  const status = response?.status ?? getStatusFromError(error);
 
   if (status === 401) {
     useAuthStore.getState().logout();

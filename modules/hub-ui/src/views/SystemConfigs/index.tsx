@@ -125,7 +125,7 @@ export const SystemConfigs: React.FC = () => {
   const totalCount = systemConfigsData?.data?.total_count || 0;
 
   return (
-    <Space direction="vertical" size="large" style={{ width: '100%' }}>
+    <Space orientation="vertical" size="large" style={{ width: '100%' }}>
       <ConfigHeader
         currentInput={currentInput}
         setCurrentInput={setCurrentInput}

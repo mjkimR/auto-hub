@@ -8,6 +8,44 @@ import { Cpu, Plus, FileJson } from 'lucide-react';
 
 const { Title, Text, Paragraph } = Typography;
 
+interface TaskPropertiesBadgesProps {
+  payloadSchema: unknown;
+}
+
+const TaskPropertiesBadges: React.FC<TaskPropertiesBadgesProps> = ({ payloadSchema }) => {
+  const hasProperties = payloadSchema && typeof payloadSchema === 'object' && 'properties' in payloadSchema;
+  const properties = hasProperties ? (payloadSchema as { properties?: Record<string, { title?: string; type?: string }> }).properties || {} : {};
+  const keys = Object.keys(properties);
+
+  if (keys.length === 0) {
+    return <Text type="secondary" style={{ fontSize: '11px' }}>No properties required (No payload task)</Text>;
+  }
+
+  return (
+    <>
+      {keys.map((prop, pIdx) => {
+        const pDetails = properties[prop] || {};
+        return (
+          <Tooltip key={pIdx} title={`${pDetails.title || prop} (${pDetails.type || 'any'})`}>
+            <Badge
+              count={prop}
+              style={{
+                backgroundColor: 'rgba(0,0,0,0.04)',
+                color: 'var(--text-secondary)',
+                boxShadow: 'none',
+                border: '1px solid var(--border-color)',
+                fontSize: '11px',
+                padding: '0 6px',
+                borderRadius: '4px'
+              }}
+            />
+          </Tooltip>
+        );
+      })}
+    </>
+  );
+};
+
 export const TaskSpecs: React.FC = () => {
   const { setActiveTab, setPreselectedTask } = useThemeStore();
   const [currentInput, setCurrentInput] = React.useState('');
@@ -30,7 +68,7 @@ export const TaskSpecs: React.FC = () => {
   const filteredSpecs = specs;
 
   return (
-    <Space direction="vertical" size="large" style={{ width: '100%' }}>
+    <Space orientation="vertical" size="large" style={{ width: '100%' }}>
       {/* Search Header */}
       <div
         className="glass-panel"
@@ -103,7 +141,7 @@ export const TaskSpecs: React.FC = () => {
                   }}
                 />
 
-                <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+                <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                       <div
@@ -141,32 +179,7 @@ export const TaskSpecs: React.FC = () => {
                       <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>Payload Spec Schema</span>
                     </div>
                     <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                      {spec.payload_schema && typeof spec.payload_schema === 'object' && 'properties' in spec.payload_schema ? (
-                        (() => {
-                          const properties = (spec.payload_schema as { properties?: Record<string, { title?: string; type?: string }> }).properties || {};
-                          return Object.keys(properties).map((prop, pIdx) => {
-                            const pDetails = properties[prop] || {};
-                            return (
-                              <Tooltip key={pIdx} title={`${pDetails.title || prop} (${pDetails.type || 'any'})`}>
-                                <Badge
-                                  count={prop}
-                                  style={{
-                                    backgroundColor: 'rgba(0,0,0,0.04)',
-                                    color: 'var(--text-secondary)',
-                                    boxShadow: 'none',
-                                    border: '1px solid var(--border-color)',
-                                    fontSize: '11px',
-                                    padding: '0 6px',
-                                    borderRadius: '4px'
-                                  }}
-                                />
-                              </Tooltip>
-                            );
-                          });
-                        })()
-                      ) : (
-                        <Text type="secondary" style={{ fontSize: '11px' }}>No properties required (No payload task)</Text>
-                      )}
+                      <TaskPropertiesBadges payloadSchema={spec.payload_schema} />
                     </div>
                   </div>
                 </Space>

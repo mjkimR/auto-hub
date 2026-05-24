@@ -22,13 +22,13 @@ export const JobDiagnosticsDrawer: React.FC<JobDiagnosticsDrawerProps> = ({
   return (
     <Drawer
       title="Execution Diagnostics Terminal"
-      width={600}
+      size={600}
       onClose={onClose}
       open={isDrawerVisible}
       style={{ backdropFilter: 'blur(10px)' }}
     >
       {selectedJob && (
-        <Space direction="vertical" size="large" style={{ width: '100%' }}>
+        <Space orientation="vertical" size="large" style={{ width: '100%' }}>
           {/* Header info */}
           <div>
             <Title level={4} style={{ margin: 0 }} className="font-outfit">
@@ -57,14 +57,14 @@ export const JobDiagnosticsDrawer: React.FC<JobDiagnosticsDrawerProps> = ({
                 {selectedJob.status.toUpperCase()}
               </span>
             </div>
-            <Divider type="vertical" style={{ height: '40px' }} />
+            <Divider orientation="vertical" style={{ height: '40px' }} />
             <div>
               <Text type="secondary" style={{ fontSize: '11px', display: 'block' }}>TRIGGERED TIME</Text>
               <Text strong style={{ fontSize: '13px' }}>
                 {dayjs(selectedJob.started_at).format('YYYY-MM-DD HH:mm:ss')}
               </Text>
             </div>
-            <Divider type="vertical" style={{ height: '40px' }} />
+            <Divider orientation="vertical" style={{ height: '40px' }} />
             <div>
               <Text type="secondary" style={{ fontSize: '11px', display: 'block' }}>FINISHED TIME</Text>
               <Text strong style={{ fontSize: '13px' }}>

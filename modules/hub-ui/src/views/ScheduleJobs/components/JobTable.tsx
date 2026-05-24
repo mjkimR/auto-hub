@@ -1,5 +1,6 @@
 import React from 'react';
 import { Table, Button, Space, Typography, Tooltip, Popconfirm } from 'antd';
+import type { SorterResult } from 'antd/es/table/interface';
 import { Trash2, AlertTriangle, Eye } from 'lucide-react';
 import dayjs from 'dayjs';
 
@@ -58,7 +59,7 @@ export const JobTable: React.FC<JobTableProps> = ({
       sorter: true,
       sortOrder: sortField === 'name' ? sortOrder : undefined,
       render: (text: string, record: ScheduleJobRecord) => (
-        <Space direction="vertical" size={2}>
+        <Space orientation="vertical" size={2}>
           <Text strong style={{ fontSize: '14px' }}>{text}</Text>
           <Text type="secondary" style={{ fontSize: '10px', fontFamily: 'monospace' }}>ID: {record.id}</Text>
         </Space>
@@ -155,16 +156,16 @@ export const JobTable: React.FC<JobTableProps> = ({
         rowKey="id"
         loading={isLoading}
         className="glass-table"
-        onChange={(pagination, _filters, sorter: unknown) => {
+        onChange={(pagination, _filters, sorter) => {
           setCurrentInput(confirmedFilter);
           if (pagination) {
             setPage(pagination.current || 1);
             setPageSize(pagination.pageSize || 10);
           }
-          const s = sorter as { field?: string; order?: 'ascend' | 'descend' };
-          if (s && s.field) {
-            setSortField(s.field);
-            setSortOrder(s.order || 'descend');
+          const singleSorter = Array.isArray(sorter) ? sorter[0] : (sorter as SorterResult<ScheduleJobRecord>);
+          if (singleSorter && singleSorter.field) {
+            setSortField(singleSorter.field as string);
+            setSortOrder(singleSorter.order || 'descend');
           }
         }}
         pagination={{
