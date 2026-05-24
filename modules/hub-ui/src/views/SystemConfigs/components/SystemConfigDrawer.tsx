@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { Drawer, Form, Input, Button, Space } from 'antd';
+import { MonacoJsonEditor } from '../../../components/MonacoJsonEditor';
 import type { SystemConfigRecord } from './ConfigCardGrid';
 
 interface SystemConfigDrawerProps {
@@ -30,6 +31,7 @@ export const SystemConfigDrawer: React.FC<SystemConfigDrawerProps> = ({
           });
         } else {
           form.resetFields();
+          form.setFieldsValue({ data: '{\n  \n}' });
         }
       }, 0);
       return () => clearTimeout(timer);
@@ -39,7 +41,7 @@ export const SystemConfigDrawer: React.FC<SystemConfigDrawerProps> = ({
   return (
     <Drawer
       title={editingConfig ? 'Update System Config' : 'Register New System Configuration'}
-      size={460}
+      size={500}
       onClose={onClose}
       open={isDrawerVisible}
       styles={{ body: { paddingBottom: 80 } }}
@@ -62,13 +64,22 @@ export const SystemConfigDrawer: React.FC<SystemConfigDrawerProps> = ({
         <Form.Item
           name="data"
           label="JSON Data Properties"
-          rules={[{ required: true, message: 'Please specify properties data map' }]}
+          rules={[
+            { required: true, message: 'Please specify properties data map' },
+            {
+              validator: (_, value) => {
+                if (!value) return Promise.resolve();
+                try {
+                  JSON.parse(value);
+                  return Promise.resolve();
+                } catch {
+                  return Promise.reject(new Error('Must be a valid JSON object'));
+                }
+              },
+            },
+          ]}
         >
-          <Input.TextArea
-            rows={12}
-            placeholder={`{\n  "value": 30,\n  "buffer": 5\n}`}
-            style={{ fontFamily: 'monospace' }}
-          />
+          <MonacoJsonEditor height={300} />
         </Form.Item>
 
         <div

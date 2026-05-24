@@ -5,8 +5,11 @@ import {
 } from 'antd';
 import RJSFForm from '@rjsf/antd';
 import validator from '@rjsf/validator-ajv8';
-import { Calendar, Clock } from 'lucide-react';
+import Cron from 'react-js-cron';
+import 'react-js-cron/dist/styles.css';
+import { Clock } from 'lucide-react';
 import dayjs from 'dayjs';
+import { MonacoJsonEditor } from '../../../components/MonacoJsonEditor';
 import type { ScheduleConfigRecord } from './ScheduleTable';
 
 const { Text } = Typography;
@@ -39,6 +42,8 @@ export const ScheduleConfigDrawer: React.FC<ScheduleConfigDrawerProps> = ({
   const [scheduleType, setScheduleType] = useState<'cron' | 'interval'>('cron');
   const [isRawJsonMode, setIsRawJsonMode] = useState<boolean>(false);
   const [payloadObject, setPayloadObject] = useState<Record<string, unknown>>({});
+  // Local cron string state kept in sync with Form field
+  const [cronValue, setCronValue] = useState<string>('* * * * *');
 
   // Resolve payload schema based on selected task func
   const selectedTaskFunc = Form.useWatch('task_func', form);
@@ -65,6 +70,10 @@ export const ScheduleConfigDrawer: React.FC<ScheduleConfigDrawerProps> = ({
         const spec = tasksList.find((t) => t.name === editingConfig.task_func);
         setIsRawJsonMode(!spec?.payload_schema);
 
+        // Sync cron value
+        const initialCron = editingConfig.cron_expression || '* * * * *';
+        setCronValue(initialCron);
+
         // Parse times
         const startAt = editingConfig.start_at ? dayjs(editingConfig.start_at) : null;
         const endAt = editingConfig.end_at ? dayjs(editingConfig.end_at) : null;
@@ -76,7 +85,7 @@ export const ScheduleConfigDrawer: React.FC<ScheduleConfigDrawerProps> = ({
           name: editingConfig.name,
           description: editingConfig.description,
           task_func: editingConfig.task_func,
-          cron_expression: editingConfig.cron_expression,
+          cron_expression: initialCron,
           interval_seconds: editingConfig.interval_seconds,
           enabled: editingConfig.enabled,
           start_at: startAt,
@@ -87,8 +96,9 @@ export const ScheduleConfigDrawer: React.FC<ScheduleConfigDrawerProps> = ({
         setScheduleType('cron');
         setPayloadObject({});
         setIsRawJsonMode(false);
+        setCronValue('* * * * *');
         form.resetFields();
-        form.setFieldsValue({ enabled: true });
+        form.setFieldsValue({ enabled: true, cron_expression: '* * * * *' });
       }
     }
   }, [isDrawerVisible, editingConfig, form, tasksList]);
@@ -147,13 +157,34 @@ export const ScheduleConfigDrawer: React.FC<ScheduleConfigDrawerProps> = ({
           </Radio.Group>
 
           {scheduleType === 'cron' ? (
-            <Form.Item
-              name="cron_expression"
-              rules={[{ required: scheduleType === 'cron', message: 'Cron expression is mandatory' }]}
-              noStyle
-            >
-              <Input placeholder="e.g. 0 0 * * * (Every midnight)" prefix={<Calendar size={14} />} />
-            </Form.Item>
+            <div>
+              {/* Visual CRON builder — drives the hidden Form field */}
+              <Cron
+                value={cronValue}
+                setValue={(val: string) => {
+                  setCronValue(val);
+                  form.setFieldValue('cron_expression', val);
+                }}
+                allowEmpty="for-default-value"
+                humanizeLabels
+                shortcuts={['@hourly', '@daily', '@weekly', '@monthly', '@yearly']}
+                clearButton={false}
+              />
+              {/* Hidden form field that holds the actual cron string */}
+              <Form.Item
+                name="cron_expression"
+                rules={[{ required: scheduleType === 'cron', message: 'Cron expression is mandatory' }]}
+                style={{ marginTop: '10px', marginBottom: 0 }}
+              >
+                <Input
+                  placeholder="e.g. 0 0 * * *"
+                  onChange={(e) => {
+                    setCronValue(e.target.value);
+                  }}
+                  style={{ fontFamily: 'monospace', fontSize: 13 }}
+                />
+              </Form.Item>
+            </div>
           ) : (
             <Form.Item
               name="interval_seconds"
@@ -205,16 +236,14 @@ export const ScheduleConfigDrawer: React.FC<ScheduleConfigDrawerProps> = ({
 
           {isRawJsonMode ? (
             <Form.Item name="payload" noStyle>
-              <Input.TextArea
-                rows={5}
-                placeholder={`{\n  "message": "hello"\n}`}
-                style={{ fontFamily: 'monospace' }}
-                onChange={(e) => {
+              <MonacoJsonEditor
+                height={200}
+                onChange={(val) => {
                   try {
-                    const parsed = JSON.parse(e.target.value);
+                    const parsed = JSON.parse(val);
                     setPayloadObject(parsed);
                   } catch {
-                    // ignore intermediate invalid states
+                    // ignore intermediate invalid states while typing
                   }
                 }}
               />
