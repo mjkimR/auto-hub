@@ -68,8 +68,20 @@ client.interceptors.request.use((request) => {
   return request;
 });
 
-client.interceptors.error.use((error: any, response: any) => {
-  const status = response?.status || error?.response?.status || error?.status;
+client.interceptors.error.use((error: unknown, response: Response | undefined) => {
+  let status: number | undefined = response?.status;
+  
+  if (!status && error && typeof error === 'object') {
+    if ('status' in error) {
+      status = (error as { status: number }).status;
+    } else if ('response' in error) {
+      const errResp = (error as { response: unknown }).response;
+      if (errResp && typeof errResp === 'object' && 'status' in errResp) {
+        status = (errResp as { status: number }).status;
+      }
+    }
+  }
+
   if (status === 401) {
     useAuthStore.getState().logout();
   }

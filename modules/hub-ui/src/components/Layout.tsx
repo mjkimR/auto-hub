@@ -1,7 +1,7 @@
 import React from 'react';
 import { Layout as AntdLayout, Menu, Button, Space, Badge, Tooltip } from 'antd';
-import { useThemeStore } from '../store/themeStore';
-import { useAuthStore } from '../store/authStore';
+import { useThemeStore } from '../stores/themeStore';
+import { useAuthStore } from '../stores/authStore';
 import {
   LayoutDashboard,
   Clock,
@@ -96,14 +96,14 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
       >
         {/* Brand Logo */}
         <div style={{ padding: '24px 20px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div 
-            style={{ 
-              background: 'var(--accent-gradient)', 
-              width: 38, 
-              height: 38, 
-              borderRadius: '10px', 
-              display: 'flex', 
-              alignItems: 'center', 
+          <div
+            style={{
+              background: 'var(--accent-gradient)',
+              width: 38,
+              height: 38,
+              borderRadius: '10px',
+              display: 'flex',
+              alignItems: 'center',
               justifyContent: 'center',
               boxShadow: '0 4px 12px var(--accent-glow)'
             }}
@@ -111,12 +111,12 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
             <Server size={20} color="#fff" />
           </div>
           <div>
-            <h1 
-              className="gradient-text font-outfit" 
-              style={{ 
-                margin: 0, 
-                fontSize: '18px', 
-                lineHeight: '1.2', 
+            <h1
+              className="gradient-text font-outfit"
+              style={{
+                margin: 0,
+                fontSize: '18px',
+                lineHeight: '1.2',
                 background: 'var(--accent-gradient)',
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent',
@@ -146,14 +146,14 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         />
 
         {/* System Health Panel at Bottom of Sider */}
-        <div 
-          style={{ 
-            position: 'absolute', 
-            bottom: 24, 
-            left: 16, 
-            right: 16, 
-            padding: '16px', 
-            borderRadius: '12px', 
+        <div
+          style={{
+            position: 'absolute',
+            bottom: 24,
+            left: 16,
+            right: 16,
+            padding: '16px',
+            borderRadius: '12px',
             border: '1px solid var(--border-color)',
             background: 'rgba(0,0,0,0.02)'
           }}
@@ -161,10 +161,10 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
             <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>System API Status</span>
             <Tooltip title="Force Refresh Status">
-              <Button 
-                type="text" 
-                size="small" 
-                icon={<RefreshCw size={12} className={isFetching ? 'glow-active' : ''} />} 
+              <Button
+                type="text"
+                size="small"
+                icon={<RefreshCw size={12} className={isFetching ? 'glow-active' : ''} />}
                 onClick={() => refetch()}
               />
             </Tooltip>
@@ -181,7 +181,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
       {/* Main Content Area */}
       <AntdLayout style={{ marginLeft: 260, minHeight: '100vh', background: 'transparent' }}>
         {/* Glass Header */}
-        <Header 
+        <Header
           className="glass-header"
           style={{
             position: 'sticky',

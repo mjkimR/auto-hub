@@ -22,15 +22,12 @@ This project is built using the following primary technologies:
 
 ```
 hub-ui/src/
-├── api/                 # Custom API utilities and hooks
-├── app/                 # Global application setup and providers
 ├── assets/              # Static assets (images, fonts, etc.)
 ├── components/          # Shared/common UI components
 ├── config/              # Application configuration (constants, env wrappers, etc.)
 ├── generated/           # Auto-generated code
 │   └── api/             # OpenAPI-based API client
-├── lib/                 # Third-party library configurations and wrappers (utils.ts, etc.)
-├── stores/              # Global state management (Zustand)
+├── stores/               # Global state management (Zustand)
 ├── utils/               # General utility helper functions
 ├── views/               # Page/view components (route-level views)
 ├── App.tsx              # Main App component and route configuration

@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { Card, Form, Input, Button, Alert, Typography, Tooltip } from 'antd';
 import { Server, KeyRound, Lock, Sun, Moon, AlertCircle } from 'lucide-react';
-import { useAuthStore } from '../store/authStore';
-import { useThemeStore } from '../store/themeStore';
+import { useAuthStore } from '../stores/authStore';
+import { useThemeStore } from '../stores/themeStore';
 
 const { Title, Text } = Typography;
 

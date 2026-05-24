@@ -2,7 +2,8 @@ import React from 'react';
 import { Row, Col, Typography, Button, Badge, Space, Empty, Spin, Input, Tooltip } from 'antd';
 import { useQuery } from '@tanstack/react-query';
 import { getTaskSpecsApiV1TasksSpecsGet } from '../generated/api/sdk.gen';
-import { useThemeStore } from '../store/themeStore';
+import type { TaskSpecResponse } from '../generated/api/types.gen';
+import { useThemeStore } from '../stores/themeStore';
 import { Cpu, Plus, FileJson } from 'lucide-react';
 
 const { Title, Text, Paragraph } = Typography;
@@ -14,9 +15,9 @@ export const TaskSpecs: React.FC = () => {
 
   const { data: specsData, isLoading } = useQuery({
     queryKey: ['taskSpecs', confirmedFilter],
-    queryFn: () => getTaskSpecsApiV1TasksSpecsGet({ 
-      query: { name: confirmedFilter || undefined }, 
-      throwOnError: true 
+    queryFn: () => getTaskSpecsApiV1TasksSpecsGet({
+      query: { name: confirmedFilter || undefined },
+      throwOnError: true
     }),
   });
 
@@ -31,14 +32,14 @@ export const TaskSpecs: React.FC = () => {
   return (
     <Space direction="vertical" size="large" style={{ width: '100%' }}>
       {/* Search Header */}
-      <div 
-        className="glass-panel" 
-        style={{ 
-          padding: '24px', 
-          display: 'flex', 
-          flexDirection: 'column', 
+      <div
+        className="glass-panel"
+        style={{
+          padding: '24px',
+          display: 'flex',
+          flexDirection: 'column',
           gap: '16px',
-          background: 'var(--bg-card)' 
+          background: 'var(--bg-card)'
         }}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
@@ -74,43 +75,43 @@ export const TaskSpecs: React.FC = () => {
         <Empty description="No tasks discovered matching query" />
       ) : (
         <Row gutter={[24, 24]}>
-          {filteredSpecs.map((spec: any, idx: number) => (
+          {filteredSpecs.map((spec: TaskSpecResponse, idx: number) => (
             <Col xs={24} md={12} key={idx}>
-              <div 
-                className="glass-panel glass-panel-hover" 
-                style={{ 
-                  padding: '28px', 
-                  display: 'flex', 
-                  flexDirection: 'column', 
-                  justifyContent: 'space-between', 
+              <div
+                className="glass-panel glass-panel-hover"
+                style={{
+                  padding: '28px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
                   height: '100%',
                   position: 'relative',
                   overflow: 'hidden'
                 }}
               >
                 {/* Visual backglow decoration */}
-                <div 
-                  style={{ 
-                    position: 'absolute', 
-                    top: '-30px', 
-                    right: '-30px', 
-                    width: '100px', 
-                    height: '100px', 
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: '-30px',
+                    right: '-30px',
+                    width: '100px',
+                    height: '100px',
                     borderRadius: '50%',
-                    background: 'var(--accent-glow)', 
-                    filter: 'blur(40px)' 
-                  }} 
+                    background: 'var(--accent-glow)',
+                    filter: 'blur(40px)'
+                  }}
                 />
 
                 <Space direction="vertical" size="middle" style={{ width: '100%' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <div 
-                        style={{ 
-                          background: 'var(--accent-glow)', 
-                          padding: '8px', 
+                      <div
+                        style={{
+                          background: 'var(--accent-glow)',
+                          padding: '8px',
                           borderRadius: '8px',
-                          border: '1px solid var(--border-color)' 
+                          border: '1px solid var(--border-color)'
                         }}
                       >
                         <Cpu size={20} color="var(--accent-primary)" />
@@ -127,12 +128,12 @@ export const TaskSpecs: React.FC = () => {
                   </Paragraph>
 
                   {/* Schema Info */}
-                  <div 
-                    style={{ 
-                      background: 'rgba(0,0,0,0.02)', 
-                      border: '1px solid var(--border-color)', 
-                      borderRadius: '8px', 
-                      padding: '12px' 
+                  <div
+                    style={{
+                      background: 'rgba(0,0,0,0.02)',
+                      border: '1px solid var(--border-color)',
+                      borderRadius: '8px',
+                      padding: '12px'
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
@@ -140,26 +141,29 @@ export const TaskSpecs: React.FC = () => {
                       <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>Payload Spec Schema</span>
                     </div>
                     <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                      {spec.payload_schema?.properties ? (
-                        Object.keys(spec.payload_schema.properties).map((prop, pIdx) => {
-                          const pDetails = spec.payload_schema.properties[prop];
-                          return (
-                            <Tooltip key={pIdx} title={`${pDetails.title || prop} (${pDetails.type || 'any'})`}>
-                              <Badge 
-                                count={prop} 
-                                style={{ 
-                                  backgroundColor: 'rgba(0,0,0,0.04)', 
-                                  color: 'var(--text-secondary)',
-                                  boxShadow: 'none',
-                                  border: '1px solid var(--border-color)',
-                                  fontSize: '11px',
-                                  padding: '0 6px',
-                                  borderRadius: '4px'
-                                }} 
-                              />
-                            </Tooltip>
-                          );
-                        })
+                      {spec.payload_schema && typeof spec.payload_schema === 'object' && 'properties' in spec.payload_schema ? (
+                        (() => {
+                          const properties = (spec.payload_schema as { properties?: Record<string, { title?: string; type?: string }> }).properties || {};
+                          return Object.keys(properties).map((prop, pIdx) => {
+                            const pDetails = properties[prop] || {};
+                            return (
+                              <Tooltip key={pIdx} title={`${pDetails.title || prop} (${pDetails.type || 'any'})`}>
+                                <Badge
+                                  count={prop}
+                                  style={{
+                                    backgroundColor: 'rgba(0,0,0,0.04)',
+                                    color: 'var(--text-secondary)',
+                                    boxShadow: 'none',
+                                    border: '1px solid var(--border-color)',
+                                    fontSize: '11px',
+                                    padding: '0 6px',
+                                    borderRadius: '4px'
+                                  }}
+                                />
+                              </Tooltip>
+                            );
+                          });
+                        })()
                       ) : (
                         <Text type="secondary" style={{ fontSize: '11px' }}>No properties required (No payload task)</Text>
                       )}

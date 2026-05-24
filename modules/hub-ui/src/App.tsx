@@ -2,15 +2,15 @@ import React, { useEffect } from 'react';
 import { ConfigProvider, theme, App as AntdApp } from 'antd';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { client } from './generated/api/client.gen';
-import { useThemeStore } from './store/themeStore';
-import { useAuthStore } from './store/authStore';
+import { useThemeStore } from './stores/themeStore';
+import { useAuthStore } from './stores/authStore';
 import { Layout } from './components/Layout';
-import { Login } from './components/Login';
-import { Dashboard } from './components/Dashboard';
-import { ScheduleConfigs } from './components/ScheduleConfigs';
-import { ScheduleJobs } from './components/ScheduleJobs';
-import { SystemConfigs } from './components/SystemConfigs';
-import { TaskSpecs } from './components/TaskSpecs';
+import { Login } from './views/Login';
+import { Dashboard } from './views/Dashboard';
+import { ScheduleConfigs } from './views/ScheduleConfigs';
+import { ScheduleJobs } from './views/ScheduleJobs';
+import { SystemConfigs } from './views/SystemConfigs';
+import { TaskSpecs } from './views/TaskSpecs';
 
 // Set up the generated OpenAPI Client Base URL
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8389';
