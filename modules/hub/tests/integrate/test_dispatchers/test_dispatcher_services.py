@@ -325,7 +325,10 @@ class TestDispatchJobs:
         updated = result.scalar_one()
 
         assert updated.status == ScheduleJobStatus.FAILURE
-        assert updated.error_message == "boom"
+        assert (
+            updated.error_message
+            == f"An unexpected error occurred during task execution. Please refer to Request ID: {run_id} for details."
+        )
         assert updated.retry_need is False
 
     async def test_multiple_jobs_dispatched_concurrently(self, service, session):

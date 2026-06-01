@@ -232,9 +232,12 @@ class DispatcherService:
                 retry_need = True
             except Exception as e:
                 status = ScheduleJobStatus.FAILURE
-                error_message = str(e)
+                # We use a generic error message combined with the request run_id in the database record.
+                # This protects system integrity by hiding specific Python stack traces from the client-facing DB,
+                # while allowing support and operators to easily trace the full error details in the backend logs using the request ID.
+                error_message = f"An unexpected error occurred during task execution. Please refer to Request ID: {run_id} for details."
                 error_trace = get_exception_traceback_str(e)
-                logger.error(f"{prefix} failed: {e}\n{error_trace}")
+                logger.error(f"{prefix} failed (Request ID: {run_id}): {e}\n{error_trace}")
 
             finished_at = datetime.now(UTC)
 

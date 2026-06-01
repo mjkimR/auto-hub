@@ -17,8 +17,13 @@ Test Structure:
 """
 
 import logging
+import os
 
 import pytest
+
+# Set the default test secret key to prevent authentication misconfiguration issues during tests.
+# If APP_SECRET_KEY is already provided in the environment, it will be preserved.
+os.environ.setdefault("APP_SECRET_KEY", "test-secret-key")
 
 # Configure logging - reduce noise from SQLAlchemy and httpx
 logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)

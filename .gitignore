@@ -13,6 +13,7 @@ wheels/
 !.python-version
 !.vscode
 !.pre-commit-config.yaml
+!.github
 
 # Common agent tools for development
 !.agents

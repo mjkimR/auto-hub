@@ -47,3 +47,36 @@ def test_schedule_config_patch_mutually_exclusive_triggers():
             interval_seconds=60,
         )
     assert "cron_expression and interval_seconds are mutually exclusive." in str(exc.value)
+
+
+def test_cron_expression_caching():
+    from app.features.schedule_configs.schemas import _check_cron_expression, _validate_cron_expression
+
+    # Clear cache first to have clean stats
+    _check_cron_expression.cache_clear()
+
+    # 1. Test success caching
+    _validate_cron_expression("*/5 * * * *")
+    info = _check_cron_expression.cache_info()
+    assert info.misses == 1
+    assert info.hits == 0
+
+    # Recheck the same valid expression should hit the cache
+    _validate_cron_expression("*/5 * * * *")
+    info = _check_cron_expression.cache_info()
+    assert info.misses == 1
+    assert info.hits == 1
+
+    # 2. Test failure caching
+    with pytest.raises(ValueError):
+        _validate_cron_expression("invalid_cron_here")
+    info = _check_cron_expression.cache_info()
+    assert info.misses == 2
+    assert info.hits == 1
+
+    # Recheck the same invalid expression should hit the cache
+    with pytest.raises(ValueError):
+        _validate_cron_expression("invalid_cron_here")
+    info = _check_cron_expression.cache_info()
+    assert info.misses == 2
+    assert info.hits == 2

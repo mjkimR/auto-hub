@@ -1,8 +1,35 @@
+import functools
 from datetime import datetime
 
 from app_base.base.schemas.mixin import TimestampSchemaMixin, UUIDSchemaMixin
 from croniter import CroniterBadCronError, croniter
 from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+
+@functools.lru_cache(maxsize=1024)
+def _check_cron_expression(cron_expression: str) -> str | None:
+    """Validate cron expression and return an error message if invalid, or None if valid.
+
+    By returning None on success and the error message string on failure, this helper
+    ensures that both valid and invalid expressions are cached by lru_cache, avoiding
+    unnecessary parsing overhead during repeated validations.
+    """
+    try:
+        croniter(cron_expression)
+        return None
+    except (CroniterBadCronError, ValueError) as e:
+        return str(e)
+
+
+def _validate_cron_expression(cron_expression: str) -> None:
+    """Validate a cron expression and raise a ValueError if invalid.
+
+    Delegates to the cached helper _check_cron_expression to ensure validation results
+    are fetched from the cache when possible.
+    """
+    error_msg = _check_cron_expression(cron_expression)
+    if error_msg is not None:
+        raise ValueError(f"Invalid cron_expression: {error_msg}")
 
 
 class ScheduleConfigBase(BaseModel):
@@ -36,10 +63,7 @@ class ScheduleConfigBase(BaseModel):
         if self.cron_expression is not None and self.interval_seconds is not None:
             raise ValueError("cron_expression and interval_seconds are mutually exclusive.")
         if self.cron_expression is not None:
-            try:
-                croniter(self.cron_expression)
-            except (CroniterBadCronError, ValueError) as e:
-                raise ValueError(f"Invalid cron_expression: {e}") from e
+            _validate_cron_expression(self.cron_expression)
         return self
 
 
@@ -73,10 +97,7 @@ class ScheduleConfigPatch(BaseModel):
         if self.cron_expression is not None and self.interval_seconds is not None:
             raise ValueError("cron_expression and interval_seconds are mutually exclusive.")
         if self.cron_expression is not None:
-            try:
-                croniter(self.cron_expression)
-            except (CroniterBadCronError, ValueError) as e:
-                raise ValueError(f"Invalid cron_expression: {e}") from e
+            _validate_cron_expression(self.cron_expression)
         return self
 
 

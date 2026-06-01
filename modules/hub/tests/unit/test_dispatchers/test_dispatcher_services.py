@@ -264,7 +264,7 @@ class TestRunDispatch:
         assert mock_session.execute.call_count == 1
 
     async def test_generic_exception_sets_failure_with_error_message(self, service, job, config, run_id):
-        """On a generic exception, status should be FAILURE and error_message should contain the exception message."""
+        """On a generic exception, status should be FAILURE and error_message should contain a generic error message."""
         error_msg = "Something went wrong"
 
         async def _failing_task(**kwargs):
