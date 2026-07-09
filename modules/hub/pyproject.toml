@@ -6,7 +6,7 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "alembic>=1.18.3",
-    "app-base",
+    "app-layer-base",
     "asyncpg>=0.31.0",
     "cachetools>=7.0.0",
     "croniter>=6.0.0",
@@ -17,14 +17,16 @@ dependencies = [
     "orjson>=3.11.7",
     "pydantic-settings>=2.12.0",
     "sqlalchemy>=2.0.46",
+    "uvicorn",
 ]
 
 [tool.uv.sources]
-app-base = { git = "https://github.com/mjkimR/app-common.git", subdirectory = "app-base", rev = "main" }
+app-layer-base = { git = "https://github.com/mjkimR/app-common.git", subdirectory = "app-layer-base", rev = "main" }
 app-tools = { git = "https://github.com/mjkimR/app-common.git", subdirectory = "app-tools", rev = "main" }
 
 [dependency-groups]
 dev = [
+    "aiosqlite",
     "app-tools",
     "polyfactory>=3.2.0",
     "pytest>=9.0.2",
