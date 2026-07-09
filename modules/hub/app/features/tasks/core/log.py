@@ -12,7 +12,7 @@ Usage inside a task function::
 from __future__ import annotations
 
 from app.features.tasks.core.context import get_task_meta
-from app_base.core.log import logger as core_logger
+from app_layer_base.core.log import logger as core_logger
 
 
 class _TaskLogger:

@@ -2,7 +2,7 @@ import asyncio
 from logging.config import fileConfig
 
 from alembic import context
-from app_base.base.models.mixin import Base
+from app_layer_base.base.models.mixin import Base
 from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import async_engine_from_config
 import sqlalchemy as sa
@@ -31,7 +31,7 @@ from app.main import create_app  # noqa: F401, E402
 
 
 def get_url() -> str:
-    from app_base.config import get_app_settings
+    from app_layer_base.config import get_app_settings
 
     return get_app_settings().DATABASE_URL
 

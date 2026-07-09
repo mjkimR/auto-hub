@@ -2,9 +2,9 @@ from contextlib import asynccontextmanager
 
 from app.features import tasks
 from app.router import router
-from app_base.base.exceptions.handler import set_exception_handler
-from app_base.core import middlewares
-from app_base.core.log import logger
+from app_layer_base.base.exceptions.handler import set_exception_handler
+from app_layer_base.core import middlewares
+from app_layer_base.core.log import logger
 from fastapi import FastAPI
 from starlette.responses import RedirectResponse
 

@@ -3,7 +3,7 @@ from typing import Annotated
 from app.features.schedule_jobs.models import ScheduleJob
 from app.features.schedule_jobs.schemas import ScheduleJobCreate, ScheduleJobPatch, ScheduleJobPut
 from app.features.schedule_jobs.services import ScheduleJobContextKwargs, ScheduleJobService
-from app_base.base.usecases.crud import (
+from app_layer_base.base.usecases.crud import (
     BaseCreateUseCase,
     BaseDeleteUseCase,
     BaseGetMultiUseCase,

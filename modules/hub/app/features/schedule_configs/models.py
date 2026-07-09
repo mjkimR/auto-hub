@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from app.common.database import JSON_VARIANT
-from app_base.base.models.mixin import Base, TimestampMixin, UUIDMixin
+from app_layer_base.base.models.mixin import Base, TimestampMixin, UUIDMixin
 from sqlalchemy import DateTime, Index
 from sqlalchemy.orm import Mapped, mapped_column
 

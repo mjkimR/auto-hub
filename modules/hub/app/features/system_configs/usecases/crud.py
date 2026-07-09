@@ -3,7 +3,7 @@ from typing import Annotated
 from app.features.system_configs.models import SystemConfig
 from app.features.system_configs.schemas import SystemConfigCreate, SystemConfigPatch, SystemConfigPut
 from app.features.system_configs.services import SystemConfigContextKwargs, SystemConfigService
-from app_base.base.usecases.crud import (
+from app_layer_base.base.usecases.crud import (
     BaseCreateUseCase,
     BaseDeleteUseCase,
     BaseGetMultiUseCase,

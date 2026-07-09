@@ -3,7 +3,7 @@ from typing import Annotated
 from app.features.schedule_configs.models import ScheduleConfig
 from app.features.schedule_configs.schemas import ScheduleConfigCreate, ScheduleConfigPatch, ScheduleConfigPut
 from app.features.schedule_configs.services import ScheduleConfigContextKwargs, ScheduleConfigService
-from app_base.base.usecases.crud import (
+from app_layer_base.base.usecases.crud import (
     BaseCreateUseCase,
     BaseDeleteUseCase,
     BaseGetMultiUseCase,

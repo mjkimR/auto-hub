@@ -24,7 +24,7 @@ from app.features.tasks.core.log import logger
 from app.features.tasks.domains.appointment_chain.calendar import get_calendar_client
 from app.features.tasks.domains.appointment_chain.reconcile import ReconcileAction, ReconcileActionType, reconcile_chain
 from app.features.tasks.domains.appointment_chain.schemas import ChainConfig, ChainState
-from app_base.core.database.transaction import AsyncTransaction
+from app_layer_base.core.database.transaction import AsyncTransaction
 
 
 @task(name="calendar.reconcile_chain")

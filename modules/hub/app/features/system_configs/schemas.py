@@ -1,4 +1,4 @@
-from app_base.base.schemas.mixin import TimestampSchemaMixin, UUIDSchemaMixin
+from app_layer_base.base.schemas.mixin import TimestampSchemaMixin, UUIDSchemaMixin
 from pydantic import BaseModel, ConfigDict, Field
 
 

@@ -1,9 +1,9 @@
 from app.features.system_configs.models import SystemConfig
-from app_base.base.deps.filters.combine import create_combined_filter_dependency
-from app_base.base.deps.filters.decorators import filter_for
-from app_base.base.deps.ordering.base import order_by_for
-from app_base.base.deps.ordering.combine import create_order_by_dependency
-from app_base.base.deps.query_options import create_list_query_options_dependency
+from app_layer_base.base.deps.filters.combine import create_combined_filter_dependency
+from app_layer_base.base.deps.filters.decorators import filter_for
+from app_layer_base.base.deps.ordering.base import order_by_for
+from app_layer_base.base.deps.ordering.combine import create_order_by_dependency
+from app_layer_base.base.deps.query_options import create_list_query_options_dependency
 
 
 @filter_for(bound_type=str, alias="name")

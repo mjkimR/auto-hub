@@ -2,7 +2,7 @@ from datetime import datetime
 from uuid import UUID
 
 from app.features.schedule_jobs.models import ScheduleJobStatus
-from app_base.base.schemas.mixin import TimestampSchemaMixin, UUIDSchemaMixin
+from app_layer_base.base.schemas.mixin import TimestampSchemaMixin, UUIDSchemaMixin
 from pydantic import BaseModel, ConfigDict, Field
 
 

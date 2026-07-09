@@ -6,8 +6,8 @@ from app.common.utils.calc_schedule import calc_next_run as _calc_next_run_util
 from app.features.schedule_configs.models import ScheduleConfig
 from app.features.schedule_configs.repos import ScheduleConfigRepository
 from app.features.schedule_configs.schemas import ScheduleConfigCreate, ScheduleConfigPatch, ScheduleConfigPut
-from app_base.base.exceptions.basic import NotFoundException
-from app_base.base.services.base import (
+from app_layer_base.base.exceptions.basic import NotFoundException
+from app_layer_base.base.services.base import (
     BaseContextKwargs,
     BaseCreateServiceMixin,
     BaseDeleteServiceMixin,
@@ -15,8 +15,8 @@ from app_base.base.services.base import (
     BaseGetServiceMixin,
     BaseUpdateServiceMixin,
 )
-from app_base.base.services.exists_check_hook import ExistsCheckHooksMixin
-from app_base.base.services.unique_constraints_hook import UniqueConstraintHooksMixin
+from app_layer_base.base.services.exists_check_hook import ExistsCheckHooksMixin
+from app_layer_base.base.services.unique_constraints_hook import UniqueConstraintHooksMixin
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 

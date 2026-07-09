@@ -1,7 +1,7 @@
 import secrets
 
 from app.common.config import get_auth_config
-from app_base.core.log import logger
+from app_layer_base.core.log import logger
 from fastapi import HTTPException, Security, status
 from fastapi.security import APIKeyHeader
 

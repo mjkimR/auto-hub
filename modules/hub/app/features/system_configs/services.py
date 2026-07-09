@@ -3,7 +3,7 @@ from typing import Annotated
 from app.features.system_configs.models import SystemConfig
 from app.features.system_configs.repos import SystemConfigRepository
 from app.features.system_configs.schemas import SystemConfigCreate, SystemConfigPatch, SystemConfigPut
-from app_base.base.services.base import (
+from app_layer_base.base.services.base import (
     BaseContextKwargs,
     BaseCreateServiceMixin,
     BaseDeleteServiceMixin,
@@ -11,8 +11,8 @@ from app_base.base.services.base import (
     BaseGetServiceMixin,
     BaseUpdateServiceMixin,
 )
-from app_base.base.services.exists_check_hook import ExistsCheckHooksMixin
-from app_base.base.services.unique_constraints_hook import UniqueConstraintHooksMixin
+from app_layer_base.base.services.exists_check_hook import ExistsCheckHooksMixin
+from app_layer_base.base.services.unique_constraints_hook import UniqueConstraintHooksMixin
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 

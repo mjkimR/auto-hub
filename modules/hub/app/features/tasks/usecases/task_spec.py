@@ -3,7 +3,7 @@ import inspect
 
 from app.features.tasks.core import registry
 from app.features.tasks.core.schemas import TaskSpecResponse
-from app_base.base.usecases.base import BaseUseCase
+from app_layer_base.base.usecases.base import BaseUseCase
 from pydantic import BaseModel
 
 

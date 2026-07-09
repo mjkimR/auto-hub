@@ -1,7 +1,7 @@
 from uuid import UUID
 
 from app.common.database import JSON_VARIANT
-from app_base.base.models.mixin import Base, TimestampMixin
+from app_layer_base.base.models.mixin import Base, TimestampMixin
 from sqlalchemy import UUID as SA_UUID
 from sqlalchemy.orm import Mapped, mapped_column
 

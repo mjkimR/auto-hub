@@ -6,7 +6,7 @@ from app.features.schedule_configs.api.v1 import router as v1_schedule_configs_r
 from app.features.schedule_jobs.api.v1 import router as v1_schedule_jobs_router
 from app.features.system_configs.api.v1 import router as v1_system_configs_router
 from app.features.tasks.api.v1 import router as v1_tasks_router
-from app_base.core.database.deps import get_session
+from app_layer_base.core.database.deps import get_session
 from fastapi import APIRouter, Depends, Response, status
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession

@@ -16,10 +16,10 @@ from app.features.schedule_configs.usecases.crud import (
     PatchScheduleConfigUseCase,
     PutScheduleConfigUseCase,
 )
-from app_base.base.exceptions.basic import NotFoundException
-from app_base.base.repos.query_options import ListQueryOptions
-from app_base.base.schemas.delete_resp import DeleteResponse
-from app_base.base.schemas.paginated import PaginatedList
+from app_layer_base.base.exceptions.basic import NotFoundException
+from app_layer_base.base.repos.query_options import ListQueryOptions
+from app_layer_base.base.schemas.delete_resp import DeleteResponse
+from app_layer_base.base.schemas.paginated import PaginatedList
 from fastapi import APIRouter, Depends, status
 
 router = APIRouter(prefix="/schedule_configs", tags=["ScheduleConfig"], dependencies=[])

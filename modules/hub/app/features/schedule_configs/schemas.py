@@ -1,7 +1,7 @@
 import functools
 from datetime import datetime
 
-from app_base.base.schemas.mixin import TimestampSchemaMixin, UUIDSchemaMixin
+from app_layer_base.base.schemas.mixin import TimestampSchemaMixin, UUIDSchemaMixin
 from croniter import CroniterBadCronError, croniter
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 

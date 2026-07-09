@@ -3,7 +3,7 @@ from typing import Annotated
 from app.features.schedule_jobs.models import ScheduleJob
 from app.features.schedule_jobs.repos import ScheduleJobRepository
 from app.features.schedule_jobs.schemas import ScheduleJobCreate, ScheduleJobPatch, ScheduleJobPut
-from app_base.base.services.base import (
+from app_layer_base.base.services.base import (
     BaseContextKwargs,
     BaseCreateServiceMixin,
     BaseDeleteServiceMixin,
