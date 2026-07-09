@@ -7,7 +7,7 @@ from enum import Enum
 import orjson
 import pytest_asyncio
 from app.main import create_app
-from app_base.core.database.deps import get_session
+from app_layer_base.core.database.deps import get_session
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 

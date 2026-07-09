@@ -15,7 +15,7 @@ from app.features.tasks.domains.appointment_chain import run_reconcile
 from app.features.tasks.domains.appointment_chain.calendar.base import KIND_CONFIRMED, KIND_TENTATIVE
 from app.features.tasks.domains.appointment_chain.calendar.fake import reset_shared_store, shared_fake_client
 from app.features.tasks.domains.appointment_chain.schemas import ChainConfig, ChainState
-from app_base.core.database.transaction import AsyncTransaction
+from app_layer_base.core.database.transaction import AsyncTransaction
 
 pytestmark = pytest.mark.integrate
 

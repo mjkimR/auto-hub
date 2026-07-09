@@ -1,8 +1,8 @@
 from typing import Any, get_args
 
 import pytest
-from app_base.base.models.mixin import Base
-from app_base.base.repos.base import BaseRepository
+from app_layer_base.base.models.mixin import Base
+from app_layer_base.base.repos.base import BaseRepository
 from httpx import AsyncClient
 from polyfactory.factories.pydantic_factory import ModelFactory
 from pydantic import BaseModel

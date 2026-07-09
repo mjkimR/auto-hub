@@ -37,7 +37,7 @@ from tests.utils import clean_db_after_test
 
 def get_base():
     """Lazy import of Base to avoid model registration conflicts at import time."""
-    from app_base.base.models.mixin import Base
+    from app_layer_base.base.models.mixin import Base
 
     return Base
 
@@ -139,7 +139,7 @@ async def session_fixture(
         session.commit() only creates/releases a savepoint — no real commit happens.
         After the test the outer transaction is rolled back, wiping all changes.
     """
-    from app_base.core.database import engine as db_engine_mod
+    from app_layer_base.core.database import engine as db_engine_mod
 
     monkeypatch.setattr(db_engine_mod, "get_async_engine", lambda: async_engine)
 

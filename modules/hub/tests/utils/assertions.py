@@ -4,7 +4,7 @@ Custom assertion helpers for app_tests.
 
 from typing import Any
 
-from app_base.core.log import logger
+from app_layer_base.core.log import logger
 from httpx import Response
 
 
