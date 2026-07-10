@@ -24,7 +24,7 @@ def upgrade() -> None:
     """Upgrade schema."""
     op.create_table(
         'task_states',
-        sa.Column('config_id', sa.UUID(), nullable=False, comment='ScheduleConfig id this state belongs to (from the task execution context).'),
+        sa.Column('config_id', sa.Uuid(), nullable=False, comment='ScheduleConfig id this state belongs to (from the task execution context).'),
         sa.Column('data', sa.JSON().with_variant(postgresql.JSONB(astext_type=Text()), 'postgresql'), nullable=False, comment='Opaque, task-owned state blob.'),
         sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('(CURRENT_TIMESTAMP)'), nullable=False),
         sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('(CURRENT_TIMESTAMP)'), nullable=False),

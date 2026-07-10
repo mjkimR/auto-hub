@@ -1,6 +1,6 @@
 """Integration tests for the generic task_states store (load / upsert round trip)."""
 
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from app.features.task_states import store as task_state_store
@@ -30,3 +30,15 @@ class TestTaskStateStore:
 
         loaded = await task_state_store.load(session, config_id)
         assert loaded == {"count": 2, "extra": "x"}
+
+    async def test_all_digit_uuid_round_trips(self, session):
+        """A uuid whose hex is all decimal digits must survive SQLite's NUMERIC affinity.
+
+        With a ``sa.UUID`` column SQLite coerces such a key to a float, and reading the
+        row back raises. Pins the ``sa.Uuid`` (CHAR(32)) column type.
+        """
+        config_id = UUID("11111111-1111-1111-1111-111111111111")
+        await task_state_store.upsert(session, config_id, {"count": 1})
+        await session.commit()
+
+        assert await task_state_store.load(session, config_id) == {"count": 1}

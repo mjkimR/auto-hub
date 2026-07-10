@@ -25,6 +25,10 @@ import pytest
 # If APP_SECRET_KEY is already provided in the environment, it will be preserved.
 os.environ.setdefault("APP_SECRET_KEY", "test-secret-key")
 
+# Pin the in-memory calendar backend. Overridden, not defaulted: a developer's .env may set
+# CALENDAR_BACKEND=google, and the suite must never reach a live calendar.
+os.environ["CALENDAR_BACKEND"] = "fake"
+
 # Configure logging - reduce noise from SQLAlchemy and httpx
 logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
 logging.getLogger("httpx").setLevel(logging.WARNING)

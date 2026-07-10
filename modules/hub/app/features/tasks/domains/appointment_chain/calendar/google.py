@@ -8,15 +8,26 @@ rest of the feature works today against the fake backend. To activate it later:
        uv add --package scheduler-mgr google-api-python-client google-auth
 
 2. Create a GCP project, enable the Google Calendar API, create a **Service
-   Account**, and download its JSON key.
+   Account**, and download its JSON key. Grant that service account **no project
+   IAM roles** -- calendar access comes from the calendar's ACL, not from IAM, so
+   any role here only widens the blast radius if the key leaks. Never enable
+   domain-wide delegation.
 
-3. **Share** each target calendar with the service account's email
-   (``...@...iam.gserviceaccount.com``) granting "Make changes to events".
+3. Create a **dedicated** calendar for these chains (never share your primary
+   calendar: the service account would see every personal event, and a bug here
+   could delete them). **Share** it with the service account's email
+   (``...@...iam.gserviceaccount.com``) granting "Make changes to events" --
+   not "Make changes AND manage sharing".
 
 4. Point the app at the key and flip the backend::
 
        CALENDAR_BACKEND=google
        GOOGLE_SERVICE_ACCOUNT_FILE=/path/to/sa-key.json
+
+5. Set each chain's ``calendar_id`` payload field to that calendar's real id
+   (Settings -> Integrate calendar -> Calendar ID, e.g.
+   ``...@group.calendar.google.com``). Under service-account auth ``"primary"``
+   resolves to the service account's *own* empty calendar, not yours.
 
 Google's ``googleapiclient`` is synchronous, so every call is offloaded to a
 thread via :func:`asyncio.to_thread` to keep the async CalendarPort contract.
@@ -33,7 +44,9 @@ from typing import Any
 
 from app.features.tasks.domains.appointment_chain.calendar.base import CalendarEvent
 
-_SCOPES = ["https://www.googleapis.com/auth/calendar"]
+# Least privilege: events-only. Deliberately *not* ".../auth/calendar", which would
+# also permit deleting calendars and rewriting their sharing ACLs.
+_SCOPES = ["https://www.googleapis.com/auth/calendar.events"]
 
 
 @lru_cache(maxsize=1)

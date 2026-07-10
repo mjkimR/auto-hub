@@ -15,8 +15,13 @@ import typing as _typing
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Load all dependencies to trigger module-level imports
+from app.features import tasks  # type: ignore
 from app.main import create_app  # type: ignore  # noqa: F401
 from pydantic_settings import BaseSettings
+
+# Task modules are imported at app lifespan, not at import time, so their settings
+# classes would otherwise be invisible to the subclass walk below.
+tasks.autodiscover()
 
 OUTPUT_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env.example")
 

@@ -23,7 +23,10 @@ class CalendarSettings(BaseSettings):
 
     CALENDAR_BACKEND: str = Field(default="fake", description="Calendar backend to use: 'fake' or 'google'.")
     GOOGLE_SERVICE_ACCOUNT_FILE: str | None = Field(
-        default=None, description="Path to the Google service account JSON key (required when backend is 'google')."
+        default=None,
+        description="Path to the Google service account JSON key, e.g. ~/.config/scheduler-mgr/sa-key.json. "
+        "Required when backend is 'google'. Keep it outside the repo. "
+        "The target calendar id is not set here -- it is a per-chain task payload field.",
     )
 
 

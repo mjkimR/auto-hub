@@ -20,7 +20,11 @@ class ChainConfig(BaseModel):
 
     summary: str = Field(description="Event title used for the appointment (e.g. '이발').")
     interval_days: int = Field(description="Days between a confirmed appointment and the next one (e.g. 28).", gt=0)
-    calendar_id: str = Field(default="primary", description="Target calendar id (e.g. 'primary').")
+    calendar_id: str = Field(
+        default="primary",
+        description="Target calendar id. Under the Google backend this must be the calendar's real id "
+        "(e.g. '...@group.calendar.google.com'); 'primary' there resolves to the service account's own calendar.",
+    )
     auto_confirm: bool = Field(
         default=True, description="Auto-confirm a tentative appointment whose date has passed untouched."
     )

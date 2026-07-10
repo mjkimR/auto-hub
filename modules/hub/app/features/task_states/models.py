@@ -2,7 +2,7 @@ from uuid import UUID
 
 from app.common.database import JSON_VARIANT
 from app_layer_base.base.models.mixin import Base, TimestampMixin
-from sqlalchemy import UUID as SA_UUID
+from sqlalchemy import Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
 
@@ -21,8 +21,11 @@ class TaskState(Base, TimestampMixin):
 
     __tablename__ = "task_states"
 
+    # sa.Uuid, not sa.UUID: the latter emits literal "UUID" DDL on SQLite, which carries
+    # NUMERIC affinity, so an all-digit uuid hex is silently coerced to a float on read.
+    # sa.Uuid renders CHAR(32) there and native UUID on PostgreSQL.
     config_id: Mapped[UUID] = mapped_column(
-        SA_UUID(as_uuid=True),
+        Uuid(as_uuid=True),
         primary_key=True,
         comment="ScheduleConfig id this state belongs to (from the task execution context).",
     )

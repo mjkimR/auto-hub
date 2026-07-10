@@ -22,6 +22,16 @@ wheels/
 .agents/skills/*
 !.agents/skills/hub-testing-expert/
 
+# Credentials. Keep keys outside the repo (e.g. ~/.config/scheduler-mgr/sa-key.json).
+# Google's SA key download lands in the repo root as <project>-<keyid>.json, so the
+# root is denied wholesale rather than pattern-matched.
+secrets/
+*sa-key.json
+*service-account*.json
+*credentials*.json
+/*.json
+!/package-lock.json
+
 # Virtual environments
 .venv
 
