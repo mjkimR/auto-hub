@@ -1,3 +1,4 @@
+from collections.abc import AsyncIterator
 from typing import Annotated
 
 from app.features.system_configs.models import SystemConfig
@@ -11,21 +12,31 @@ from app_layer_base.base.services.base import (
     BaseGetServiceMixin,
     BaseUpdateServiceMixin,
 )
-from app_layer_base.base.services.exists_check_hook import ExistsCheckHooksMixin
-from app_layer_base.base.services.unique_constraints_hook import UniqueConstraintHooksMixin
+from app_layer_base.base.services.exists_check_hook import ExistsCheckHook
+from app_layer_base.base.services.hooks import Operation
+from app_layer_base.base.services.unique_constraints_hook import UniqueConstraintHook
 from fastapi import Depends
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.sql.expression import ColumnElement
 
 
 class SystemConfigContextKwargs(BaseContextKwargs):
     pass
 
 
+class SystemConfigUniqueHook(UniqueConstraintHook[SystemConfig, SystemConfigContextKwargs]):
+    async def constraints(
+        self,
+        op: Operation[SystemConfigContextKwargs],
+        data: BaseModel,
+    ) -> AsyncIterator[tuple[ColumnElement[bool], str]]:
+        name = getattr(data, "name", None)
+        if name:
+            yield SystemConfig.name == name, "SystemConfig name must be unique."
+
+
 class SystemConfigService(
-    UniqueConstraintHooksMixin[
-        SystemConfig, SystemConfigContextKwargs
-    ],  # Ensure unique constraints before create/update
-    ExistsCheckHooksMixin[SystemConfig, SystemConfigContextKwargs],  # Ensure existence checks before operations
     BaseCreateServiceMixin[SystemConfigRepository, SystemConfig, SystemConfigCreate, SystemConfigContextKwargs],
     BaseGetMultiServiceMixin[SystemConfigRepository, SystemConfig, SystemConfigContextKwargs],
     BaseGetServiceMixin[SystemConfigRepository, SystemConfig, SystemConfigContextKwargs],
@@ -36,6 +47,11 @@ class SystemConfigService(
 ):
     def __init__(self, repo: Annotated[SystemConfigRepository, Depends()]):
         self._repo = repo
+        # Contexts are entered in this order and exited in reverse.
+        self.hooks = (
+            SystemConfigUniqueHook(),  # Reject duplicate names before create/update
+            ExistsCheckHook(),  # Reject update/delete of a row that does not exist
+        )
 
     @property
     def repo(self) -> SystemConfigRepository:
@@ -45,14 +61,6 @@ class SystemConfigService(
     def context_model(self):
         return SystemConfigContextKwargs
 
-    async def _unique_constraints(
-        self,
-        obj_data: SystemConfigCreate | SystemConfigPut | SystemConfigPatch,
-        context: SystemConfigContextKwargs,
-    ):
-        if obj_data.name:
-            yield self.repo.model.name == obj_data.name, "SystemConfig name must be unique."
-
     async def get_by_name(
         self,
         session: AsyncSession,
@@ -60,4 +68,4 @@ class SystemConfigService(
         context: SystemConfigContextKwargs | None = None,
     ) -> SystemConfig | None:
         """Get a SystemConfig by its name."""
-        return await self.repo.get(session, where=self.repo.model.name == name)
+        return await self.repo.get_by_name(session, name)

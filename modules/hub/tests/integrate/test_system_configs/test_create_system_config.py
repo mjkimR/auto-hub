@@ -3,7 +3,7 @@ from app.features.system_configs.models import SystemConfig
 from app.features.system_configs.schemas import SystemConfigCreate
 from app.features.system_configs.services import SystemConfigContextKwargs
 from app.features.system_configs.usecases.crud import CreateSystemConfigUseCase
-from app_layer_base.base.exceptions.basic import BadRequestException
+from app_layer_base.base.exceptions.basic import ConflictException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tests.utils.fastapi import resolve_dependency
@@ -64,5 +64,5 @@ class TestCreateSystemConfig:
         config_in = SystemConfigCreate(name="duplicate_key", data={"new": "data"})
         context: SystemConfigContextKwargs = {}
 
-        with pytest.raises(BadRequestException):
+        with pytest.raises(ConflictException):
             await use_case.execute(config_in, context=context)
