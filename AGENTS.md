@@ -46,7 +46,7 @@ We use **just** as the primary command runner and task orchestrator.
 1. **Security**: NEVER commit `.env` files. NEVER log PII.
 2. **Commits**: Concise, imperative, and **no emojis** (e.g., "Add user-defined timeout").
 3. **Pre-flight Checks**: Always run `just lint` and verification builds before proposing a final solution.
-4. **Git Commit**: NEVER execute `git commit` commands or perform commits automatically. Commiting changes must be left entirely to the user.
+4. **Git Commit**: Do not execute `git commit` commands or perform commits automatically unless explicitly requested or approved by the user.
 
 
 
