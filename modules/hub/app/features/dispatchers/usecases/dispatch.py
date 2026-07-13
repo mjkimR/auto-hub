@@ -42,7 +42,7 @@ class DispatchUseCase(BaseUseCase):
                 )
                 for config in due_configs
             ]
-            jobs = await self.job_service.repo.create_multi(session, jobs_creates)
+            jobs = await self.job_service.create_multi(session, jobs_creates)
             for job, config in zip(jobs, due_configs, strict=True):
                 job_dto = ScheduleJobRead.model_validate(job)
                 config_dto = ScheduleConfigRead.model_validate(config)
@@ -64,11 +64,10 @@ class DispatchUseCase(BaseUseCase):
 
                 schedule_jobs.append((job_dto, config_dto))
 
-            # Persist all changes to ScheduleConfigs and ScheduleJobs in a single transaction
+            # Persist all changes to ScheduleConfigs and ScheduleJobs in a single
+            # transaction; AsyncTransaction commits on exit.
             session.add_all(due_configs)
             session.add_all(retry_jobs)
-
-            await session.commit()
 
         # Run the schedule jobs
         if schedule_jobs:
