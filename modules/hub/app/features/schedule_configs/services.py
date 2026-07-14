@@ -1,4 +1,4 @@
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator, AsyncIterator
 from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import Annotated, Any
@@ -81,7 +81,7 @@ class ScheduleConfigNextRunHook(
         pk: PrimaryKeyType,
         data: BaseModel,
         partial: bool = True,
-    ) -> AsyncIterator[None]:
+    ) -> AsyncGenerator[None]:
         # ExistsCheckHook has already loaded this row into the session's
         # identity map, so this fetch issues no extra query.
         op.state[self._STATE_KEY] = await op.repo.get_by_pk(op.session, pk)
