@@ -32,6 +32,7 @@ COPY --from=builder /app/.venv /app/.venv
 COPY modules/hub/app ./app
 COPY modules/hub/alembic.ini ./alembic.ini
 COPY modules/hub/migrations ./migrations
+COPY templates/github-actions /app/templates/github-actions
 COPY docker/run_hub.sh ./run_hub.sh
 RUN chmod +x run_hub.sh
 

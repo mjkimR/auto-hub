@@ -1,12 +1,13 @@
 from contextlib import asynccontextmanager
 
 from app.features import tasks
+from app.features.projects.services import ProjectError
 from app.router import router
 from app_layer_base.base.exceptions.handler import set_exception_handler
 from app_layer_base.core import middlewares
 from app_layer_base.core.log import logger
 from fastapi import FastAPI
-from starlette.responses import RedirectResponse
+from starlette.responses import JSONResponse, RedirectResponse
 
 
 def get_lifespan():
@@ -52,6 +53,11 @@ def create_app():
     app.include_router(router)
 
     set_exception_handler(app)
+
+    @app.exception_handler(ProjectError)
+    async def project_error_handler(request, exc: ProjectError):
+        return JSONResponse(status_code=exc.status, content={"detail": exc.detail})
+
     return app
 
 
