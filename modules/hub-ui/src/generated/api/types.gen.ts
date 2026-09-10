@@ -180,6 +180,28 @@ export type HttpValidationError = {
     detail?: Array<ValidationError>;
 };
 
+/**
+ * JobSnapshot
+ */
+export type JobSnapshot = {
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Status
+     */
+    status: string;
+    /**
+     * Conclusion
+     */
+    conclusion?: string | null;
+    /**
+     * Url
+     */
+    url?: string | null;
+};
+
 export type JsonValue = unknown;
 
 /**
@@ -308,6 +330,110 @@ export type PaginatedListSystemConfigRead = {
      * First
      */
     readonly first: boolean;
+};
+
+/**
+ * PipelineObservation
+ */
+export type PipelineObservation = {
+    /**
+     * Kind
+     */
+    kind?: 'pipeline_observation';
+    /**
+     * Observed At
+     */
+    observed_at: string;
+    config: PipelineObservationConfig;
+    /**
+     * Pulls
+     */
+    pulls: Array<PullObservation>;
+};
+
+/**
+ * PipelineObservationConfig
+ *
+ * One repo/project connection and an explicit, bounded set of PRs to observe.
+ */
+export type PipelineObservationConfig = {
+    /**
+     * Repository
+     */
+    repository: string;
+    /**
+     * Linear Project Id
+     *
+     * Connection metadata; Linear integration is not implemented yet.
+     */
+    linear_project_id: string;
+    /**
+     * Github Connector Id
+     */
+    github_connector_id: string;
+    /**
+     * Pull Numbers
+     */
+    pull_numbers: Array<number>;
+    verification: VerificationConfig;
+};
+
+/**
+ * PullObservation
+ */
+export type PullObservation = {
+    /**
+     * Number
+     */
+    number: number;
+    /**
+     * Head Sha
+     */
+    head_sha: string;
+    /**
+     * Base Sha
+     */
+    base_sha: string;
+    /**
+     * Url
+     */
+    url: string;
+    result: VerificationResult;
+    run?: RunSnapshot | null;
+};
+
+/**
+ * RunSnapshot
+ */
+export type RunSnapshot = {
+    /**
+     * Id
+     */
+    id: number;
+    /**
+     * Attempt
+     */
+    attempt: number;
+    /**
+     * Head Sha
+     */
+    head_sha: string;
+    /**
+     * Status
+     */
+    status: string;
+    /**
+     * Conclusion
+     */
+    conclusion?: string | null;
+    /**
+     * Url
+     */
+    url: string;
+    /**
+     * Jobs
+     */
+    jobs?: Array<JobSnapshot>;
 };
 
 /**
@@ -992,6 +1118,52 @@ export type ValidationError = {
 };
 
 /**
+ * VerificationConfig
+ */
+export type VerificationConfig = {
+    /**
+     * Workflow
+     *
+     * Workflow filename, not display name.
+     */
+    workflow: string;
+    /**
+     * Required Jobs
+     *
+     * Exact GitHub Actions job names.
+     */
+    required_jobs: Array<string>;
+    /**
+     * Event
+     */
+    event?: 'pull_request';
+};
+
+/**
+ * VerificationResult
+ */
+export type VerificationResult = {
+    status: VerificationStatus;
+    /**
+     * Reason
+     */
+    reason: string;
+    /**
+     * Missing Jobs
+     */
+    missing_jobs?: Array<string>;
+    /**
+     * Unsuccessful Jobs
+     */
+    unsuccessful_jobs?: Array<string>;
+};
+
+/**
+ * VerificationStatus
+ */
+export type VerificationStatus = 'passed' | 'waiting' | 'failed' | 'blocked' | 'closed';
+
+/**
  * PaginatedList[ConnectorRead]
  */
 export type PaginatedListConnectorReadWritable = {
@@ -1337,6 +1509,61 @@ export type PutConnectorApiV1ConnectorsConnectorIdPutResponses = {
 };
 
 export type PutConnectorApiV1ConnectorsConnectorIdPutResponse = PutConnectorApiV1ConnectorsConnectorIdPutResponses[keyof PutConnectorApiV1ConnectorsConnectorIdPutResponses];
+
+export type InspectPipelineApiV1PipelinesInspectPostData = {
+    body: PipelineObservationConfig;
+    path?: never;
+    query?: never;
+    url: '/api/v1/pipelines/inspect';
+};
+
+export type InspectPipelineApiV1PipelinesInspectPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type InspectPipelineApiV1PipelinesInspectPostError = InspectPipelineApiV1PipelinesInspectPostErrors[keyof InspectPipelineApiV1PipelinesInspectPostErrors];
+
+export type InspectPipelineApiV1PipelinesInspectPostResponses = {
+    /**
+     * Successful Response
+     */
+    200: PipelineObservation;
+};
+
+export type InspectPipelineApiV1PipelinesInspectPostResponse = InspectPipelineApiV1PipelinesInspectPostResponses[keyof InspectPipelineApiV1PipelinesInspectPostResponses];
+
+export type GetPipelineObservationApiV1PipelinesObservationsScheduleIdGetData = {
+    body?: never;
+    path: {
+        /**
+         * Schedule Id
+         */
+        schedule_id: string;
+    };
+    query?: never;
+    url: '/api/v1/pipelines/observations/{schedule_id}';
+};
+
+export type GetPipelineObservationApiV1PipelinesObservationsScheduleIdGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetPipelineObservationApiV1PipelinesObservationsScheduleIdGetError = GetPipelineObservationApiV1PipelinesObservationsScheduleIdGetErrors[keyof GetPipelineObservationApiV1PipelinesObservationsScheduleIdGetErrors];
+
+export type GetPipelineObservationApiV1PipelinesObservationsScheduleIdGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: PipelineObservation;
+};
+
+export type GetPipelineObservationApiV1PipelinesObservationsScheduleIdGetResponse = GetPipelineObservationApiV1PipelinesObservationsScheduleIdGetResponses[keyof GetPipelineObservationApiV1PipelinesObservationsScheduleIdGetResponses];
 
 export type GetScheduleConfigsApiV1ScheduleConfigsGetData = {
     body?: never;
