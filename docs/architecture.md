@@ -45,14 +45,17 @@ The initial version relies on periodic polling; later, event webhooks and period
 
 - `ScheduleConfig` / `ScheduleJob`: When to observe and the single tick execution result.
 - Current `TaskState`: The latest read-only observation report. Not an execution history or permanent audit log.
-- Future `ProjectConnection`: The persistent model for repo ↔ Linear project mappings and policies.
+- `ProjectConnection`: The persistent model for repo ↔ Linear project mappings, the required-job contract, and the last connection check.
 - Future `PipelineRun` / Execution Attempt: State spanning issue to PR completion, request IDs, retry and recovery logs.
 - GitHub: Source of truth for PR heads, check runs, and actual merge status.
 - Linear: Source of truth for task contents, dependencies, and user status changes. Hub synchronizes required operational state.
 
-In the initial stage, connection configuration resides in `ScheduleConfig.payload` rather than dedicated project CRUD models.
-`linear_project_id` serves as connection identification metadata; existence and uniqueness are not yet validated against the Linear API.
-When the project model is introduced, this payload will be migrated.
+A repository and a Linear project map to exactly one another, enforced by unique constraints on `ProjectConnection`.
+`pipeline.observe_project` schedules reference only `project_id` and PR numbers, so the connection is resolved at run time and an edit can never leave a schedule holding a stale contract.
+Every edit bumps `revision`; observations and connection checks that started against an older revision are discarded rather than saved.
+`linear_project_id` remains connection metadata, but a saved Linear connector lets the connection check confirm the project is readable.
+
+Legacy `pipeline.observe` schedules that still carry their connection inline are migrated explicitly and transactionally through `POST /api/v1/projects/import_schedule`, which keeps the schedule's trigger, PR numbers, enabled state, and history.
 
 ## Prerequisites Before Introducing External Writes
 

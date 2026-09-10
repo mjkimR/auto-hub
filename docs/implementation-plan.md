@@ -18,13 +18,27 @@ Verification on 2026-09-10: All 207 backend tests passing (including 42 new obse
 Template YAML parsing, job names, and local document links verified.
 Live GitHub API queries and Actions execution in target repositories were not performed.
 
-## 2. Project Registration & CI Onboarding
+## 2. Project Registration & CI Onboarding — Completed
 
-Introduce `ProjectConnection` model, migrations, CRUD, and UI, migrating existing observation payloads.
-Validate repo/project mapping uniqueness, connector types and permissions, and required job names.
-Provide onboarding paths for both existing CI connection and template installation, validating one verification run during connection tests.
-Templates will be distributed initially as copyable files, with repeated patterns extracted into reusable workflows later.
-Provide updates that clarify selected versions and changelogs.
+- [x] `ProjectConnection` model, migration, and CRUD API with a revision guard on every edit.
+- [x] Repo ↔ Linear project mapping uniqueness, connector provider/enabled validation, and the required-job contract.
+- [x] `pipeline.observe_project` task that resolves the saved connection at run time instead of copying it into the payload.
+- [x] Explicit, transactional import of legacy `pipeline.observe` schedules, preserving trigger, PRs, enabled state, and history.
+- [x] Connection check that reads GitHub repository/workflow access, verifies one current PR run, and optionally confirms Linear project access.
+- [x] Versioned starter templates served with their changelog and required job names, plus a project management UI.
+- [x] Tests for mapping conflicts, connector misuse, revision conflicts, deletion guards, check failures, import conflicts, and scheduled runs.
+- [x] Verification via `just lint`, `just check`, and `just test`.
+
+Completion criteria: Register a repository and Linear project as one saved connection, confirm through a connection check that CI is readable and one PR verifies, and schedule observations that follow later edits to that connection without external service writes.
+Connection checks record their result on the project; an edit clears it so a stale check never reads as current.
+A schedule's observation is discarded if the project revision, the schedule, or its payload changed while the observation was running.
+
+Verification on 2026-09-10: All 260 backend tests passing (including 53 new project registration and onboarding tests), linting, Python type checks, and Frontend build passing, generated API client refreshed.
+Migration upgrade and downgrade were applied against a scratch SQLite database with a seeded project and adopted schedule; the downgrade restored the inline legacy payload before dropping the table.
+Live GitHub and Linear API calls were not performed; both boundaries are covered with test HTTP transports.
+
+Deferred: the connection check reports `ready` only when every check passed, so a project with no Linear connector stays `skipped` and therefore not ready.
+Extracting repeated template steps into reusable workflows also remains follow-up work.
 
 ## 3. Linear Issue → Codex Implementation Dispatch
 

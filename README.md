@@ -17,10 +17,11 @@ Drawing on operational experience from `g-sandbox`, Godot-specific logic, planni
 
 ## Implementation Status
 
-The existing scheduler and management UI are preserved. The initial implementation scope is **read-only CI observation**.
-Given connection settings and explicitly specified PRs, it evaluates the results of required GitHub Actions jobs and persists the latest observation on scheduled runs. The CI templates serve as starter files to install in target repositories.
+The existing scheduler and management UI are preserved. The current implementation scope is **read-only CI observation on saved project connections**.
+A repository and a Linear project are registered as one connection, a connection check confirms CI is readable and verifies one current PR, and scheduled runs persist the latest observation of the required GitHub Actions jobs.
+The CI templates serve as starter files to install in target repositories, and existing `pipeline.observe` schedules can be imported onto a project connection.
 
-Linear issue selection, Codex dispatch, manual CI execution, automated revision/merge, dedicated project UI, long-term execution history (`PipelineRun`), and distribution of shared reusable workflows are planned as follow-up work.
+Linear issue selection, Codex dispatch, manual CI execution, automated revision/merge, long-term execution history (`PipelineRun`), and distribution of shared reusable workflows are planned as follow-up work.
 Currently, a status of `passed` in observation results signifies fulfillment of the CI contract, not approval for merge.
 
 ## Documentation

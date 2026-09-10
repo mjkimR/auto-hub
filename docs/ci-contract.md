@@ -74,10 +74,15 @@ Raw response bodies and tokens are never included in error messages.
 
 Configure the following values in `POST /api/v1/schedule_configs` or the schedule management UI:
 
-- `task_func`: `pipeline.observe`
+- `task_func`: `pipeline.observe_project` (preferred) or `pipeline.observe` (legacy, connection inline)
 - `interval_seconds`: For example `300` (mutually exclusive with `cron_expression`)
-- `payload`: The connection JSON shown above
+- `payload`: `{"project_id": "<ProjectConnection id>", "pull_numbers": [42]}`, or the connection JSON shown above for the legacy task
 - `enabled`: `true` when active
+
+`pipeline.observe_project` resolves the repository, connector, and required-job contract from the saved project connection at run time.
+Editing the project therefore takes effect on the next tick, and a report observed against an earlier revision is discarded instead of being saved.
+A disabled project fails its scheduled run rather than silently skipping it, leaving the previous report intact.
+Existing `pipeline.observe` schedules can be moved onto a project connection with `POST /api/v1/projects/import_schedule`; the trigger, PR numbers, enabled state, and history are preserved.
 
 Creating a schedule does not automatically start a timer.
 Due schedules are executed when external triggers call `POST /api/v1/dispatchers/trigger`.
