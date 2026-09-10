@@ -65,6 +65,7 @@ from tests.fixtures.auth import *
 
 # HTTP Client fixtures
 from tests.fixtures.clients import *
+from tests.fixtures.connectors import *
 from tests.fixtures.data_factory import *
 
 # Test data fixtures

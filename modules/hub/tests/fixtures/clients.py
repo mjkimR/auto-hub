@@ -31,7 +31,7 @@ class AsyncClientWithJson(AsyncClient):
 
 
 @pytest_asyncio.fixture(name="app")
-async def app_fixture(session: AsyncSession):
+async def app_fixture(session: AsyncSession, credential_key_provider):
     """Create FastAPI app with session override."""
 
     def get_session_override():
@@ -39,6 +39,9 @@ async def app_fixture(session: AsyncSession):
 
     app = create_app()
     app.dependency_overrides[get_session] = get_session_override
+    from app.features.connectors.crypto import get_credential_key_provider
+
+    app.dependency_overrides[get_credential_key_provider] = lambda: credential_key_provider
     yield app
     app.dependency_overrides.clear()
 
