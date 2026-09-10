@@ -11,6 +11,7 @@ import { ScheduleConfigs } from './views/ScheduleConfigs';
 import { ScheduleJobs } from './views/ScheduleJobs';
 import { SystemConfigs } from './views/SystemConfigs';
 import { TaskSpecs } from './views/TaskSpecs';
+import { Projects } from './views/Projects';
 
 // Set up the generated OpenAPI Client Base URL
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8389';
@@ -32,6 +33,8 @@ const ContentSwitcher: React.FC = () => {
   const { activeTab } = useThemeStore();
 
   switch (activeTab) {
+    case 'projects':
+      return <Projects />;
     case 'configs':
       return <ScheduleConfigs />;
     case 'jobs':
@@ -79,4 +82,3 @@ export default function App() {
     </QueryClientProvider>
   );
 }
-

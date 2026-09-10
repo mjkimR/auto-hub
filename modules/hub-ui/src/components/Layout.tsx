@@ -4,6 +4,7 @@ import { useThemeStore } from '../stores/themeStore';
 import { useAuthStore } from '../stores/authStore';
 import {
   LayoutDashboard,
+  FolderGit2,
   Clock,
   Activity,
   Sliders,
@@ -49,6 +50,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const health = getHealthStatus();
 
   const menuItems = [
+    { key: 'projects', icon: <FolderGit2 size={18} />, label: <span className="font-outfit" style={{ fontSize: '15px', fontWeight: 500 }}>Projects</span> },
     {
       key: 'dashboard',
       icon: <LayoutDashboard size={18} />,
@@ -123,10 +125,10 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                 fontWeight: 800
               }}
             >
-              SCHEDULER
+              AUTO HUB
             </h1>
             <p className="font-outfit" style={{ margin: 0, fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.05em' }}>
-              MANAGER HUB
+              DEVELOPMENT AUTOMATION
             </p>
           </div>
         </div>
@@ -199,7 +201,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         >
           {/* Header Title based on Active View */}
           <h2 className="font-outfit" style={{ margin: 0, fontSize: '20px', fontWeight: 700, textTransform: 'capitalize' }}>
-            {activeTab === 'configs' ? 'Schedule Configurations' : activeTab === 'jobs' ? 'Execution History' : activeTab === 'system' ? 'System Configurations' : activeTab === 'specs' ? 'Task Specifications' : 'Dashboard Summary'}
+            {activeTab === 'projects' ? 'Project Connections' : activeTab === 'configs' ? 'Schedule Configurations' : activeTab === 'jobs' ? 'Execution History' : activeTab === 'system' ? 'System Configurations' : activeTab === 'specs' ? 'Task Specifications' : 'Dashboard Summary'}
           </h2>
 
           <Space size="middle">
