@@ -1,18 +1,14 @@
-# Scheduler Manager - Hub Module
+# Auto Hub - Backend
 
-This is the main backend service for the Scheduler Manager.
+This is the FastAPI backend for Auto Hub, built on the existing scheduler engine.
 
-For detailed documentation on features, architecture, and local development, please refer to the [Root README](../../README.md).
+See the [Root README](../../README.md), [architecture](../../docs/architecture.md), and
+[CI observation contract](../../docs/ci-contract.md) for current scope and development direction.
 
-## Quick Start (from this directory)
+## Development
 
-```bash
-# Run migrations
-alembic upgrade head
-
-# Start server
-fastapi dev app/main.py
-```
+Run commands from the repository root using the [justfile](../../justfile).
+See [development and operations](../../docs/development.md) for verification and scheduler behavior.
 
 ## Connector credential encryption
 

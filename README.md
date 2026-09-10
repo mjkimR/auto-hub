@@ -1,87 +1,53 @@
-# Scheduler Manager
+# Auto Hub
 
-## Overview
+Auto Hub is a personal development automation hub connecting GitHub, Linear, and Codex.
+Building on top of the existing Scheduler Manager foundation (schedules, execution history, and connector management),
+it incrementally constructs capabilities to manage work progress across multiple repositories.
 
-This is a personal project. Its primary purpose is for personal use, future reference, and to provide context to AI assistants.
+## Direction
 
-It provides a lightweight hub for dispatching scheduled jobs dynamically, supporting both cron-based and interval-based task executions.
+- A single connection maps **1 GitHub repository ↔ 1 Linear project**.
+- **Hub** handles task selection, progress tracking, revision requests, retries, pause/resume, and merge policies.
+- **GitHub Actions in the target repository** handles environment setup, testing, linting, and building.
+- Existing CIs can be connected as-is, while repositories without CI are provided with [templates](templates/github-actions/README.md).
+- Differences between repositories are expressed through required verification, review/merge policies, and the repository's own tests.
 
-## Key Features & Architecture
+The target workflow is: `Linear issue → Codex implementation → PR verification → Revision or merge → Linear completion`.
+Drawing on operational experience from `g-sandbox`, Godot-specific logic, planning notes, and multi-prototype rules are kept out of the core engine.
 
-The project follows Clean Architecture principles (API -> UseCase -> Service -> Repository):
+## Implementation Status
 
-*   **Dynamic Task Discovery**: Tasks are automatically discovered on application startup via `tasks.autodiscover()`.
-*   **Atomic Dispatching**: Uses `AsyncTransaction` and `FOR UPDATE SKIP LOCKED` pattern when fetching due schedules. This guarantees that even if multiple dispatchers are triggered simultaneously (e.g., Cloud Run scaling), no task is executed twice.
-*   **Resilience & Retries**: Built-in logic retrieves and automatically retries previously failed jobs, clearing past error messages to ensure fault tolerance.
-*   **Flexible Scheduling**: Supports both `cron_expression` and `interval_seconds`, with JSON-based `payload` parameters to pass context into tasks.
-*   **Task Specification API**: Exposes `/api/v1/tasks/specs` which provides auto-generated JSON schemas for all registered task payloads, facilitating front-end integration or manual triggering.
-*   **System Configuration**: Includes a `SystemConfig` store for managing global application state or feature flags without code changes.
+The existing scheduler and management UI are preserved. The initial implementation scope is **read-only CI observation**.
+Given connection settings and explicitly specified PRs, it evaluates the results of required GitHub Actions jobs and persists the latest observation on scheduled runs. The CI templates serve as starter files to install in target repositories.
 
-## Observability & Tracing
+Linear issue selection, Codex dispatch, manual CI execution, automated revision/merge, dedicated project UI, long-term execution history (`PipelineRun`), and distribution of shared reusable workflows are planned as follow-up work.
+Currently, a status of `passed` in observation results signifies fulfillment of the CI contract, not approval for merge.
 
-*   **Context-Aware Logging**: Uses `Loguru` integrated with `ContextVars`. The `task_logger` automatically binds `config_id`, `config_name`, and `run_id` to every log record within a task execution, enabling seamless tracing in Google Cloud Logging.
-*   **Execution History**: Every dispatch attempt is recorded in `ScheduleJob` with status, timing, and full traceback on failure.
+## Documentation
 
-## Task Development Guide
+| Document | Content |
+| --- | --- |
+| [Documentation Guide](docs/README.md) | Reading order and document roles |
+| [Architecture](docs/architecture.md) | Responsibilities and state ownership across Hub, repositories, and external services |
+| [CI Connection Contract](docs/ci-contract.md) | Required verification, result evaluation, connection and execution examples |
+| [Implementation Plan](docs/implementation-plan.md) | Initial implementation scope and follow-up milestones |
+| [Development & Operations](docs/development.md) | Existing scheduler foundation and local verification |
+| [CI Templates](templates/github-actions/README.md) | Initial setup for Python+uv and Node+npm |
 
-To add a new task, simply decorate an async function with `@task()`:
+## Development
 
-```python
-from app.features.tasks import task
-from app.features.tasks.core.log import logger
-from pydantic import BaseModel
+The backend is built with Python/FastAPI in `modules/hub`, and the frontend is built with React/TypeScript in `modules/hub-ui`.
+PostgreSQL is the standard database, with SQLite used for default testing.
 
-class MyPayload(BaseModel):
-    user_id: int
+The single source of truth for execution commands and default arguments is [justfile](justfile). Check available commands with `just --list`.
 
-@task(name="custom.my_task")
-async def my_task(payload: MyPayload):
-    logger.info(f"Processing user {payload.user_id}")
-    # ... business logic ...
+```sh
+just init
+just dev-run hub
+just dev-run hub-ui
+just lint
+just check
+just test
 ```
 
-Tasks are automatically registered if they reside within the `app.features.tasks` package (or submodules).
-
-## Testing Strategy
-
-We follow the **Test Trophy** model, prioritizing **Integration** and **E2E** tests for high refactoring resilience.
-
-*   **E2E Tests**: Verify the full API-to-DB flow using `httpx.AsyncClient`.
-*   **Integration Tests**: Test core logic (e.g., `DispatcherService`) with a real in-memory SQLite database.
-*   **Unit Tests**: Reserved for complex isolated logic like schedule calculations.
-
-See [modules/hub/tests/GUIDE.md](modules/hub/tests/GUIDE.md) for the full testing philosophy and tool usage (`make_db`, `resolve_dependency`).
-
-## Stack
-
-*   **Language**: Python 3.13
-*   **Framework**: FastAPI
-*   **Database & ORM**: SQLAlchemy 2.0 (Async), Alembic migrations, PostgreSQL (Production) / SQLite (Testing)
-*   **Tooling**: `uv` (Package Management), `ruff` (Lint/Format), `pyright` (Type Checking)
-
-## Local Development
-
-```bash
-# 1. Install dependencies using uv
-uv sync
-
-# 2. Run database migrations
-cd modules/hub
-alembic upgrade head
-
-# 3. Start the local development server (Runs on port 8389)
-fastapi dev app/main.py
-```
-
-## Cloud Architecture & Deployment
-
-The application is designed to be deployed natively on **Google Cloud Platform (GCP)**:
-*   **Backend Application**: Hosted on **Google Cloud Run**.
-*   **Triggering Mechanism**: **Google Cloud Scheduler** periodically calls the `/api/v1/dispatchers/trigger` endpoint.
-
-### ⚠️ Critical Deployment Note: Timeout Configuration
-
-Because the HTTP response is blocked until all dispatched jobs complete, you **must align timeouts across three layers**:
-1.  **Application Middleware**: Internal `timeout_middleware` in `app/main.py`.
-2.  **Google Cloud Run**: Container timeout limit (e.g., 300s+).
-3.  **Google Cloud Scheduler**: HTTP execution timeout.
+For connector credential encryption setup, refer to the [Hub module documentation](modules/hub/README.md#connector-credential-encryption).
