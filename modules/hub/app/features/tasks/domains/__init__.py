@@ -9,6 +9,6 @@ domain so its ``@task``-decorated entrypoints register. Add new task domains to
 the imports below.
 """
 
-from app.features.tasks.domains import appointment_chain
+from app.features.tasks.domains import appointment_chain, pipeline
 
-__all__ = ["appointment_chain"]
+__all__ = ["appointment_chain", "pipeline"]
