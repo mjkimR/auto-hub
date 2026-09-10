@@ -2,7 +2,7 @@
 
 import type { Client, Options as Options2, TDataShape } from './client';
 import { client } from './client.gen';
-import type { CreateScheduleConfigApiV1ScheduleConfigsPostData, CreateScheduleConfigApiV1ScheduleConfigsPostErrors, CreateScheduleConfigApiV1ScheduleConfigsPostResponses, CreateScheduleJobApiV1ScheduleJobsPostData, CreateScheduleJobApiV1ScheduleJobsPostErrors, CreateScheduleJobApiV1ScheduleJobsPostResponses, CreateSystemConfigApiV1SystemConfigsPostData, CreateSystemConfigApiV1SystemConfigsPostErrors, CreateSystemConfigApiV1SystemConfigsPostResponses, DeepHealthCheckApiHealthDeepGetData, DeepHealthCheckApiHealthDeepGetResponses, DeleteScheduleConfigApiV1ScheduleConfigsScheduleConfigIdDeleteData, DeleteScheduleConfigApiV1ScheduleConfigsScheduleConfigIdDeleteErrors, DeleteScheduleConfigApiV1ScheduleConfigsScheduleConfigIdDeleteResponses, DeleteScheduleJobApiV1ScheduleJobsScheduleJobIdDeleteData, DeleteScheduleJobApiV1ScheduleJobsScheduleJobIdDeleteErrors, DeleteScheduleJobApiV1ScheduleJobsScheduleJobIdDeleteResponses, DeleteSystemConfigApiV1SystemConfigsSystemConfigIdDeleteData, DeleteSystemConfigApiV1SystemConfigsSystemConfigIdDeleteErrors, DeleteSystemConfigApiV1SystemConfigsSystemConfigIdDeleteResponses, GetScheduleConfigApiV1ScheduleConfigsScheduleConfigIdGetData, GetScheduleConfigApiV1ScheduleConfigsScheduleConfigIdGetErrors, GetScheduleConfigApiV1ScheduleConfigsScheduleConfigIdGetResponses, GetScheduleConfigsApiV1ScheduleConfigsGetData, GetScheduleConfigsApiV1ScheduleConfigsGetErrors, GetScheduleConfigsApiV1ScheduleConfigsGetResponses, GetScheduleJobApiV1ScheduleJobsScheduleJobIdGetData, GetScheduleJobApiV1ScheduleJobsScheduleJobIdGetErrors, GetScheduleJobApiV1ScheduleJobsScheduleJobIdGetResponses, GetScheduleJobsApiV1ScheduleJobsGetData, GetScheduleJobsApiV1ScheduleJobsGetErrors, GetScheduleJobsApiV1ScheduleJobsGetResponses, GetSystemConfigApiV1SystemConfigsSystemConfigIdGetData, GetSystemConfigApiV1SystemConfigsSystemConfigIdGetErrors, GetSystemConfigApiV1SystemConfigsSystemConfigIdGetResponses, GetSystemConfigsApiV1SystemConfigsGetData, GetSystemConfigsApiV1SystemConfigsGetErrors, GetSystemConfigsApiV1SystemConfigsGetResponses, GetTaskSpecsApiV1TasksSpecsGetData, GetTaskSpecsApiV1TasksSpecsGetErrors, GetTaskSpecsApiV1TasksSpecsGetResponses, HealthApiHealthGetData, HealthApiHealthGetResponses, PatchScheduleConfigApiV1ScheduleConfigsScheduleConfigIdPatchData, PatchScheduleConfigApiV1ScheduleConfigsScheduleConfigIdPatchErrors, PatchScheduleConfigApiV1ScheduleConfigsScheduleConfigIdPatchResponses, PatchScheduleJobApiV1ScheduleJobsScheduleJobIdPatchData, PatchScheduleJobApiV1ScheduleJobsScheduleJobIdPatchErrors, PatchScheduleJobApiV1ScheduleJobsScheduleJobIdPatchResponses, PatchSystemConfigApiV1SystemConfigsSystemConfigIdPatchData, PatchSystemConfigApiV1SystemConfigsSystemConfigIdPatchErrors, PatchSystemConfigApiV1SystemConfigsSystemConfigIdPatchResponses, PutScheduleConfigApiV1ScheduleConfigsScheduleConfigIdPutData, PutScheduleConfigApiV1ScheduleConfigsScheduleConfigIdPutErrors, PutScheduleConfigApiV1ScheduleConfigsScheduleConfigIdPutResponses, PutScheduleJobApiV1ScheduleJobsScheduleJobIdPutData, PutScheduleJobApiV1ScheduleJobsScheduleJobIdPutErrors, PutScheduleJobApiV1ScheduleJobsScheduleJobIdPutResponses, PutSystemConfigApiV1SystemConfigsSystemConfigIdPutData, PutSystemConfigApiV1SystemConfigsSystemConfigIdPutErrors, PutSystemConfigApiV1SystemConfigsSystemConfigIdPutResponses, RootGetData, RootGetResponses, TriggerDispatchApiV1DispatchersTriggerPostData, TriggerDispatchApiV1DispatchersTriggerPostErrors, TriggerDispatchApiV1DispatchersTriggerPostResponses } from './types.gen';
+import type { CreateConnectorApiV1ConnectorsPostData, CreateConnectorApiV1ConnectorsPostErrors, CreateConnectorApiV1ConnectorsPostResponses, CreateScheduleConfigApiV1ScheduleConfigsPostData, CreateScheduleConfigApiV1ScheduleConfigsPostErrors, CreateScheduleConfigApiV1ScheduleConfigsPostResponses, CreateScheduleJobApiV1ScheduleJobsPostData, CreateScheduleJobApiV1ScheduleJobsPostErrors, CreateScheduleJobApiV1ScheduleJobsPostResponses, CreateSystemConfigApiV1SystemConfigsPostData, CreateSystemConfigApiV1SystemConfigsPostErrors, CreateSystemConfigApiV1SystemConfigsPostResponses, DeepHealthCheckApiHealthDeepGetData, DeepHealthCheckApiHealthDeepGetResponses, DeleteConnectorApiV1ConnectorsConnectorIdDeleteData, DeleteConnectorApiV1ConnectorsConnectorIdDeleteErrors, DeleteConnectorApiV1ConnectorsConnectorIdDeleteResponses, DeleteScheduleConfigApiV1ScheduleConfigsScheduleConfigIdDeleteData, DeleteScheduleConfigApiV1ScheduleConfigsScheduleConfigIdDeleteErrors, DeleteScheduleConfigApiV1ScheduleConfigsScheduleConfigIdDeleteResponses, DeleteScheduleJobApiV1ScheduleJobsScheduleJobIdDeleteData, DeleteScheduleJobApiV1ScheduleJobsScheduleJobIdDeleteErrors, DeleteScheduleJobApiV1ScheduleJobsScheduleJobIdDeleteResponses, DeleteSystemConfigApiV1SystemConfigsSystemConfigIdDeleteData, DeleteSystemConfigApiV1SystemConfigsSystemConfigIdDeleteErrors, DeleteSystemConfigApiV1SystemConfigsSystemConfigIdDeleteResponses, GetConnectorApiV1ConnectorsConnectorIdGetData, GetConnectorApiV1ConnectorsConnectorIdGetErrors, GetConnectorApiV1ConnectorsConnectorIdGetResponses, GetConnectorsApiV1ConnectorsGetData, GetConnectorsApiV1ConnectorsGetErrors, GetConnectorsApiV1ConnectorsGetResponses, GetScheduleConfigApiV1ScheduleConfigsScheduleConfigIdGetData, GetScheduleConfigApiV1ScheduleConfigsScheduleConfigIdGetErrors, GetScheduleConfigApiV1ScheduleConfigsScheduleConfigIdGetResponses, GetScheduleConfigsApiV1ScheduleConfigsGetData, GetScheduleConfigsApiV1ScheduleConfigsGetErrors, GetScheduleConfigsApiV1ScheduleConfigsGetResponses, GetScheduleJobApiV1ScheduleJobsScheduleJobIdGetData, GetScheduleJobApiV1ScheduleJobsScheduleJobIdGetErrors, GetScheduleJobApiV1ScheduleJobsScheduleJobIdGetResponses, GetScheduleJobsApiV1ScheduleJobsGetData, GetScheduleJobsApiV1ScheduleJobsGetErrors, GetScheduleJobsApiV1ScheduleJobsGetResponses, GetSystemConfigApiV1SystemConfigsSystemConfigIdGetData, GetSystemConfigApiV1SystemConfigsSystemConfigIdGetErrors, GetSystemConfigApiV1SystemConfigsSystemConfigIdGetResponses, GetSystemConfigsApiV1SystemConfigsGetData, GetSystemConfigsApiV1SystemConfigsGetErrors, GetSystemConfigsApiV1SystemConfigsGetResponses, GetTaskSpecsApiV1TasksSpecsGetData, GetTaskSpecsApiV1TasksSpecsGetErrors, GetTaskSpecsApiV1TasksSpecsGetResponses, HealthApiHealthGetData, HealthApiHealthGetResponses, PatchConnectorApiV1ConnectorsConnectorIdPatchData, PatchConnectorApiV1ConnectorsConnectorIdPatchErrors, PatchConnectorApiV1ConnectorsConnectorIdPatchResponses, PatchScheduleConfigApiV1ScheduleConfigsScheduleConfigIdPatchData, PatchScheduleConfigApiV1ScheduleConfigsScheduleConfigIdPatchErrors, PatchScheduleConfigApiV1ScheduleConfigsScheduleConfigIdPatchResponses, PatchScheduleJobApiV1ScheduleJobsScheduleJobIdPatchData, PatchScheduleJobApiV1ScheduleJobsScheduleJobIdPatchErrors, PatchScheduleJobApiV1ScheduleJobsScheduleJobIdPatchResponses, PatchSystemConfigApiV1SystemConfigsSystemConfigIdPatchData, PatchSystemConfigApiV1SystemConfigsSystemConfigIdPatchErrors, PatchSystemConfigApiV1SystemConfigsSystemConfigIdPatchResponses, PutConnectorApiV1ConnectorsConnectorIdPutData, PutConnectorApiV1ConnectorsConnectorIdPutErrors, PutConnectorApiV1ConnectorsConnectorIdPutResponses, PutScheduleConfigApiV1ScheduleConfigsScheduleConfigIdPutData, PutScheduleConfigApiV1ScheduleConfigsScheduleConfigIdPutErrors, PutScheduleConfigApiV1ScheduleConfigsScheduleConfigIdPutResponses, PutScheduleJobApiV1ScheduleJobsScheduleJobIdPutData, PutScheduleJobApiV1ScheduleJobsScheduleJobIdPutErrors, PutScheduleJobApiV1ScheduleJobsScheduleJobIdPutResponses, PutSystemConfigApiV1SystemConfigsSystemConfigIdPutData, PutSystemConfigApiV1SystemConfigsSystemConfigIdPutErrors, PutSystemConfigApiV1SystemConfigsSystemConfigIdPutResponses, RootGetData, RootGetResponses, TriggerDispatchApiV1DispatchersTriggerPostData, TriggerDispatchApiV1DispatchersTriggerPostErrors, TriggerDispatchApiV1DispatchersTriggerPostResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -32,6 +32,72 @@ export const healthApiHealthGet = <ThrowOnError extends boolean = false>(options
  * Deep Health Check
  */
 export const deepHealthCheckApiHealthDeepGet = <ThrowOnError extends boolean = false>(options?: Options<DeepHealthCheckApiHealthDeepGetData, ThrowOnError>) => (options?.client ?? client).get<DeepHealthCheckApiHealthDeepGetResponses, unknown, ThrowOnError>({ url: '/api/health/deep', ...options });
+
+/**
+ * Get Connectors
+ */
+export const getConnectorsApiV1ConnectorsGet = <ThrowOnError extends boolean = false>(options?: Options<GetConnectorsApiV1ConnectorsGetData, ThrowOnError>) => (options?.client ?? client).get<GetConnectorsApiV1ConnectorsGetResponses, GetConnectorsApiV1ConnectorsGetErrors, ThrowOnError>({
+    security: [{ name: 'X-API-Key', type: 'apiKey' }],
+    url: '/api/v1/connectors',
+    ...options
+});
+
+/**
+ * Create Connector
+ */
+export const createConnectorApiV1ConnectorsPost = <ThrowOnError extends boolean = false>(options: Options<CreateConnectorApiV1ConnectorsPostData, ThrowOnError>) => (options.client ?? client).post<CreateConnectorApiV1ConnectorsPostResponses, CreateConnectorApiV1ConnectorsPostErrors, ThrowOnError>({
+    security: [{ name: 'X-API-Key', type: 'apiKey' }],
+    url: '/api/v1/connectors',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Delete Connector
+ */
+export const deleteConnectorApiV1ConnectorsConnectorIdDelete = <ThrowOnError extends boolean = false>(options: Options<DeleteConnectorApiV1ConnectorsConnectorIdDeleteData, ThrowOnError>) => (options.client ?? client).delete<DeleteConnectorApiV1ConnectorsConnectorIdDeleteResponses, DeleteConnectorApiV1ConnectorsConnectorIdDeleteErrors, ThrowOnError>({
+    security: [{ name: 'X-API-Key', type: 'apiKey' }],
+    url: '/api/v1/connectors/{connector_id}',
+    ...options
+});
+
+/**
+ * Get Connector
+ */
+export const getConnectorApiV1ConnectorsConnectorIdGet = <ThrowOnError extends boolean = false>(options: Options<GetConnectorApiV1ConnectorsConnectorIdGetData, ThrowOnError>) => (options.client ?? client).get<GetConnectorApiV1ConnectorsConnectorIdGetResponses, GetConnectorApiV1ConnectorsConnectorIdGetErrors, ThrowOnError>({
+    security: [{ name: 'X-API-Key', type: 'apiKey' }],
+    url: '/api/v1/connectors/{connector_id}',
+    ...options
+});
+
+/**
+ * Patch Connector
+ */
+export const patchConnectorApiV1ConnectorsConnectorIdPatch = <ThrowOnError extends boolean = false>(options: Options<PatchConnectorApiV1ConnectorsConnectorIdPatchData, ThrowOnError>) => (options.client ?? client).patch<PatchConnectorApiV1ConnectorsConnectorIdPatchResponses, PatchConnectorApiV1ConnectorsConnectorIdPatchErrors, ThrowOnError>({
+    security: [{ name: 'X-API-Key', type: 'apiKey' }],
+    url: '/api/v1/connectors/{connector_id}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Put Connector
+ */
+export const putConnectorApiV1ConnectorsConnectorIdPut = <ThrowOnError extends boolean = false>(options: Options<PutConnectorApiV1ConnectorsConnectorIdPutData, ThrowOnError>) => (options.client ?? client).put<PutConnectorApiV1ConnectorsConnectorIdPutResponses, PutConnectorApiV1ConnectorsConnectorIdPutErrors, ThrowOnError>({
+    security: [{ name: 'X-API-Key', type: 'apiKey' }],
+    url: '/api/v1/connectors/{connector_id}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
 
 /**
  * Get Schedule Configs

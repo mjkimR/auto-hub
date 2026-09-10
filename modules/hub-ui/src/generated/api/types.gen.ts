@@ -5,6 +5,128 @@ export type ClientOptions = {
 };
 
 /**
+ * ConnectorCreate
+ */
+export type ConnectorCreate = {
+    /**
+     * Name
+     */
+    name: string;
+    provider: ConnectorProvider;
+    /**
+     * Config
+     */
+    config?: {
+        [key: string]: JsonValue;
+    };
+    /**
+     * Enabled
+     */
+    enabled?: boolean;
+    /**
+     * Credentials
+     */
+    credentials: {
+        [key: string]: JsonValue;
+    };
+};
+
+/**
+ * ConnectorPatch
+ */
+export type ConnectorPatch = {
+    /**
+     * Name
+     */
+    name?: string | null;
+    /**
+     * Config
+     */
+    config?: {
+        [key: string]: JsonValue;
+    } | null;
+    /**
+     * Enabled
+     */
+    enabled?: boolean | null;
+    /**
+     * Credentials
+     */
+    credentials?: {
+        [key: string]: JsonValue;
+    };
+};
+
+/**
+ * ConnectorProvider
+ */
+export type ConnectorProvider = 'github' | 'linear';
+
+/**
+ * ConnectorPut
+ */
+export type ConnectorPut = {
+    /**
+     * Name
+     */
+    name: string;
+    provider: ConnectorProvider;
+    /**
+     * Config
+     */
+    config?: {
+        [key: string]: JsonValue;
+    };
+    /**
+     * Enabled
+     */
+    enabled?: boolean;
+    /**
+     * Credentials
+     */
+    credentials: {
+        [key: string]: JsonValue;
+    };
+};
+
+/**
+ * ConnectorRead
+ */
+export type ConnectorRead = {
+    /**
+     * Name
+     */
+    name: string;
+    provider: ConnectorProvider;
+    /**
+     * Config
+     */
+    config?: {
+        [key: string]: JsonValue;
+    };
+    /**
+     * Enabled
+     */
+    enabled?: boolean;
+    /**
+     * Created At
+     */
+    created_at: string;
+    /**
+     * Updated At
+     */
+    updated_at: string;
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Has Credentials
+     */
+    has_credentials: boolean;
+};
+
+/**
  * DeleteResponse
  */
 export type DeleteResponse = {
@@ -56,6 +178,40 @@ export type HttpValidationError = {
      * Detail
      */
     detail?: Array<ValidationError>;
+};
+
+export type JsonValue = unknown;
+
+/**
+ * PaginatedList[ConnectorRead]
+ */
+export type PaginatedListConnectorRead = {
+    /**
+     * Items
+     */
+    items: Array<ConnectorRead>;
+    /**
+     * Total Count
+     */
+    total_count?: number | null;
+    /**
+     * Offset
+     */
+    offset?: number;
+    /**
+     * Limit
+     */
+    limit?: number | null;
+    /**
+     * Last
+     *
+     * Check if the current page is the last page
+     */
+    readonly last: boolean | null;
+    /**
+     * First
+     */
+    readonly first: boolean;
 };
 
 /**
@@ -836,6 +992,28 @@ export type ValidationError = {
 };
 
 /**
+ * PaginatedList[ConnectorRead]
+ */
+export type PaginatedListConnectorReadWritable = {
+    /**
+     * Items
+     */
+    items: Array<ConnectorRead>;
+    /**
+     * Total Count
+     */
+    total_count?: number | null;
+    /**
+     * Offset
+     */
+    offset?: number;
+    /**
+     * Limit
+     */
+    limit?: number | null;
+};
+
+/**
  * PaginatedList[ScheduleConfigRead]
  */
 export type PaginatedListScheduleConfigReadWritable = {
@@ -942,6 +1120,223 @@ export type DeepHealthCheckApiHealthDeepGetResponses = {
      */
     200: unknown;
 };
+
+export type GetConnectorsApiV1ConnectorsGetData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Offset
+         *
+         * offset for pagination
+         */
+        offset?: number;
+        /**
+         * Limit
+         *
+         * limit for pagination
+         */
+        limit?: number;
+        /**
+         * Name
+         *
+         * Filter query parameter (name)
+         */
+        name?: string | null;
+        /**
+         * Provider
+         *
+         * Filter query parameter (provider)
+         */
+        provider?: string | null;
+        /**
+         * Enabled
+         *
+         * Filter query parameter (enabled)
+         */
+        enabled?: boolean | null;
+        /**
+         * Order By
+         *
+         * **Order by options:**
+         *
+         * * `name`
+         * * `created_at`
+         * * `updated_at`
+         * * `id`
+         *
+         * **Usage:**
+         * * Prefix with `-` for descending order (e.g., `-title`).
+         * * Multiple fields can be separated by commas (e.g., `-created_at,title`).
+         * * **Default:** `-created_at`
+         */
+        order_by?: string | null;
+    };
+    url: '/api/v1/connectors';
+};
+
+export type GetConnectorsApiV1ConnectorsGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetConnectorsApiV1ConnectorsGetError = GetConnectorsApiV1ConnectorsGetErrors[keyof GetConnectorsApiV1ConnectorsGetErrors];
+
+export type GetConnectorsApiV1ConnectorsGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: PaginatedListConnectorRead;
+};
+
+export type GetConnectorsApiV1ConnectorsGetResponse = GetConnectorsApiV1ConnectorsGetResponses[keyof GetConnectorsApiV1ConnectorsGetResponses];
+
+export type CreateConnectorApiV1ConnectorsPostData = {
+    body: ConnectorCreate;
+    path?: never;
+    query?: never;
+    url: '/api/v1/connectors';
+};
+
+export type CreateConnectorApiV1ConnectorsPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CreateConnectorApiV1ConnectorsPostError = CreateConnectorApiV1ConnectorsPostErrors[keyof CreateConnectorApiV1ConnectorsPostErrors];
+
+export type CreateConnectorApiV1ConnectorsPostResponses = {
+    /**
+     * Successful Response
+     */
+    201: ConnectorRead;
+};
+
+export type CreateConnectorApiV1ConnectorsPostResponse = CreateConnectorApiV1ConnectorsPostResponses[keyof CreateConnectorApiV1ConnectorsPostResponses];
+
+export type DeleteConnectorApiV1ConnectorsConnectorIdDeleteData = {
+    body?: never;
+    path: {
+        /**
+         * Connector Id
+         */
+        connector_id: string;
+    };
+    query?: never;
+    url: '/api/v1/connectors/{connector_id}';
+};
+
+export type DeleteConnectorApiV1ConnectorsConnectorIdDeleteErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type DeleteConnectorApiV1ConnectorsConnectorIdDeleteError = DeleteConnectorApiV1ConnectorsConnectorIdDeleteErrors[keyof DeleteConnectorApiV1ConnectorsConnectorIdDeleteErrors];
+
+export type DeleteConnectorApiV1ConnectorsConnectorIdDeleteResponses = {
+    /**
+     * Successful Response
+     */
+    200: DeleteResponse;
+};
+
+export type DeleteConnectorApiV1ConnectorsConnectorIdDeleteResponse = DeleteConnectorApiV1ConnectorsConnectorIdDeleteResponses[keyof DeleteConnectorApiV1ConnectorsConnectorIdDeleteResponses];
+
+export type GetConnectorApiV1ConnectorsConnectorIdGetData = {
+    body?: never;
+    path: {
+        /**
+         * Connector Id
+         */
+        connector_id: string;
+    };
+    query?: never;
+    url: '/api/v1/connectors/{connector_id}';
+};
+
+export type GetConnectorApiV1ConnectorsConnectorIdGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetConnectorApiV1ConnectorsConnectorIdGetError = GetConnectorApiV1ConnectorsConnectorIdGetErrors[keyof GetConnectorApiV1ConnectorsConnectorIdGetErrors];
+
+export type GetConnectorApiV1ConnectorsConnectorIdGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: ConnectorRead;
+};
+
+export type GetConnectorApiV1ConnectorsConnectorIdGetResponse = GetConnectorApiV1ConnectorsConnectorIdGetResponses[keyof GetConnectorApiV1ConnectorsConnectorIdGetResponses];
+
+export type PatchConnectorApiV1ConnectorsConnectorIdPatchData = {
+    body: ConnectorPatch;
+    path: {
+        /**
+         * Connector Id
+         */
+        connector_id: string;
+    };
+    query?: never;
+    url: '/api/v1/connectors/{connector_id}';
+};
+
+export type PatchConnectorApiV1ConnectorsConnectorIdPatchErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type PatchConnectorApiV1ConnectorsConnectorIdPatchError = PatchConnectorApiV1ConnectorsConnectorIdPatchErrors[keyof PatchConnectorApiV1ConnectorsConnectorIdPatchErrors];
+
+export type PatchConnectorApiV1ConnectorsConnectorIdPatchResponses = {
+    /**
+     * Successful Response
+     */
+    200: ConnectorRead;
+};
+
+export type PatchConnectorApiV1ConnectorsConnectorIdPatchResponse = PatchConnectorApiV1ConnectorsConnectorIdPatchResponses[keyof PatchConnectorApiV1ConnectorsConnectorIdPatchResponses];
+
+export type PutConnectorApiV1ConnectorsConnectorIdPutData = {
+    body: ConnectorPut;
+    path: {
+        /**
+         * Connector Id
+         */
+        connector_id: string;
+    };
+    query?: never;
+    url: '/api/v1/connectors/{connector_id}';
+};
+
+export type PutConnectorApiV1ConnectorsConnectorIdPutErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type PutConnectorApiV1ConnectorsConnectorIdPutError = PutConnectorApiV1ConnectorsConnectorIdPutErrors[keyof PutConnectorApiV1ConnectorsConnectorIdPutErrors];
+
+export type PutConnectorApiV1ConnectorsConnectorIdPutResponses = {
+    /**
+     * Successful Response
+     */
+    200: ConnectorRead;
+};
+
+export type PutConnectorApiV1ConnectorsConnectorIdPutResponse = PutConnectorApiV1ConnectorsConnectorIdPutResponses[keyof PutConnectorApiV1ConnectorsConnectorIdPutResponses];
 
 export type GetScheduleConfigsApiV1ScheduleConfigsGetData = {
     body?: never;
