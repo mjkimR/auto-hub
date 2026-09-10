@@ -5,6 +5,57 @@ export type ClientOptions = {
 };
 
 /**
+ * CheckRequest
+ */
+export type CheckRequest = {
+    /**
+     * Pull Number
+     */
+    pull_number: number;
+};
+
+/**
+ * ConnectionCheck
+ */
+export type ConnectionCheck = {
+    /**
+     * Checked At
+     */
+    checked_at: string;
+    /**
+     * Project Revision
+     */
+    project_revision: number;
+    /**
+     * Ready
+     */
+    ready: boolean;
+    /**
+     * Checks
+     */
+    checks: Array<ConnectionCheckItem>;
+    observation?: PipelineObservation | null;
+};
+
+/**
+ * ConnectionCheckItem
+ */
+export type ConnectionCheckItem = {
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Status
+     */
+    status: 'passed' | 'failed' | 'skipped';
+    /**
+     * Detail
+     */
+    detail: string;
+};
+
+/**
  * ConnectorCreate
  */
 export type ConnectorCreate = {
@@ -178,6 +229,16 @@ export type HttpValidationError = {
      * Detail
      */
     detail?: Array<ValidationError>;
+};
+
+/**
+ * ImportScheduleRequest
+ */
+export type ImportScheduleRequest = {
+    /**
+     * Schedule Id
+     */
+    schedule_id: string;
 };
 
 /**
@@ -376,6 +437,152 @@ export type PipelineObservationConfig = {
      */
     pull_numbers: Array<number>;
     verification: VerificationConfig;
+};
+
+/**
+ * ProjectList
+ */
+export type ProjectList = {
+    /**
+     * Items
+     */
+    items: Array<ProjectRead>;
+    /**
+     * Total Count
+     */
+    total_count: number;
+};
+
+/**
+ * ProjectRead
+ */
+export type ProjectRead = {
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Repository
+     */
+    repository: string;
+    /**
+     * Linear Project Id
+     */
+    linear_project_id: string;
+    /**
+     * Github Connector Id
+     */
+    github_connector_id: string;
+    /**
+     * Linear Connector Id
+     */
+    linear_connector_id?: string | null;
+    verification: VerificationConfig;
+    /**
+     * Enabled
+     */
+    enabled?: boolean;
+    /**
+     * Template Id
+     */
+    template_id?: 'python-uv' | 'node-npm' | null;
+    /**
+     * Created At
+     */
+    created_at: string;
+    /**
+     * Updated At
+     */
+    updated_at: string;
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Revision
+     */
+    revision: number;
+    /**
+     * Template Version
+     */
+    template_version: string | null;
+    last_check: ConnectionCheck | null;
+};
+
+/**
+ * ProjectUpdate
+ */
+export type ProjectUpdate = {
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Repository
+     */
+    repository: string;
+    /**
+     * Linear Project Id
+     */
+    linear_project_id: string;
+    /**
+     * Github Connector Id
+     */
+    github_connector_id: string;
+    /**
+     * Linear Connector Id
+     */
+    linear_connector_id?: string | null;
+    verification: VerificationConfig;
+    /**
+     * Enabled
+     */
+    enabled?: boolean;
+    /**
+     * Template Id
+     */
+    template_id?: 'python-uv' | 'node-npm' | null;
+    /**
+     * Expected Revision
+     *
+     * Reject edits based on an outdated project version.
+     */
+    expected_revision: number;
+};
+
+/**
+ * ProjectWrite
+ */
+export type ProjectWrite = {
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Repository
+     */
+    repository: string;
+    /**
+     * Linear Project Id
+     */
+    linear_project_id: string;
+    /**
+     * Github Connector Id
+     */
+    github_connector_id: string;
+    /**
+     * Linear Connector Id
+     */
+    linear_connector_id?: string | null;
+    verification: VerificationConfig;
+    /**
+     * Enabled
+     */
+    enabled?: boolean;
+    /**
+     * Template Id
+     */
+    template_id?: 'python-uv' | 'node-npm' | null;
 };
 
 /**
@@ -1090,6 +1297,40 @@ export type TaskSpecResponse = {
 };
 
 /**
+ * TemplateRead
+ */
+export type TemplateRead = {
+    /**
+     * Id
+     */
+    id: 'python-uv' | 'node-npm';
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Version
+     */
+    version: string;
+    /**
+     * Changelog
+     */
+    changelog: string;
+    /**
+     * Required Jobs
+     */
+    required_jobs: Array<string>;
+    /**
+     * Filename
+     */
+    filename: string;
+    /**
+     * Content
+     */
+    content: string;
+};
+
+/**
  * ValidationError
  */
 export type ValidationError = {
@@ -1564,6 +1805,228 @@ export type GetPipelineObservationApiV1PipelinesObservationsScheduleIdGetRespons
 };
 
 export type GetPipelineObservationApiV1PipelinesObservationsScheduleIdGetResponse = GetPipelineObservationApiV1PipelinesObservationsScheduleIdGetResponses[keyof GetPipelineObservationApiV1PipelinesObservationsScheduleIdGetResponses];
+
+export type ListProjectsApiV1ProjectsGetData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Offset
+         */
+        offset?: number;
+        /**
+         * Limit
+         */
+        limit?: number;
+    };
+    url: '/api/v1/projects';
+};
+
+export type ListProjectsApiV1ProjectsGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListProjectsApiV1ProjectsGetError = ListProjectsApiV1ProjectsGetErrors[keyof ListProjectsApiV1ProjectsGetErrors];
+
+export type ListProjectsApiV1ProjectsGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: ProjectList;
+};
+
+export type ListProjectsApiV1ProjectsGetResponse = ListProjectsApiV1ProjectsGetResponses[keyof ListProjectsApiV1ProjectsGetResponses];
+
+export type CreateProjectApiV1ProjectsPostData = {
+    body: ProjectWrite;
+    path?: never;
+    query?: never;
+    url: '/api/v1/projects';
+};
+
+export type CreateProjectApiV1ProjectsPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CreateProjectApiV1ProjectsPostError = CreateProjectApiV1ProjectsPostErrors[keyof CreateProjectApiV1ProjectsPostErrors];
+
+export type CreateProjectApiV1ProjectsPostResponses = {
+    /**
+     * Successful Response
+     */
+    201: ProjectRead;
+};
+
+export type CreateProjectApiV1ProjectsPostResponse = CreateProjectApiV1ProjectsPostResponses[keyof CreateProjectApiV1ProjectsPostResponses];
+
+export type GetProjectTemplatesApiV1ProjectsTemplatesGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/projects/templates';
+};
+
+export type GetProjectTemplatesApiV1ProjectsTemplatesGetResponses = {
+    /**
+     * Response Get Project Templates Api V1 Projects Templates Get
+     *
+     * Successful Response
+     */
+    200: Array<TemplateRead>;
+};
+
+export type GetProjectTemplatesApiV1ProjectsTemplatesGetResponse = GetProjectTemplatesApiV1ProjectsTemplatesGetResponses[keyof GetProjectTemplatesApiV1ProjectsTemplatesGetResponses];
+
+export type ImportProjectScheduleApiV1ProjectsImportSchedulePostData = {
+    body: ImportScheduleRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/projects/import_schedule';
+};
+
+export type ImportProjectScheduleApiV1ProjectsImportSchedulePostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ImportProjectScheduleApiV1ProjectsImportSchedulePostError = ImportProjectScheduleApiV1ProjectsImportSchedulePostErrors[keyof ImportProjectScheduleApiV1ProjectsImportSchedulePostErrors];
+
+export type ImportProjectScheduleApiV1ProjectsImportSchedulePostResponses = {
+    /**
+     * Successful Response
+     */
+    200: ProjectRead;
+};
+
+export type ImportProjectScheduleApiV1ProjectsImportSchedulePostResponse = ImportProjectScheduleApiV1ProjectsImportSchedulePostResponses[keyof ImportProjectScheduleApiV1ProjectsImportSchedulePostResponses];
+
+export type DeleteProjectApiV1ProjectsProjectIdDeleteData = {
+    body?: never;
+    path: {
+        /**
+         * Project Id
+         */
+        project_id: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{project_id}';
+};
+
+export type DeleteProjectApiV1ProjectsProjectIdDeleteErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type DeleteProjectApiV1ProjectsProjectIdDeleteError = DeleteProjectApiV1ProjectsProjectIdDeleteErrors[keyof DeleteProjectApiV1ProjectsProjectIdDeleteErrors];
+
+export type DeleteProjectApiV1ProjectsProjectIdDeleteResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type DeleteProjectApiV1ProjectsProjectIdDeleteResponse = DeleteProjectApiV1ProjectsProjectIdDeleteResponses[keyof DeleteProjectApiV1ProjectsProjectIdDeleteResponses];
+
+export type GetProjectApiV1ProjectsProjectIdGetData = {
+    body?: never;
+    path: {
+        /**
+         * Project Id
+         */
+        project_id: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{project_id}';
+};
+
+export type GetProjectApiV1ProjectsProjectIdGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetProjectApiV1ProjectsProjectIdGetError = GetProjectApiV1ProjectsProjectIdGetErrors[keyof GetProjectApiV1ProjectsProjectIdGetErrors];
+
+export type GetProjectApiV1ProjectsProjectIdGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: ProjectRead;
+};
+
+export type GetProjectApiV1ProjectsProjectIdGetResponse = GetProjectApiV1ProjectsProjectIdGetResponses[keyof GetProjectApiV1ProjectsProjectIdGetResponses];
+
+export type UpdateProjectApiV1ProjectsProjectIdPutData = {
+    body: ProjectUpdate;
+    path: {
+        /**
+         * Project Id
+         */
+        project_id: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{project_id}';
+};
+
+export type UpdateProjectApiV1ProjectsProjectIdPutErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type UpdateProjectApiV1ProjectsProjectIdPutError = UpdateProjectApiV1ProjectsProjectIdPutErrors[keyof UpdateProjectApiV1ProjectsProjectIdPutErrors];
+
+export type UpdateProjectApiV1ProjectsProjectIdPutResponses = {
+    /**
+     * Successful Response
+     */
+    200: ProjectRead;
+};
+
+export type UpdateProjectApiV1ProjectsProjectIdPutResponse = UpdateProjectApiV1ProjectsProjectIdPutResponses[keyof UpdateProjectApiV1ProjectsProjectIdPutResponses];
+
+export type CheckProjectApiV1ProjectsProjectIdCheckPostData = {
+    body: CheckRequest;
+    path: {
+        /**
+         * Project Id
+         */
+        project_id: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{project_id}/check';
+};
+
+export type CheckProjectApiV1ProjectsProjectIdCheckPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CheckProjectApiV1ProjectsProjectIdCheckPostError = CheckProjectApiV1ProjectsProjectIdCheckPostErrors[keyof CheckProjectApiV1ProjectsProjectIdCheckPostErrors];
+
+export type CheckProjectApiV1ProjectsProjectIdCheckPostResponses = {
+    /**
+     * Successful Response
+     */
+    200: ConnectionCheck;
+};
+
+export type CheckProjectApiV1ProjectsProjectIdCheckPostResponse = CheckProjectApiV1ProjectsProjectIdCheckPostResponses[keyof CheckProjectApiV1ProjectsProjectIdCheckPostResponses];
 
 export type GetScheduleConfigsApiV1ScheduleConfigsGetData = {
     body?: never;
