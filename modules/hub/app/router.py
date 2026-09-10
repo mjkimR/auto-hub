@@ -1,6 +1,7 @@
 from typing import Annotated
 
 from app.auth import verify_api_key
+from app.features.connectors.api.v1 import router as v1_connectors_router
 from app.features.dispatchers.api.v1 import router as v1_dispatchers_router
 from app.features.schedule_configs.api.v1 import router as v1_schedule_configs_router
 from app.features.schedule_jobs.api.v1 import router as v1_schedule_jobs_router
@@ -33,6 +34,7 @@ async def deep_health_check(session: Annotated[AsyncSession, Depends(get_session
 
 
 # Feature routers
+v1_router.include_router(v1_connectors_router)
 v1_router.include_router(v1_schedule_configs_router)
 v1_router.include_router(v1_system_configs_router)
 v1_router.include_router(v1_schedule_jobs_router)
