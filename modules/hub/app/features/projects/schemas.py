@@ -74,6 +74,32 @@ class ProjectList(BaseModel):
     total_count: int
 
 
+class LinearIssueBlocker(BaseModel):
+    id: UUID
+    identifier: str
+    state_type: str
+
+
+class LinearIssue(BaseModel):
+    id: UUID
+    identifier: str
+    title: str
+    description: str | None = None
+    priority: int = Field(ge=0, le=4)
+    state_type: str
+    created_at: datetime
+    updated_at: datetime
+    url: str
+    blockers: list[LinearIssueBlocker] = Field(default_factory=list)
+
+
+class ActionableIssueSelection(BaseModel):
+    selected: LinearIssue | None
+    inspected_count: int = Field(ge=0)
+    actionable_count: int = Field(ge=0)
+    blocked_count: int = Field(ge=0)
+
+
 class CheckRequest(BaseModel):
     pull_number: int = Field(gt=0)
 

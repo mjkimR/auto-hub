@@ -1,6 +1,7 @@
 from uuid import UUID
 
 from app.features.connectors.models import Connector
+from app.features.pipeline_runs.models import PipelineRun
 from app.features.projects.models import ProjectConnection
 from app.features.schedule_configs.models import ScheduleConfig
 from sqlalchemy import func, or_, select, update
@@ -58,6 +59,11 @@ class ProjectRepository:
                 )
                 .limit(1)
             )
+        ) is not None
+
+    async def has_pipeline_runs(self, session: AsyncSession, project_id: UUID) -> bool:
+        return (
+            await session.scalar(select(PipelineRun.id).where(PipelineRun.project_id == project_id).limit(1))
         ) is not None
 
     async def schedule(self, session: AsyncSession, schedule_id: UUID) -> ScheduleConfig | None:

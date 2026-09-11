@@ -69,6 +69,8 @@ class ProjectService:
         project = await self.get(session, project_id, lock=True)
         if await self.repo.has_schedules(session, project_id):
             raise ProjectError(409, "Remove the project's observation schedules before deleting it")
+        if await self.repo.has_pipeline_runs(session, project_id):
+            raise ProjectError(409, "Pipeline run history prevents deleting this project")
         await self.repo.delete(session, project)
 
     async def import_schedule(self, session: AsyncSession, schedule_id: UUID) -> ProjectConnection:

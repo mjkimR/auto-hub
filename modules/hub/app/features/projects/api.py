@@ -1,8 +1,12 @@
 from typing import Annotated
 from uuid import UUID
 
+from app.features.pipeline_runs.schemas import PipelineRunAcquisition
+from app.features.pipeline_runs.usecases import PipelineRunUseCase
+from app.features.projects.linear import SelectActionableIssueUseCase
 from app.features.projects.onboarding import CheckProjectUseCase
 from app.features.projects.schemas import (
+    ActionableIssueSelection,
     CheckRequest,
     ConnectionCheck,
     ImportScheduleRequest,
@@ -46,6 +50,18 @@ async def import_project_schedule(data: ImportScheduleRequest, use_case: Annotat
 @router.get("/{project_id}", response_model=ProjectRead)
 async def get_project(project_id: UUID, use_case: Annotated[ProjectUseCase, Depends()]):
     return await use_case.get(project_id)
+
+
+@router.get("/{project_id}/issues/actionable", response_model=ActionableIssueSelection)
+async def get_actionable_issue(project_id: UUID, use_case: Annotated[SelectActionableIssueUseCase, Depends()]):
+    """Select one actionable Linear issue without changing Linear or GitHub state."""
+    return await use_case.execute(project_id)
+
+
+@router.post("/{project_id}/runs/acquire", response_model=PipelineRunAcquisition)
+async def acquire_pipeline_run(project_id: UUID, use_case: Annotated[PipelineRunUseCase, Depends()]):
+    """Resume the active run or atomically acquire one actionable Linear issue."""
+    return await use_case.acquire(project_id)
 
 
 @router.put("/{project_id}", response_model=ProjectRead)

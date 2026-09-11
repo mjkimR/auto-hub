@@ -82,7 +82,7 @@ def do_run_migrations(connection):
         if config.cmd_opts is None:
             print("No command options detected.")
             return
-        if config.cmd_opts.autogenerate:
+        if getattr(config.cmd_opts, "autogenerate", False):
             script = directives[0]
             if script.upgrade_ops.is_empty():
                 directives[:] = []
