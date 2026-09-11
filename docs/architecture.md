@@ -46,7 +46,7 @@ The initial version relies on periodic polling; later, event webhooks and period
 - `ScheduleConfig` / `ScheduleJob`: When to observe and the single tick execution result.
 - Current `TaskState`: The latest read-only observation report. Not an execution history or permanent audit log.
 - `ProjectConnection`: The persistent model for repo ↔ Linear project mappings, the required-job contract, and the last connection check.
-- Future `PipelineRun` / Execution Attempt: State spanning issue to PR completion, request IDs, retry and recovery logs.
+- `PipelineRun` / `ExecutionAttempt`: Durable state spanning issue selection to PR completion, immutable request snapshots, idempotency IDs, external correlation, and retry/recovery history.
 - GitHub: Source of truth for PR heads, check runs, and actual merge status.
 - Linear: Source of truth for task contents, dependencies, and user status changes. Hub synchronizes required operational state.
 
@@ -54,6 +54,9 @@ A repository and a Linear project map to exactly one another, enforced by unique
 `pipeline.observe_project` schedules reference only `project_id` and PR numbers, so the connection is resolved at run time and an edit can never leave a schedule holding a stale contract.
 Every edit bumps `revision`; observations and connection checks that started against an older revision are discarded rather than saved.
 `linear_project_id` remains connection metadata, but a saved Linear connector lets the connection check confirm the project is readable.
+
+Run acquisition resumes the project's active or paused run before querying Linear. A partial unique index permits only one such run per project, while a global issue constraint prevents the same Linear issue from entering history twice. Workers use short database leases; acquire, renew, release, and expiry reclamation are conditional writes, and lease tokens are exposed only by lease operations.
+Before delegation, Hub commits an immutable implementation request, canonical SHA-256 digest, idempotency key, and correlation marker under the run lease. A retry with the same request reuses that active attempt; a changed request is rejected. The provider port separates this transaction from reconciliation and the later external mutation.
 
 Legacy `pipeline.observe` schedules that still carry their connection inline are migrated explicitly and transactionally through `POST /api/v1/projects/import_schedule`, which keeps the schedule's trigger, PR numbers, enabled state, and history.
 
@@ -67,6 +70,8 @@ When introducing external writes:
 - PostgreSQL's `FOR UPDATE SKIP LOCKED` during schedule selection only controls schedule selection—it does not guarantee exactly-once execution against external APIs.
 - Even if a process crashes after an external request succeeds but before the DB commit, it must be able to query and resume existing PRs and requests.
 - Never run concurrent, competing progression gates inside GitHub Actions.
+
+The initial remote Codex dispatch candidate is Codex for Linear, subject to a test-project/repository feasibility gate before production writes. Workspace Agents API triggers published ChatGPT workspace agents and is not treated as a Codex cloud task API. Each execution attempt owns a persisted Hub idempotency key and correlation marker so an uncertain Linear mutation can be reconciled before retry. Hub observes Linear activity and GitHub state on later ticks and correlates the result with a deterministic branch and draft PR. GitHub remains the source of implementation artifacts because a delegation or completion message alone does not prove that code or a PR exists.
 
 Immediately prior to merging, the latest PR head and base, required checks, reviews, and branch protection rules must be re-verified.
 Automatic merges must not rely solely on CI passing at the time of an earlier observation.
