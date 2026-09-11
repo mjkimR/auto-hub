@@ -5,6 +5,25 @@ export type ClientOptions = {
 };
 
 /**
+ * ActionableIssueSelection
+ */
+export type ActionableIssueSelection = {
+    selected: LinearIssue | null;
+    /**
+     * Inspected Count
+     */
+    inspected_count: number;
+    /**
+     * Actionable Count
+     */
+    actionable_count: number;
+    /**
+     * Blocked Count
+     */
+    blocked_count: number;
+};
+
+/**
  * CheckRequest
  */
 export type CheckRequest = {
@@ -222,6 +241,100 @@ export type DispatchResponse = {
 };
 
 /**
+ * ExecutionAttemptKind
+ */
+export type ExecutionAttemptKind = 'implementation' | 'revision';
+
+/**
+ * ExecutionAttemptList
+ */
+export type ExecutionAttemptList = {
+    /**
+     * Items
+     */
+    items: Array<ExecutionAttemptRead>;
+    /**
+     * Total Count
+     */
+    total_count: number;
+};
+
+/**
+ * ExecutionAttemptRead
+ */
+export type ExecutionAttemptRead = {
+    /**
+     * Created At
+     */
+    created_at: string;
+    /**
+     * Updated At
+     */
+    updated_at: string;
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Pipeline Run Id
+     */
+    pipeline_run_id: string;
+    /**
+     * Attempt Number
+     */
+    attempt_number: number;
+    kind: ExecutionAttemptKind;
+    state: ExecutionAttemptState;
+    /**
+     * Request Snapshot
+     */
+    request_snapshot: {
+        [key: string]: unknown;
+    };
+    /**
+     * Request Digest
+     */
+    request_digest: string;
+    /**
+     * Idempotency Key
+     */
+    idempotency_key: string;
+    /**
+     * External Correlation Id
+     */
+    external_correlation_id: string | null;
+    /**
+     * External Status
+     */
+    external_status: string | null;
+    /**
+     * Conversation Url
+     */
+    conversation_url: string | null;
+    /**
+     * Started At
+     */
+    started_at: string | null;
+    /**
+     * Finished At
+     */
+    finished_at: string | null;
+    /**
+     * Failure Code
+     */
+    failure_code: string | null;
+    /**
+     * Failure Detail
+     */
+    failure_detail: string | null;
+};
+
+/**
+ * ExecutionAttemptState
+ */
+export type ExecutionAttemptState = 'planned' | 'dispatching' | 'running' | 'suspended' | 'completed' | 'failed';
+
+/**
  * HTTPValidationError
  */
 export type HttpValidationError = {
@@ -229,6 +342,37 @@ export type HttpValidationError = {
      * Detail
      */
     detail?: Array<ValidationError>;
+};
+
+/**
+ * ImplementationRequest
+ */
+export type ImplementationRequest = {
+    /**
+     * Version
+     */
+    version?: 1;
+    /**
+     * Correlation Marker
+     */
+    correlation_marker: string;
+    /**
+     * Repository
+     */
+    repository: string;
+    /**
+     * Base Branch
+     */
+    base_branch: string;
+    /**
+     * Head Branch
+     */
+    head_branch: string;
+    issue: LinearIssue;
+    /**
+     * Instructions
+     */
+    instructions: string;
 };
 
 /**
@@ -264,6 +408,128 @@ export type JobSnapshot = {
 };
 
 export type JsonValue = unknown;
+
+/**
+ * LeaseGrant
+ */
+export type LeaseGrant = {
+    /**
+     * Run Id
+     */
+    run_id: string;
+    /**
+     * Owner
+     */
+    owner: string;
+    /**
+     * Token
+     */
+    token: string;
+    /**
+     * Expires At
+     */
+    expires_at: string;
+    /**
+     * Run Revision
+     */
+    run_revision: number;
+};
+
+/**
+ * LeaseMutation
+ */
+export type LeaseMutation = {
+    /**
+     * Owner
+     */
+    owner: string;
+    /**
+     * Token
+     */
+    token: string;
+    /**
+     * Ttl Seconds
+     */
+    ttl_seconds?: number;
+};
+
+/**
+ * LeaseRequest
+ */
+export type LeaseRequest = {
+    /**
+     * Owner
+     */
+    owner: string;
+    /**
+     * Ttl Seconds
+     */
+    ttl_seconds?: number;
+};
+
+/**
+ * LinearIssue
+ */
+export type LinearIssue = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Identifier
+     */
+    identifier: string;
+    /**
+     * Title
+     */
+    title: string;
+    /**
+     * Description
+     */
+    description?: string | null;
+    /**
+     * Priority
+     */
+    priority: number;
+    /**
+     * State Type
+     */
+    state_type: string;
+    /**
+     * Created At
+     */
+    created_at: string;
+    /**
+     * Updated At
+     */
+    updated_at: string;
+    /**
+     * Url
+     */
+    url: string;
+    /**
+     * Blockers
+     */
+    blockers?: Array<LinearIssueBlocker>;
+};
+
+/**
+ * LinearIssueBlocker
+ */
+export type LinearIssueBlocker = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Identifier
+     */
+    identifier: string;
+    /**
+     * State Type
+     */
+    state_type: string;
+};
 
 /**
  * PaginatedList[ConnectorRead]
@@ -437,6 +703,139 @@ export type PipelineObservationConfig = {
      */
     pull_numbers: Array<number>;
     verification: VerificationConfig;
+};
+
+/**
+ * PipelineRunAcquisition
+ */
+export type PipelineRunAcquisition = {
+    run: PipelineRunRead | null;
+    /**
+     * Created
+     */
+    created: boolean;
+    selection?: ActionableIssueSelection | null;
+};
+
+/**
+ * PipelineRunList
+ */
+export type PipelineRunList = {
+    /**
+     * Items
+     */
+    items: Array<PipelineRunRead>;
+    /**
+     * Total Count
+     */
+    total_count: number;
+};
+
+/**
+ * PipelineRunRead
+ */
+export type PipelineRunRead = {
+    /**
+     * Created At
+     */
+    created_at: string;
+    /**
+     * Updated At
+     */
+    updated_at: string;
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Project Id
+     */
+    project_id: string;
+    /**
+     * Project Revision
+     */
+    project_revision: number;
+    /**
+     * Linear Issue Id
+     */
+    linear_issue_id: string;
+    /**
+     * Linear Issue Identifier
+     */
+    linear_issue_identifier: string;
+    linear_issue_snapshot: LinearIssue;
+    state: PipelineRunState;
+    /**
+     * Pause Reason
+     */
+    pause_reason: string | null;
+    /**
+     * Branch
+     */
+    branch: string;
+    /**
+     * Pull Number
+     */
+    pull_number: number | null;
+    /**
+     * Pull Url
+     */
+    pull_url: string | null;
+    /**
+     * Revision
+     */
+    revision: number;
+    /**
+     * Lease Owner
+     */
+    lease_owner: string | null;
+    /**
+     * Lease Expires At
+     */
+    lease_expires_at: string | null;
+};
+
+/**
+ * PipelineRunState
+ */
+export type PipelineRunState = 'queued' | 'dispatching' | 'implementing' | 'awaiting_ci' | 'paused' | 'completed' | 'failed' | 'canceled';
+
+/**
+ * PrepareImplementationAttempt
+ */
+export type PrepareImplementationAttempt = {
+    /**
+     * Owner
+     */
+    owner: string;
+    /**
+     * Token
+     */
+    token: string;
+    /**
+     * Expected Run Revision
+     */
+    expected_run_revision: number;
+    /**
+     * Base Branch
+     */
+    base_branch: string;
+};
+
+/**
+ * PreparedImplementationAttempt
+ */
+export type PreparedImplementationAttempt = {
+    attempt: ExecutionAttemptRead;
+    request: ImplementationRequest;
+    /**
+     * Run Revision
+     */
+    run_revision: number;
+    /**
+     * Created
+     */
+    created: boolean;
 };
 
 /**
@@ -1806,6 +2205,224 @@ export type GetPipelineObservationApiV1PipelinesObservationsScheduleIdGetRespons
 
 export type GetPipelineObservationApiV1PipelinesObservationsScheduleIdGetResponse = GetPipelineObservationApiV1PipelinesObservationsScheduleIdGetResponses[keyof GetPipelineObservationApiV1PipelinesObservationsScheduleIdGetResponses];
 
+export type ListPipelineRunsApiV1PipelineRunsGetData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Project Id
+         */
+        project_id?: string | null;
+        /**
+         * Offset
+         */
+        offset?: number;
+        /**
+         * Limit
+         */
+        limit?: number;
+    };
+    url: '/api/v1/pipeline-runs';
+};
+
+export type ListPipelineRunsApiV1PipelineRunsGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListPipelineRunsApiV1PipelineRunsGetError = ListPipelineRunsApiV1PipelineRunsGetErrors[keyof ListPipelineRunsApiV1PipelineRunsGetErrors];
+
+export type ListPipelineRunsApiV1PipelineRunsGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: PipelineRunList;
+};
+
+export type ListPipelineRunsApiV1PipelineRunsGetResponse = ListPipelineRunsApiV1PipelineRunsGetResponses[keyof ListPipelineRunsApiV1PipelineRunsGetResponses];
+
+export type GetPipelineRunApiV1PipelineRunsRunIdGetData = {
+    body?: never;
+    path: {
+        /**
+         * Run Id
+         */
+        run_id: string;
+    };
+    query?: never;
+    url: '/api/v1/pipeline-runs/{run_id}';
+};
+
+export type GetPipelineRunApiV1PipelineRunsRunIdGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetPipelineRunApiV1PipelineRunsRunIdGetError = GetPipelineRunApiV1PipelineRunsRunIdGetErrors[keyof GetPipelineRunApiV1PipelineRunsRunIdGetErrors];
+
+export type GetPipelineRunApiV1PipelineRunsRunIdGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: PipelineRunRead;
+};
+
+export type GetPipelineRunApiV1PipelineRunsRunIdGetResponse = GetPipelineRunApiV1PipelineRunsRunIdGetResponses[keyof GetPipelineRunApiV1PipelineRunsRunIdGetResponses];
+
+export type ListExecutionAttemptsApiV1PipelineRunsRunIdAttemptsGetData = {
+    body?: never;
+    path: {
+        /**
+         * Run Id
+         */
+        run_id: string;
+    };
+    query?: never;
+    url: '/api/v1/pipeline-runs/{run_id}/attempts';
+};
+
+export type ListExecutionAttemptsApiV1PipelineRunsRunIdAttemptsGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListExecutionAttemptsApiV1PipelineRunsRunIdAttemptsGetError = ListExecutionAttemptsApiV1PipelineRunsRunIdAttemptsGetErrors[keyof ListExecutionAttemptsApiV1PipelineRunsRunIdAttemptsGetErrors];
+
+export type ListExecutionAttemptsApiV1PipelineRunsRunIdAttemptsGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: ExecutionAttemptList;
+};
+
+export type ListExecutionAttemptsApiV1PipelineRunsRunIdAttemptsGetResponse = ListExecutionAttemptsApiV1PipelineRunsRunIdAttemptsGetResponses[keyof ListExecutionAttemptsApiV1PipelineRunsRunIdAttemptsGetResponses];
+
+export type AcquirePipelineRunLeaseApiV1PipelineRunsRunIdLeasePostData = {
+    body: LeaseRequest;
+    path: {
+        /**
+         * Run Id
+         */
+        run_id: string;
+    };
+    query?: never;
+    url: '/api/v1/pipeline-runs/{run_id}/lease';
+};
+
+export type AcquirePipelineRunLeaseApiV1PipelineRunsRunIdLeasePostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type AcquirePipelineRunLeaseApiV1PipelineRunsRunIdLeasePostError = AcquirePipelineRunLeaseApiV1PipelineRunsRunIdLeasePostErrors[keyof AcquirePipelineRunLeaseApiV1PipelineRunsRunIdLeasePostErrors];
+
+export type AcquirePipelineRunLeaseApiV1PipelineRunsRunIdLeasePostResponses = {
+    /**
+     * Successful Response
+     */
+    200: LeaseGrant;
+};
+
+export type AcquirePipelineRunLeaseApiV1PipelineRunsRunIdLeasePostResponse = AcquirePipelineRunLeaseApiV1PipelineRunsRunIdLeasePostResponses[keyof AcquirePipelineRunLeaseApiV1PipelineRunsRunIdLeasePostResponses];
+
+export type RenewPipelineRunLeaseApiV1PipelineRunsRunIdLeasePutData = {
+    body: LeaseMutation;
+    path: {
+        /**
+         * Run Id
+         */
+        run_id: string;
+    };
+    query?: never;
+    url: '/api/v1/pipeline-runs/{run_id}/lease';
+};
+
+export type RenewPipelineRunLeaseApiV1PipelineRunsRunIdLeasePutErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type RenewPipelineRunLeaseApiV1PipelineRunsRunIdLeasePutError = RenewPipelineRunLeaseApiV1PipelineRunsRunIdLeasePutErrors[keyof RenewPipelineRunLeaseApiV1PipelineRunsRunIdLeasePutErrors];
+
+export type RenewPipelineRunLeaseApiV1PipelineRunsRunIdLeasePutResponses = {
+    /**
+     * Successful Response
+     */
+    200: LeaseGrant;
+};
+
+export type RenewPipelineRunLeaseApiV1PipelineRunsRunIdLeasePutResponse = RenewPipelineRunLeaseApiV1PipelineRunsRunIdLeasePutResponses[keyof RenewPipelineRunLeaseApiV1PipelineRunsRunIdLeasePutResponses];
+
+export type ReleasePipelineRunLeaseApiV1PipelineRunsRunIdLeaseReleasePostData = {
+    body: LeaseMutation;
+    path: {
+        /**
+         * Run Id
+         */
+        run_id: string;
+    };
+    query?: never;
+    url: '/api/v1/pipeline-runs/{run_id}/lease/release';
+};
+
+export type ReleasePipelineRunLeaseApiV1PipelineRunsRunIdLeaseReleasePostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ReleasePipelineRunLeaseApiV1PipelineRunsRunIdLeaseReleasePostError = ReleasePipelineRunLeaseApiV1PipelineRunsRunIdLeaseReleasePostErrors[keyof ReleasePipelineRunLeaseApiV1PipelineRunsRunIdLeaseReleasePostErrors];
+
+export type ReleasePipelineRunLeaseApiV1PipelineRunsRunIdLeaseReleasePostResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type ReleasePipelineRunLeaseApiV1PipelineRunsRunIdLeaseReleasePostResponse = ReleasePipelineRunLeaseApiV1PipelineRunsRunIdLeaseReleasePostResponses[keyof ReleasePipelineRunLeaseApiV1PipelineRunsRunIdLeaseReleasePostResponses];
+
+export type PrepareImplementationAttemptApiV1PipelineRunsRunIdAttemptsImplementationPostData = {
+    body: PrepareImplementationAttempt;
+    path: {
+        /**
+         * Run Id
+         */
+        run_id: string;
+    };
+    query?: never;
+    url: '/api/v1/pipeline-runs/{run_id}/attempts/implementation';
+};
+
+export type PrepareImplementationAttemptApiV1PipelineRunsRunIdAttemptsImplementationPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type PrepareImplementationAttemptApiV1PipelineRunsRunIdAttemptsImplementationPostError = PrepareImplementationAttemptApiV1PipelineRunsRunIdAttemptsImplementationPostErrors[keyof PrepareImplementationAttemptApiV1PipelineRunsRunIdAttemptsImplementationPostErrors];
+
+export type PrepareImplementationAttemptApiV1PipelineRunsRunIdAttemptsImplementationPostResponses = {
+    /**
+     * Successful Response
+     */
+    200: PreparedImplementationAttempt;
+};
+
+export type PrepareImplementationAttemptApiV1PipelineRunsRunIdAttemptsImplementationPostResponse = PrepareImplementationAttemptApiV1PipelineRunsRunIdAttemptsImplementationPostResponses[keyof PrepareImplementationAttemptApiV1PipelineRunsRunIdAttemptsImplementationPostResponses];
+
 export type ListProjectsApiV1ProjectsGetData = {
     body?: never;
     path?: never;
@@ -1997,6 +2614,66 @@ export type UpdateProjectApiV1ProjectsProjectIdPutResponses = {
 };
 
 export type UpdateProjectApiV1ProjectsProjectIdPutResponse = UpdateProjectApiV1ProjectsProjectIdPutResponses[keyof UpdateProjectApiV1ProjectsProjectIdPutResponses];
+
+export type GetActionableIssueApiV1ProjectsProjectIdIssuesActionableGetData = {
+    body?: never;
+    path: {
+        /**
+         * Project Id
+         */
+        project_id: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{project_id}/issues/actionable';
+};
+
+export type GetActionableIssueApiV1ProjectsProjectIdIssuesActionableGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetActionableIssueApiV1ProjectsProjectIdIssuesActionableGetError = GetActionableIssueApiV1ProjectsProjectIdIssuesActionableGetErrors[keyof GetActionableIssueApiV1ProjectsProjectIdIssuesActionableGetErrors];
+
+export type GetActionableIssueApiV1ProjectsProjectIdIssuesActionableGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: ActionableIssueSelection;
+};
+
+export type GetActionableIssueApiV1ProjectsProjectIdIssuesActionableGetResponse = GetActionableIssueApiV1ProjectsProjectIdIssuesActionableGetResponses[keyof GetActionableIssueApiV1ProjectsProjectIdIssuesActionableGetResponses];
+
+export type AcquirePipelineRunApiV1ProjectsProjectIdRunsAcquirePostData = {
+    body?: never;
+    path: {
+        /**
+         * Project Id
+         */
+        project_id: string;
+    };
+    query?: never;
+    url: '/api/v1/projects/{project_id}/runs/acquire';
+};
+
+export type AcquirePipelineRunApiV1ProjectsProjectIdRunsAcquirePostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type AcquirePipelineRunApiV1ProjectsProjectIdRunsAcquirePostError = AcquirePipelineRunApiV1ProjectsProjectIdRunsAcquirePostErrors[keyof AcquirePipelineRunApiV1ProjectsProjectIdRunsAcquirePostErrors];
+
+export type AcquirePipelineRunApiV1ProjectsProjectIdRunsAcquirePostResponses = {
+    /**
+     * Successful Response
+     */
+    200: PipelineRunAcquisition;
+};
+
+export type AcquirePipelineRunApiV1ProjectsProjectIdRunsAcquirePostResponse = AcquirePipelineRunApiV1ProjectsProjectIdRunsAcquirePostResponses[keyof AcquirePipelineRunApiV1ProjectsProjectIdRunsAcquirePostResponses];
 
 export type CheckProjectApiV1ProjectsProjectIdCheckPostData = {
     body: CheckRequest;

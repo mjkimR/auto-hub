@@ -2,7 +2,7 @@
 
 import type { Client, Options as Options2, TDataShape } from './client';
 import { client } from './client.gen';
-import type { CheckProjectApiV1ProjectsProjectIdCheckPostData, CheckProjectApiV1ProjectsProjectIdCheckPostErrors, CheckProjectApiV1ProjectsProjectIdCheckPostResponses, CreateConnectorApiV1ConnectorsPostData, CreateConnectorApiV1ConnectorsPostErrors, CreateConnectorApiV1ConnectorsPostResponses, CreateProjectApiV1ProjectsPostData, CreateProjectApiV1ProjectsPostErrors, CreateProjectApiV1ProjectsPostResponses, CreateScheduleConfigApiV1ScheduleConfigsPostData, CreateScheduleConfigApiV1ScheduleConfigsPostErrors, CreateScheduleConfigApiV1ScheduleConfigsPostResponses, CreateScheduleJobApiV1ScheduleJobsPostData, CreateScheduleJobApiV1ScheduleJobsPostErrors, CreateScheduleJobApiV1ScheduleJobsPostResponses, CreateSystemConfigApiV1SystemConfigsPostData, CreateSystemConfigApiV1SystemConfigsPostErrors, CreateSystemConfigApiV1SystemConfigsPostResponses, DeepHealthCheckApiHealthDeepGetData, DeepHealthCheckApiHealthDeepGetResponses, DeleteConnectorApiV1ConnectorsConnectorIdDeleteData, DeleteConnectorApiV1ConnectorsConnectorIdDeleteErrors, DeleteConnectorApiV1ConnectorsConnectorIdDeleteResponses, DeleteProjectApiV1ProjectsProjectIdDeleteData, DeleteProjectApiV1ProjectsProjectIdDeleteErrors, DeleteProjectApiV1ProjectsProjectIdDeleteResponses, DeleteScheduleConfigApiV1ScheduleConfigsScheduleConfigIdDeleteData, DeleteScheduleConfigApiV1ScheduleConfigsScheduleConfigIdDeleteErrors, DeleteScheduleConfigApiV1ScheduleConfigsScheduleConfigIdDeleteResponses, DeleteScheduleJobApiV1ScheduleJobsScheduleJobIdDeleteData, DeleteScheduleJobApiV1ScheduleJobsScheduleJobIdDeleteErrors, DeleteScheduleJobApiV1ScheduleJobsScheduleJobIdDeleteResponses, DeleteSystemConfigApiV1SystemConfigsSystemConfigIdDeleteData, DeleteSystemConfigApiV1SystemConfigsSystemConfigIdDeleteErrors, DeleteSystemConfigApiV1SystemConfigsSystemConfigIdDeleteResponses, GetConnectorApiV1ConnectorsConnectorIdGetData, GetConnectorApiV1ConnectorsConnectorIdGetErrors, GetConnectorApiV1ConnectorsConnectorIdGetResponses, GetConnectorsApiV1ConnectorsGetData, GetConnectorsApiV1ConnectorsGetErrors, GetConnectorsApiV1ConnectorsGetResponses, GetPipelineObservationApiV1PipelinesObservationsScheduleIdGetData, GetPipelineObservationApiV1PipelinesObservationsScheduleIdGetErrors, GetPipelineObservationApiV1PipelinesObservationsScheduleIdGetResponses, GetProjectApiV1ProjectsProjectIdGetData, GetProjectApiV1ProjectsProjectIdGetErrors, GetProjectApiV1ProjectsProjectIdGetResponses, GetProjectTemplatesApiV1ProjectsTemplatesGetData, GetProjectTemplatesApiV1ProjectsTemplatesGetResponses, GetScheduleConfigApiV1ScheduleConfigsScheduleConfigIdGetData, GetScheduleConfigApiV1ScheduleConfigsScheduleConfigIdGetErrors, GetScheduleConfigApiV1ScheduleConfigsScheduleConfigIdGetResponses, GetScheduleConfigsApiV1ScheduleConfigsGetData, GetScheduleConfigsApiV1ScheduleConfigsGetErrors, GetScheduleConfigsApiV1ScheduleConfigsGetResponses, GetScheduleJobApiV1ScheduleJobsScheduleJobIdGetData, GetScheduleJobApiV1ScheduleJobsScheduleJobIdGetErrors, GetScheduleJobApiV1ScheduleJobsScheduleJobIdGetResponses, GetScheduleJobsApiV1ScheduleJobsGetData, GetScheduleJobsApiV1ScheduleJobsGetErrors, GetScheduleJobsApiV1ScheduleJobsGetResponses, GetSystemConfigApiV1SystemConfigsSystemConfigIdGetData, GetSystemConfigApiV1SystemConfigsSystemConfigIdGetErrors, GetSystemConfigApiV1SystemConfigsSystemConfigIdGetResponses, GetSystemConfigsApiV1SystemConfigsGetData, GetSystemConfigsApiV1SystemConfigsGetErrors, GetSystemConfigsApiV1SystemConfigsGetResponses, GetTaskSpecsApiV1TasksSpecsGetData, GetTaskSpecsApiV1TasksSpecsGetErrors, GetTaskSpecsApiV1TasksSpecsGetResponses, HealthApiHealthGetData, HealthApiHealthGetResponses, ImportProjectScheduleApiV1ProjectsImportSchedulePostData, ImportProjectScheduleApiV1ProjectsImportSchedulePostErrors, ImportProjectScheduleApiV1ProjectsImportSchedulePostResponses, InspectPipelineApiV1PipelinesInspectPostData, InspectPipelineApiV1PipelinesInspectPostErrors, InspectPipelineApiV1PipelinesInspectPostResponses, ListProjectsApiV1ProjectsGetData, ListProjectsApiV1ProjectsGetErrors, ListProjectsApiV1ProjectsGetResponses, PatchConnectorApiV1ConnectorsConnectorIdPatchData, PatchConnectorApiV1ConnectorsConnectorIdPatchErrors, PatchConnectorApiV1ConnectorsConnectorIdPatchResponses, PatchScheduleConfigApiV1ScheduleConfigsScheduleConfigIdPatchData, PatchScheduleConfigApiV1ScheduleConfigsScheduleConfigIdPatchErrors, PatchScheduleConfigApiV1ScheduleConfigsScheduleConfigIdPatchResponses, PatchScheduleJobApiV1ScheduleJobsScheduleJobIdPatchData, PatchScheduleJobApiV1ScheduleJobsScheduleJobIdPatchErrors, PatchScheduleJobApiV1ScheduleJobsScheduleJobIdPatchResponses, PatchSystemConfigApiV1SystemConfigsSystemConfigIdPatchData, PatchSystemConfigApiV1SystemConfigsSystemConfigIdPatchErrors, PatchSystemConfigApiV1SystemConfigsSystemConfigIdPatchResponses, PutConnectorApiV1ConnectorsConnectorIdPutData, PutConnectorApiV1ConnectorsConnectorIdPutErrors, PutConnectorApiV1ConnectorsConnectorIdPutResponses, PutScheduleConfigApiV1ScheduleConfigsScheduleConfigIdPutData, PutScheduleConfigApiV1ScheduleConfigsScheduleConfigIdPutErrors, PutScheduleConfigApiV1ScheduleConfigsScheduleConfigIdPutResponses, PutScheduleJobApiV1ScheduleJobsScheduleJobIdPutData, PutScheduleJobApiV1ScheduleJobsScheduleJobIdPutErrors, PutScheduleJobApiV1ScheduleJobsScheduleJobIdPutResponses, PutSystemConfigApiV1SystemConfigsSystemConfigIdPutData, PutSystemConfigApiV1SystemConfigsSystemConfigIdPutErrors, PutSystemConfigApiV1SystemConfigsSystemConfigIdPutResponses, RootGetData, RootGetResponses, TriggerDispatchApiV1DispatchersTriggerPostData, TriggerDispatchApiV1DispatchersTriggerPostErrors, TriggerDispatchApiV1DispatchersTriggerPostResponses, UpdateProjectApiV1ProjectsProjectIdPutData, UpdateProjectApiV1ProjectsProjectIdPutErrors, UpdateProjectApiV1ProjectsProjectIdPutResponses } from './types.gen';
+import type { AcquirePipelineRunApiV1ProjectsProjectIdRunsAcquirePostData, AcquirePipelineRunApiV1ProjectsProjectIdRunsAcquirePostErrors, AcquirePipelineRunApiV1ProjectsProjectIdRunsAcquirePostResponses, AcquirePipelineRunLeaseApiV1PipelineRunsRunIdLeasePostData, AcquirePipelineRunLeaseApiV1PipelineRunsRunIdLeasePostErrors, AcquirePipelineRunLeaseApiV1PipelineRunsRunIdLeasePostResponses, CheckProjectApiV1ProjectsProjectIdCheckPostData, CheckProjectApiV1ProjectsProjectIdCheckPostErrors, CheckProjectApiV1ProjectsProjectIdCheckPostResponses, CreateConnectorApiV1ConnectorsPostData, CreateConnectorApiV1ConnectorsPostErrors, CreateConnectorApiV1ConnectorsPostResponses, CreateProjectApiV1ProjectsPostData, CreateProjectApiV1ProjectsPostErrors, CreateProjectApiV1ProjectsPostResponses, CreateScheduleConfigApiV1ScheduleConfigsPostData, CreateScheduleConfigApiV1ScheduleConfigsPostErrors, CreateScheduleConfigApiV1ScheduleConfigsPostResponses, CreateScheduleJobApiV1ScheduleJobsPostData, CreateScheduleJobApiV1ScheduleJobsPostErrors, CreateScheduleJobApiV1ScheduleJobsPostResponses, CreateSystemConfigApiV1SystemConfigsPostData, CreateSystemConfigApiV1SystemConfigsPostErrors, CreateSystemConfigApiV1SystemConfigsPostResponses, DeepHealthCheckApiHealthDeepGetData, DeepHealthCheckApiHealthDeepGetResponses, DeleteConnectorApiV1ConnectorsConnectorIdDeleteData, DeleteConnectorApiV1ConnectorsConnectorIdDeleteErrors, DeleteConnectorApiV1ConnectorsConnectorIdDeleteResponses, DeleteProjectApiV1ProjectsProjectIdDeleteData, DeleteProjectApiV1ProjectsProjectIdDeleteErrors, DeleteProjectApiV1ProjectsProjectIdDeleteResponses, DeleteScheduleConfigApiV1ScheduleConfigsScheduleConfigIdDeleteData, DeleteScheduleConfigApiV1ScheduleConfigsScheduleConfigIdDeleteErrors, DeleteScheduleConfigApiV1ScheduleConfigsScheduleConfigIdDeleteResponses, DeleteScheduleJobApiV1ScheduleJobsScheduleJobIdDeleteData, DeleteScheduleJobApiV1ScheduleJobsScheduleJobIdDeleteErrors, DeleteScheduleJobApiV1ScheduleJobsScheduleJobIdDeleteResponses, DeleteSystemConfigApiV1SystemConfigsSystemConfigIdDeleteData, DeleteSystemConfigApiV1SystemConfigsSystemConfigIdDeleteErrors, DeleteSystemConfigApiV1SystemConfigsSystemConfigIdDeleteResponses, GetActionableIssueApiV1ProjectsProjectIdIssuesActionableGetData, GetActionableIssueApiV1ProjectsProjectIdIssuesActionableGetErrors, GetActionableIssueApiV1ProjectsProjectIdIssuesActionableGetResponses, GetConnectorApiV1ConnectorsConnectorIdGetData, GetConnectorApiV1ConnectorsConnectorIdGetErrors, GetConnectorApiV1ConnectorsConnectorIdGetResponses, GetConnectorsApiV1ConnectorsGetData, GetConnectorsApiV1ConnectorsGetErrors, GetConnectorsApiV1ConnectorsGetResponses, GetPipelineObservationApiV1PipelinesObservationsScheduleIdGetData, GetPipelineObservationApiV1PipelinesObservationsScheduleIdGetErrors, GetPipelineObservationApiV1PipelinesObservationsScheduleIdGetResponses, GetPipelineRunApiV1PipelineRunsRunIdGetData, GetPipelineRunApiV1PipelineRunsRunIdGetErrors, GetPipelineRunApiV1PipelineRunsRunIdGetResponses, GetProjectApiV1ProjectsProjectIdGetData, GetProjectApiV1ProjectsProjectIdGetErrors, GetProjectApiV1ProjectsProjectIdGetResponses, GetProjectTemplatesApiV1ProjectsTemplatesGetData, GetProjectTemplatesApiV1ProjectsTemplatesGetResponses, GetScheduleConfigApiV1ScheduleConfigsScheduleConfigIdGetData, GetScheduleConfigApiV1ScheduleConfigsScheduleConfigIdGetErrors, GetScheduleConfigApiV1ScheduleConfigsScheduleConfigIdGetResponses, GetScheduleConfigsApiV1ScheduleConfigsGetData, GetScheduleConfigsApiV1ScheduleConfigsGetErrors, GetScheduleConfigsApiV1ScheduleConfigsGetResponses, GetScheduleJobApiV1ScheduleJobsScheduleJobIdGetData, GetScheduleJobApiV1ScheduleJobsScheduleJobIdGetErrors, GetScheduleJobApiV1ScheduleJobsScheduleJobIdGetResponses, GetScheduleJobsApiV1ScheduleJobsGetData, GetScheduleJobsApiV1ScheduleJobsGetErrors, GetScheduleJobsApiV1ScheduleJobsGetResponses, GetSystemConfigApiV1SystemConfigsSystemConfigIdGetData, GetSystemConfigApiV1SystemConfigsSystemConfigIdGetErrors, GetSystemConfigApiV1SystemConfigsSystemConfigIdGetResponses, GetSystemConfigsApiV1SystemConfigsGetData, GetSystemConfigsApiV1SystemConfigsGetErrors, GetSystemConfigsApiV1SystemConfigsGetResponses, GetTaskSpecsApiV1TasksSpecsGetData, GetTaskSpecsApiV1TasksSpecsGetErrors, GetTaskSpecsApiV1TasksSpecsGetResponses, HealthApiHealthGetData, HealthApiHealthGetResponses, ImportProjectScheduleApiV1ProjectsImportSchedulePostData, ImportProjectScheduleApiV1ProjectsImportSchedulePostErrors, ImportProjectScheduleApiV1ProjectsImportSchedulePostResponses, InspectPipelineApiV1PipelinesInspectPostData, InspectPipelineApiV1PipelinesInspectPostErrors, InspectPipelineApiV1PipelinesInspectPostResponses, ListExecutionAttemptsApiV1PipelineRunsRunIdAttemptsGetData, ListExecutionAttemptsApiV1PipelineRunsRunIdAttemptsGetErrors, ListExecutionAttemptsApiV1PipelineRunsRunIdAttemptsGetResponses, ListPipelineRunsApiV1PipelineRunsGetData, ListPipelineRunsApiV1PipelineRunsGetErrors, ListPipelineRunsApiV1PipelineRunsGetResponses, ListProjectsApiV1ProjectsGetData, ListProjectsApiV1ProjectsGetErrors, ListProjectsApiV1ProjectsGetResponses, PatchConnectorApiV1ConnectorsConnectorIdPatchData, PatchConnectorApiV1ConnectorsConnectorIdPatchErrors, PatchConnectorApiV1ConnectorsConnectorIdPatchResponses, PatchScheduleConfigApiV1ScheduleConfigsScheduleConfigIdPatchData, PatchScheduleConfigApiV1ScheduleConfigsScheduleConfigIdPatchErrors, PatchScheduleConfigApiV1ScheduleConfigsScheduleConfigIdPatchResponses, PatchScheduleJobApiV1ScheduleJobsScheduleJobIdPatchData, PatchScheduleJobApiV1ScheduleJobsScheduleJobIdPatchErrors, PatchScheduleJobApiV1ScheduleJobsScheduleJobIdPatchResponses, PatchSystemConfigApiV1SystemConfigsSystemConfigIdPatchData, PatchSystemConfigApiV1SystemConfigsSystemConfigIdPatchErrors, PatchSystemConfigApiV1SystemConfigsSystemConfigIdPatchResponses, PrepareImplementationAttemptApiV1PipelineRunsRunIdAttemptsImplementationPostData, PrepareImplementationAttemptApiV1PipelineRunsRunIdAttemptsImplementationPostErrors, PrepareImplementationAttemptApiV1PipelineRunsRunIdAttemptsImplementationPostResponses, PutConnectorApiV1ConnectorsConnectorIdPutData, PutConnectorApiV1ConnectorsConnectorIdPutErrors, PutConnectorApiV1ConnectorsConnectorIdPutResponses, PutScheduleConfigApiV1ScheduleConfigsScheduleConfigIdPutData, PutScheduleConfigApiV1ScheduleConfigsScheduleConfigIdPutErrors, PutScheduleConfigApiV1ScheduleConfigsScheduleConfigIdPutResponses, PutScheduleJobApiV1ScheduleJobsScheduleJobIdPutData, PutScheduleJobApiV1ScheduleJobsScheduleJobIdPutErrors, PutScheduleJobApiV1ScheduleJobsScheduleJobIdPutResponses, PutSystemConfigApiV1SystemConfigsSystemConfigIdPutData, PutSystemConfigApiV1SystemConfigsSystemConfigIdPutErrors, PutSystemConfigApiV1SystemConfigsSystemConfigIdPutResponses, ReleasePipelineRunLeaseApiV1PipelineRunsRunIdLeaseReleasePostData, ReleasePipelineRunLeaseApiV1PipelineRunsRunIdLeaseReleasePostErrors, ReleasePipelineRunLeaseApiV1PipelineRunsRunIdLeaseReleasePostResponses, RenewPipelineRunLeaseApiV1PipelineRunsRunIdLeasePutData, RenewPipelineRunLeaseApiV1PipelineRunsRunIdLeasePutErrors, RenewPipelineRunLeaseApiV1PipelineRunsRunIdLeasePutResponses, RootGetData, RootGetResponses, TriggerDispatchApiV1DispatchersTriggerPostData, TriggerDispatchApiV1DispatchersTriggerPostErrors, TriggerDispatchApiV1DispatchersTriggerPostResponses, UpdateProjectApiV1ProjectsProjectIdPutData, UpdateProjectApiV1ProjectsProjectIdPutErrors, UpdateProjectApiV1ProjectsProjectIdPutResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -126,6 +126,87 @@ export const getPipelineObservationApiV1PipelinesObservationsScheduleIdGet = <Th
 });
 
 /**
+ * List Pipeline Runs
+ */
+export const listPipelineRunsApiV1PipelineRunsGet = <ThrowOnError extends boolean = false>(options?: Options<ListPipelineRunsApiV1PipelineRunsGetData, ThrowOnError>) => (options?.client ?? client).get<ListPipelineRunsApiV1PipelineRunsGetResponses, ListPipelineRunsApiV1PipelineRunsGetErrors, ThrowOnError>({
+    security: [{ name: 'X-API-Key', type: 'apiKey' }],
+    url: '/api/v1/pipeline-runs',
+    ...options
+});
+
+/**
+ * Get Pipeline Run
+ */
+export const getPipelineRunApiV1PipelineRunsRunIdGet = <ThrowOnError extends boolean = false>(options: Options<GetPipelineRunApiV1PipelineRunsRunIdGetData, ThrowOnError>) => (options.client ?? client).get<GetPipelineRunApiV1PipelineRunsRunIdGetResponses, GetPipelineRunApiV1PipelineRunsRunIdGetErrors, ThrowOnError>({
+    security: [{ name: 'X-API-Key', type: 'apiKey' }],
+    url: '/api/v1/pipeline-runs/{run_id}',
+    ...options
+});
+
+/**
+ * List Execution Attempts
+ */
+export const listExecutionAttemptsApiV1PipelineRunsRunIdAttemptsGet = <ThrowOnError extends boolean = false>(options: Options<ListExecutionAttemptsApiV1PipelineRunsRunIdAttemptsGetData, ThrowOnError>) => (options.client ?? client).get<ListExecutionAttemptsApiV1PipelineRunsRunIdAttemptsGetResponses, ListExecutionAttemptsApiV1PipelineRunsRunIdAttemptsGetErrors, ThrowOnError>({
+    security: [{ name: 'X-API-Key', type: 'apiKey' }],
+    url: '/api/v1/pipeline-runs/{run_id}/attempts',
+    ...options
+});
+
+/**
+ * Acquire Pipeline Run Lease
+ */
+export const acquirePipelineRunLeaseApiV1PipelineRunsRunIdLeasePost = <ThrowOnError extends boolean = false>(options: Options<AcquirePipelineRunLeaseApiV1PipelineRunsRunIdLeasePostData, ThrowOnError>) => (options.client ?? client).post<AcquirePipelineRunLeaseApiV1PipelineRunsRunIdLeasePostResponses, AcquirePipelineRunLeaseApiV1PipelineRunsRunIdLeasePostErrors, ThrowOnError>({
+    security: [{ name: 'X-API-Key', type: 'apiKey' }],
+    url: '/api/v1/pipeline-runs/{run_id}/lease',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Renew Pipeline Run Lease
+ */
+export const renewPipelineRunLeaseApiV1PipelineRunsRunIdLeasePut = <ThrowOnError extends boolean = false>(options: Options<RenewPipelineRunLeaseApiV1PipelineRunsRunIdLeasePutData, ThrowOnError>) => (options.client ?? client).put<RenewPipelineRunLeaseApiV1PipelineRunsRunIdLeasePutResponses, RenewPipelineRunLeaseApiV1PipelineRunsRunIdLeasePutErrors, ThrowOnError>({
+    security: [{ name: 'X-API-Key', type: 'apiKey' }],
+    url: '/api/v1/pipeline-runs/{run_id}/lease',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Release Pipeline Run Lease
+ */
+export const releasePipelineRunLeaseApiV1PipelineRunsRunIdLeaseReleasePost = <ThrowOnError extends boolean = false>(options: Options<ReleasePipelineRunLeaseApiV1PipelineRunsRunIdLeaseReleasePostData, ThrowOnError>) => (options.client ?? client).post<ReleasePipelineRunLeaseApiV1PipelineRunsRunIdLeaseReleasePostResponses, ReleasePipelineRunLeaseApiV1PipelineRunsRunIdLeaseReleasePostErrors, ThrowOnError>({
+    security: [{ name: 'X-API-Key', type: 'apiKey' }],
+    url: '/api/v1/pipeline-runs/{run_id}/lease/release',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Prepare Implementation Attempt
+ *
+ * Persist an immutable attempt before any external delegation.
+ */
+export const prepareImplementationAttemptApiV1PipelineRunsRunIdAttemptsImplementationPost = <ThrowOnError extends boolean = false>(options: Options<PrepareImplementationAttemptApiV1PipelineRunsRunIdAttemptsImplementationPostData, ThrowOnError>) => (options.client ?? client).post<PrepareImplementationAttemptApiV1PipelineRunsRunIdAttemptsImplementationPostResponses, PrepareImplementationAttemptApiV1PipelineRunsRunIdAttemptsImplementationPostErrors, ThrowOnError>({
+    security: [{ name: 'X-API-Key', type: 'apiKey' }],
+    url: '/api/v1/pipeline-runs/{run_id}/attempts/implementation',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
  * List Projects
  */
 export const listProjectsApiV1ProjectsGet = <ThrowOnError extends boolean = false>(options?: Options<ListProjectsApiV1ProjectsGetData, ThrowOnError>) => (options?.client ?? client).get<ListProjectsApiV1ProjectsGetResponses, ListProjectsApiV1ProjectsGetErrors, ThrowOnError>({
@@ -202,6 +283,28 @@ export const updateProjectApiV1ProjectsProjectIdPut = <ThrowOnError extends bool
         'Content-Type': 'application/json',
         ...options.headers
     }
+});
+
+/**
+ * Get Actionable Issue
+ *
+ * Select one actionable Linear issue without changing Linear or GitHub state.
+ */
+export const getActionableIssueApiV1ProjectsProjectIdIssuesActionableGet = <ThrowOnError extends boolean = false>(options: Options<GetActionableIssueApiV1ProjectsProjectIdIssuesActionableGetData, ThrowOnError>) => (options.client ?? client).get<GetActionableIssueApiV1ProjectsProjectIdIssuesActionableGetResponses, GetActionableIssueApiV1ProjectsProjectIdIssuesActionableGetErrors, ThrowOnError>({
+    security: [{ name: 'X-API-Key', type: 'apiKey' }],
+    url: '/api/v1/projects/{project_id}/issues/actionable',
+    ...options
+});
+
+/**
+ * Acquire Pipeline Run
+ *
+ * Resume the active run or atomically acquire one actionable Linear issue.
+ */
+export const acquirePipelineRunApiV1ProjectsProjectIdRunsAcquirePost = <ThrowOnError extends boolean = false>(options: Options<AcquirePipelineRunApiV1ProjectsProjectIdRunsAcquirePostData, ThrowOnError>) => (options.client ?? client).post<AcquirePipelineRunApiV1ProjectsProjectIdRunsAcquirePostResponses, AcquirePipelineRunApiV1ProjectsProjectIdRunsAcquirePostErrors, ThrowOnError>({
+    security: [{ name: 'X-API-Key', type: 'apiKey' }],
+    url: '/api/v1/projects/{project_id}/runs/acquire',
+    ...options
 });
 
 /**
