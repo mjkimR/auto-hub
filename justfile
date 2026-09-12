@@ -15,6 +15,7 @@ init module="all":
         echo "Initializing Python backend ($path)..."
         uv sync
         just hooks-install
+        just link-skills
     fi
 
     if should_run "$target" "hub-ui"; then
@@ -132,3 +133,8 @@ test-ui:
 # Generate OpenAPI client for the frontend UI module from Python backend schema
 gen-ui-api:
     @bash ./scripts/gen-ui-api.sh
+
+# Link or install agent skills from app-common
+link-skills +args="":
+    @bash ./scripts/install-skills.sh {{ args }}
+

@@ -1,72 +1,102 @@
-from typing import Any, get_args
+"""
+Deterministic test entity seeding fixtures without polyfactory.
+
+Provides make_db, make_db_batch, make_api, and make_api_batch fixtures
+using explicit, reproducible schema defaults aligned with app-testing conventions.
+"""
+
+from datetime import UTC, datetime
+from enum import Enum
+from typing import Any, get_args, get_origin
+from uuid import UUID, uuid4
 
 import pytest
 from app_layer_base.base.models.mixin import Base
 from app_layer_base.base.repos.base import BaseRepository
+from app_testing_base import random_string, resolve_dependency
 from httpx import AsyncClient
-from polyfactory.factories.pydantic_factory import ModelFactory
 from pydantic import BaseModel
+from pydantic_core import PydanticUndefined
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tests.fixtures import factory as ft
-from tests.utils.fastapi import resolve_dependency
+
+def _generate_default_for_type(annotation: Any, field_name: str) -> Any:
+    origin = get_origin(annotation)
+    if origin is not None:
+        args = get_args(annotation)
+        if type(None) in args:
+            return None
+        if origin is list:
+            return []
+        if origin is dict:
+            return {}
+        if origin is set:
+            return set()
+    if annotation is str:
+        return f"{field_name}_{random_string(4)}"
+    if annotation is int:
+        return 60 if "second" in field_name else 1
+    if annotation is float:
+        return 1.0
+    if annotation is bool:
+        return True
+    if annotation is dict:
+        return {}
+    if annotation is list:
+        return []
+    if annotation is datetime:
+        return datetime.now(UTC)
+    if annotation is UUID:
+        return uuid4()
+    if isinstance(annotation, type) and issubclass(annotation, Enum):
+        return next(iter(annotation))
+    return None
 
 
-def get_model_factory[T: BaseModel](model_class: type[T], _use_default: bool = False) -> type[ModelFactory]:
-    """Get the corresponding ModelFactory for a given Pydantic model class."""
-    from app.features.schedule_configs.schemas import ScheduleConfigCreate
-    from app.features.schedule_jobs.schemas import ScheduleJobCreate
+def build_schema_instance[T: BaseModel](model_cls: type[T], **overrides: Any) -> T:
+    """Build a valid, deterministic Pydantic schema instance for testing."""
+    known_defaults: dict[str, Any] = {}
+    cls_name = model_cls.__name__
 
-    model_factory = {
-        ScheduleConfigCreate: ft.ScheduleConfigCreateFactory,
-        ScheduleJobCreate: ft.ScheduleJobCreateFactory,
-    }
+    if cls_name == "ScheduleConfigCreate":
+        known_defaults = {
+            "name": f"config-{random_string(6)}",
+            "task_func": "sample.task",
+            "interval_seconds": 60,
+            "payload": {},
+        }
+    elif cls_name == "ScheduleJobCreate":
+        from app.features.schedule_jobs.models import ScheduleJobStatus
 
-    factory_class = model_factory.get(model_class)
-    if factory_class is None:
-        return ModelFactory.create_factory(model_class, __use_defaults__=_use_default)  # type: ignore
+        known_defaults = {
+            "name": f"job-{random_string(6)}",
+            "status": ScheduleJobStatus.PENDING,
+            "payload": {},
+            "schedule_config_id": None,
+            "dispatcher_run_id": None,
+            "finished_at": None,
+            "error_message": None,
+        }
+    elif cls_name == "SystemConfigCreate":
+        known_defaults = {
+            "name": f"sys-{random_string(6)}",
+            "data": {},
+        }
 
-    if _use_default:
-        return factory_class.create_factory(model_class, __use_defaults__=True)
+    values: dict[str, Any] = dict(known_defaults)
+    values.update(overrides)
 
-    return factory_class
+    for field_name, field_info in model_cls.model_fields.items():
+        if field_name in values:
+            continue
+        if field_info.default is not PydanticUndefined:
+            continue
+        if field_info.default_factory is not None:
+            continue
 
+        values[field_name] = _generate_default_for_type(field_info.annotation, field_name)
 
-@pytest.fixture
-def make():
-    """Pydantic model factory fixture.
-
-    Usage: make(User, name="test")
-    - model_class: Pydantic model class to create
-    - _use_default: whether to use default values defined in the model (default: False)
-    - kwargs: fields to override in the factory
-    """
-
-    def _make[T: BaseModel](model_class: type[T], _use_default: bool = False, **kwargs: Any) -> T:
-        factory = get_model_factory(model_class, _use_default)
-        return factory.build(**kwargs)
-
-    return _make
-
-
-@pytest.fixture
-def make_batch():
-    """Pydantic model batch factory fixture.
-
-    Usage: make_batch(User, 3, name="test")
-    - model_class: Pydantic model class to create
-    - _size: number of models to create (default: 3)
-    - _use_default: whether to use default values defined in the model (default: False)
-    - kwargs: fields to override in the factory
-    """
-
-    def _make_batch[T: BaseModel](
-        model_class: type[T], _size: int = 3, _use_default: bool = False, **kwargs: Any
-    ) -> list[T]:
-        factory = get_model_factory(model_class, _use_default)
-        return factory.batch(size=_size, **kwargs)
-
-    return _make_batch
+    return model_cls(**values)
 
 
 def _find_generic_args(repo_class: type[BaseRepository]) -> type[BaseModel]:
@@ -77,23 +107,34 @@ def _find_generic_args(repo_class: type[BaseRepository]) -> type[BaseModel]:
         raise ValueError(f"{repo_class.__name__} does not have __orig_bases__ attribute.")
     orig_bases = repo_class.__orig_bases__  # type: ignore
     generic_args = get_args(orig_bases[0])
-    create_schema_type = generic_args[1]
-    return create_schema_type
+    return generic_args[1]
+
+
+@pytest.fixture
+def make():
+    """Pydantic model factory fixture."""
+
+    def _make[T: BaseModel](model_class: type[T], _use_default: bool = False, **kwargs: Any) -> T:
+        return build_schema_instance(model_class, **kwargs)
+
+    return _make
+
+
+@pytest.fixture
+def make_batch():
+    """Pydantic model batch factory fixture."""
+
+    def _make_batch[T: BaseModel](
+        model_class: type[T], _size: int = 3, _use_default: bool = False, **kwargs: Any
+    ) -> list[T]:
+        return [build_schema_instance(model_class, **kwargs) for _ in range(_size)]
+
+    return _make_batch
 
 
 @pytest.fixture
 def make_db(session: AsyncSession):
-    """SQLAlchemy model factory fixture. (with repo creation)
-
-    Usage: await make_db(UserRepository, name="test")
-    - repo_class_or_instance: repo class or instance to use for creating the model (e.g., UserRepository)
-    - _build_kwargs: extra keyword arguments passed to factory.build()
-    - _create_kwargs: extra keyword arguments passed to repo.create()
-    - _use_default: whether to use default values defined in the schema (default: False)
-    - kwargs: fields to override in the factory (used for build only)
-
-    Returns the created SQLAlchemy model instance after saving to the database.
-    """
+    """SQLAlchemy model factory fixture using repository."""
 
     async def _make_db(
         repo_class_or_instance: type[BaseRepository] | BaseRepository,
@@ -109,8 +150,8 @@ def make_db(session: AsyncSession):
             repo_class = repo_class_or_instance
             repo = resolve_dependency(repo_class_or_instance)
         create_schema_type = _find_generic_args(repo_class)
-        factory = get_model_factory(create_schema_type, _use_default)
-        data = factory.build(**{**kwargs, **(_build_kwargs or {})})
+        merged_build = {**kwargs, **(_build_kwargs or {})}
+        data = build_schema_instance(create_schema_type, **merged_build)
         result = await repo.create(session, data, **{**kwargs, **(_create_kwargs or {})})
         await session.commit()
         return result
@@ -120,18 +161,7 @@ def make_db(session: AsyncSession):
 
 @pytest.fixture
 def make_db_batch(session: AsyncSession):
-    """SQLAlchemy model batch factory fixture. (with repo creation)
-
-    Usage: await make_db_batch(UserRepository, 3)
-    - repo_class_or_instance: Repo class or instance to use for creating the models (e.g., UserRepository)
-    - _size: number of models to create (default: 3)
-    - _build_kwargs: extra keyword arguments passed to factory.batch()
-    - _create_kwargs: extra keyword arguments passed to repo.create()
-    - _use_default: whether to use default values defined in the schema (default: False)
-    - kwargs: fields to override in the factory (used for build only)
-
-    Returns a list of created SQLAlchemy model instances after saving to the database.
-    """
+    """SQLAlchemy model batch factory fixture using repository."""
 
     async def _make_db_batch(
         repo_class_or_instance: BaseRepository | type[BaseRepository],
@@ -148,10 +178,10 @@ def make_db_batch(session: AsyncSession):
             repo_class = repo_class_or_instance
             repo = resolve_dependency(repo_class_or_instance)
         create_schema_type = _find_generic_args(repo_class)
-        factory = get_model_factory(create_schema_type, _use_default)
-        data_list = factory.batch(size=_size, **{**kwargs, **(_build_kwargs or {})})
         results = []
-        for data in data_list:
+        for _ in range(_size):
+            merged_build = {**kwargs, **(_build_kwargs or {})}
+            data = build_schema_instance(create_schema_type, **merged_build)
             results.append(await repo.create(session, data, **{**kwargs, **(_create_kwargs or {})}))
         await session.commit()
         return results
@@ -161,20 +191,12 @@ def make_db_batch(session: AsyncSession):
 
 @pytest.fixture
 def make_api(client: AsyncClient):
-    """API model factory fixture.
-
-    Usage: await make_api("/users/", UserCreate, name="test")
-    - endpoint: API endpoint to create the model
-    - model_class: Pydantic model class for the request body
-    - _use_default: whether to use default values defined in the model (default: False)
-    - kwargs: fields to override in the factory
-    """
+    """API model factory fixture."""
 
     async def _make_api[T: BaseModel](
         endpoint: str, model_class: type[T], _use_default: bool = False, **kwargs: Any
     ) -> T:
-        factory = get_model_factory(model_class, _use_default)
-        data = factory.build(**kwargs)
+        data = build_schema_instance(model_class, **kwargs)
         response = await client.post(endpoint, json=data.model_dump())
         response.raise_for_status()
         return model_class.model_validate(response.json())
@@ -184,23 +206,16 @@ def make_api(client: AsyncClient):
 
 @pytest.fixture
 def make_api_batch(client: AsyncClient):
-    """API model batch factory fixture.
-
-    Usage: await make_api_batch("/users/batch", UserCreate, 3, name="test")
-    - endpoint: API endpoint to create the models
-    - model_class: Pydantic model class for the request body
-    - _size: number of models to create (default: 3)
-    - _use_default: whether to use default values defined in the model (default: False)
-    - kwargs: fields to override in the factory
-    """
+    """API model batch factory fixture."""
 
     async def _make_api_batch[T: BaseModel](
         endpoint: str, model_class: type[T], _size: int = 3, _use_default: bool = False, **kwargs: Any
     ) -> list[T]:
-        factory = get_model_factory(model_class, _use_default)
-        data_list = factory.batch(size=_size, **kwargs)
-        payload = [data.model_dump() for data in data_list]
-        response = await client.post(endpoint, json=payload)
+        items = []
+        for _ in range(_size):
+            data = build_schema_instance(model_class, **kwargs)
+            items.append(data.model_dump())
+        response = await client.post(endpoint, json=items)
         response.raise_for_status()
         return [model_class.model_validate(item) for item in response.json()]
 

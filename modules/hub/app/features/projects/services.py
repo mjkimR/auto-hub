@@ -6,16 +6,34 @@ from app.features.projects.models import ProjectConnection
 from app.features.projects.repos import PROJECT_OBSERVATION_TASK, ProjectRepository
 from app.features.projects.schemas import ProjectObservationPayload, ProjectRead, ProjectUpdate, ProjectWrite
 from app.features.projects.templates import TEMPLATE_VERSION
+from app_layer_base.base.exceptions.base import Actor, CustomException, Retry
 from fastapi import Depends
 from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
-class ProjectError(Exception):
-    def __init__(self, status: int, detail: str):
+class ProjectError(CustomException):
+    def __init__(
+        self,
+        status: int,
+        detail: str,
+        *,
+        actor: Actor | None = None,
+        retry: Retry | None = None,
+        code: str = "PROJECT_ERROR",
+        fix: str | None = None,
+    ):
         self.status = status
         self.detail = detail
-        super().__init__(detail)
+        super().__init__(
+            message=detail,
+            status_code=status,
+            title="Project Error",
+            code=code,
+            actor=actor or (Actor.USER if status < 500 else Actor.DEVELOPER),
+            retry=retry or (Retry.UNSAFE if status in (404, 422) else Retry.SAFE),
+            fix=fix,
+        )
 
 
 class ProjectService:
