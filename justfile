@@ -20,12 +20,6 @@ init module="all":
 
     if should_run "$target" "hub-ui"; then
         path=$(resolve_module_path "hub-ui")
-        echo "Initializing React frontend ($path)..."
-        npm --prefix "$path" install
-    fi
-
-    if [ "$target" = "hub-ui-svelte" ]; then
-        path=$(resolve_module_path "hub-ui-svelte")
         echo "Initializing Svelte frontend ($path)..."
         npm --prefix "$path" install
     fi
@@ -45,12 +39,6 @@ lint module="all":
 
     if should_run "$target" "hub-ui"; then
         path=$(resolve_module_path "hub-ui")
-        echo "Linting React frontend ($path)..."
-        npm --prefix "$path" run lint
-    fi
-
-    if [ "$target" = "hub-ui-svelte" ]; then
-        path=$(resolve_module_path "hub-ui-svelte")
         echo "Linting Svelte frontend ($path)..."
         npm --prefix "$path" run lint
     fi
@@ -69,13 +57,7 @@ check module="all":
 
     if should_run "$target" "hub-ui"; then
         path=$(resolve_module_path "hub-ui")
-        echo "Compiling and type checking React frontend ($path)..."
-        npm --prefix "$path" run build
-    fi
-
-    if [ "$target" = "hub-ui-svelte" ]; then
-        path=$(resolve_module_path "hub-ui-svelte")
-        echo "Checking Svelte frontend ($path)..."
+        echo "Checking and compiling Svelte frontend ($path)..."
         npm --prefix "$path" run check
         npm --prefix "$path" run build
     fi
