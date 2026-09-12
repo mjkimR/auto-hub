@@ -24,6 +24,12 @@ init module="all":
         npm --prefix "$path" install
     fi
 
+    if [ "$target" = "hub-ui-svelte" ]; then
+        path=$(resolve_module_path "hub-ui-svelte")
+        echo "Initializing Svelte frontend ($path)..."
+        npm --prefix "$path" install
+    fi
+
 # Run linters for a specific module (all, hub, or hub-ui)
 lint module="all":
     #!/usr/bin/env bash
@@ -43,6 +49,12 @@ lint module="all":
         npm --prefix "$path" run lint
     fi
 
+    if [ "$target" = "hub-ui-svelte" ]; then
+        path=$(resolve_module_path "hub-ui-svelte")
+        echo "Linting Svelte frontend ($path)..."
+        npm --prefix "$path" run lint
+    fi
+
 # Run static type checks for a specific module (all, hub, or hub-ui)
 check module="all":
     #!/usr/bin/env bash
@@ -58,6 +70,13 @@ check module="all":
     if should_run "$target" "hub-ui"; then
         path=$(resolve_module_path "hub-ui")
         echo "Compiling and type checking React frontend ($path)..."
+        npm --prefix "$path" run build
+    fi
+
+    if [ "$target" = "hub-ui-svelte" ]; then
+        path=$(resolve_module_path "hub-ui-svelte")
+        echo "Checking Svelte frontend ($path)..."
+        npm --prefix "$path" run check
         npm --prefix "$path" run build
     fi
 
@@ -116,6 +135,11 @@ db-upgrade module="hub":
     source ./scripts/_lib.sh
     target=$(resolve_module "{{ module }}")
     path=$(resolve_module_path "$target")
+    if [ -f "$path/.env" ]; then
+        set -a
+        source "$path/.env"
+        set +a
+    fi
     uv run --directory "$path" alembic upgrade head
 
 # Run tests with SQLite (default)
