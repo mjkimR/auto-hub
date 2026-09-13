@@ -40,15 +40,12 @@
 
 	// New project form state
 	let newName = $state('');
-	let newRepo = $state('');
-	let newLinearProjectId = $state('00000000-0000-0000-0000-000000000000');
-	let newGithubConnectorId = $state('00000000-0000-0000-0000-000000000000');
 
 	let filteredProjects = $derived(
 		projects.filter(
 			(p) =>
 				p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-				p.repository.toLowerCase().includes(searchQuery.toLowerCase())
+				p.github?.repository?.toLowerCase().includes(searchQuery.toLowerCase())
 		)
 	);
 
@@ -68,8 +65,8 @@
 
 	async function handleCreateProject(e: SubmitEvent) {
 		e.preventDefault();
-		if (!newName.trim() || !newRepo.trim()) {
-			toast.error('Name and Repository are required');
+		if (!newName.trim()) {
+			toast.error('Project name is required');
 			return;
 		}
 
@@ -78,15 +75,7 @@
 			const res = await api.POST('/api/v1/projects', {
 				body: {
 					name: newName.trim(),
-					repository: newRepo.trim(),
-					linear_project_id: newLinearProjectId,
-					github_connector_id: newGithubConnectorId,
-					enabled: true,
-					verification: {
-						workflow: 'ci.yml',
-						required_jobs: ['test'],
-						event: 'pull_request'
-					}
+					enabled: true
 				}
 			});
 
@@ -96,7 +85,6 @@
 				toast.success(`Project ${newName} created`);
 				isDialogOpen = false;
 				newName = '';
-				newRepo = '';
 				loadProjects();
 			}
 		} catch {
@@ -134,7 +122,7 @@
 		<div>
 			<h1 class="text-3xl font-bold tracking-tight">Projects</h1>
 			<p class="text-sm text-muted-foreground">
-				Manage repositories and registered automation workspaces
+				Organize workspaces first, then connect GitHub and Linear when needed
 			</p>
 		</div>
 		<div class="flex items-center gap-3">
@@ -165,7 +153,7 @@
 			<TableHeader>
 				<TableRow>
 					<TableHead class="w-[200px]">Project Name</TableHead>
-					<TableHead>Repository</TableHead>
+					<TableHead>Connections</TableHead>
 					<TableHead class="w-[120px]">Status</TableHead>
 					<TableHead class="w-[180px]">Created</TableHead>
 					<TableHead class="w-[100px] text-right">Actions</TableHead>
@@ -194,7 +182,16 @@
 								{project.name}
 							</TableCell>
 							<TableCell class="font-mono text-xs text-muted-foreground">
-								{project.repository}
+								{#if project.github || project.linear}
+									<div class="flex flex-wrap gap-1">
+										{#if project.github}<Badge variant="secondary"
+												>GitHub: {project.github.repository}</Badge
+											>{/if}
+										{#if project.linear}<Badge variant="secondary">Linear connected</Badge>{/if}
+									</div>
+								{:else}
+									<span>None</span>
+								{/if}
 							</TableCell>
 							<TableCell>
 								{#if project.enabled}
@@ -247,10 +244,9 @@
 					<Input id="pName" placeholder="e.g. core-pipeline" bind:value={newName} required />
 				</div>
 				<div class="space-y-2">
-					<label for="pRepo" class="text-xs font-semibold text-muted-foreground uppercase"
-						>Repository Target</label
-					>
-					<Input id="pRepo" placeholder="e.g. org/repository-name" bind:value={newRepo} required />
+					<p class="text-sm text-muted-foreground">
+						Create the workspace now. GitHub and Linear can be connected from its settings later.
+					</p>
 				</div>
 				<DialogFooter class="pt-4">
 					<Button type="button" variant="outline" onclick={() => (isDialogOpen = false)}>

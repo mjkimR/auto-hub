@@ -50,18 +50,22 @@ class CheckProjectUseCase:
         try:
             async with asyncio.timeout(75):
                 try:
-                    token = await self.observer.get_token(project.github_connector_id, "github")
+                    if project.github is None:
+                        raise ProjectError(422, "Add a GitHub connection before checking CI")
+                    token = await self.observer.get_token(project.github.github_connector_id, "github")
                     async with pipeline_services.create_github_client(token) as client:
                         reader = GitHubActionsReader(client)
-                        repository = await reader._get(f"/repos/{project.repository}")
+                        repository = await reader._get(f"/repos/{project.github.repository}")
                         workflow = await reader._get(
-                            f"/repos/{project.repository}/actions/workflows/{project.verification.workflow}"
+                            f"/repos/{project.github.repository}/actions/workflows/{project.github.verification.workflow}"
                         )
-                        if repository.get("full_name", "").lower() != project.repository or repository.get("archived"):
+                        if repository.get("full_name", "").lower() != project.github.repository or repository.get(
+                            "archived"
+                        ):
                             raise ProjectError(422, "Repository is archived or does not match this connection")
                         if (
                             workflow.get("state") != "active"
-                            or workflow.get("path") != f".github/workflows/{project.verification.workflow}"
+                            or workflow.get("path") != f".github/workflows/{project.github.verification.workflow}"
                         ):
                             raise ProjectError(422, "Configured workflow is missing, disabled, or has a different path")
                     checks.append(
@@ -80,10 +84,10 @@ class CheckProjectUseCase:
                     )
                 except (GitHubObservationError, PipelineConfigurationError, ProjectError) as exc:
                     checks.append(ConnectionCheckItem(name="GitHub / CI", status="failed", detail=str(exc)))
-                if project.linear_connector_id:
+                if project.linear and project.linear.connector_id:
                     try:
-                        token = await self.observer.get_token(project.linear_connector_id, "linear")
-                        await check_linear_project(token, project.linear_project_id)
+                        token = await self.observer.get_token(project.linear.connector_id, "linear")
+                        await check_linear_project(token, project.linear.project_id)
                         checks.append(
                             ConnectionCheckItem(
                                 name="Linear access", status="passed", detail="Configured project is readable"

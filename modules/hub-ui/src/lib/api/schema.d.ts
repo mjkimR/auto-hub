@@ -769,6 +769,19 @@ export interface components {
 		 */
 		ExecutionAttemptState:
 			'planned' | 'dispatching' | 'running' | 'suspended' | 'completed' | 'failed';
+		/** GitHubProjectConnection */
+		GitHubProjectConnection: {
+			/** Repository */
+			repository: string;
+			/**
+			 * Github Connector Id
+			 * Format: uuid
+			 */
+			github_connector_id: string;
+			verification: components['schemas']['VerificationConfig'];
+			/** Template Id */
+			template_id?: ('python-uv' | 'node-npm') | null;
+		};
 		/** HTTPValidationError */
 		HTTPValidationError: {
 			/** Detail */
@@ -905,6 +918,16 @@ export interface components {
 			/** State Type */
 			state_type: string;
 		};
+		/** LinearProjectConnection */
+		LinearProjectConnection: {
+			/**
+			 * Project Id
+			 * Format: uuid
+			 */
+			project_id: string;
+			/** Connector Id */
+			connector_id?: string | null;
+		};
 		/** PaginatedList[ConnectorRead] */
 		PaginatedList_ConnectorRead_: {
 			/** Items */
@@ -1013,12 +1036,8 @@ export interface components {
 		PipelineObservationConfig: {
 			/** Repository */
 			repository: string;
-			/**
-			 * Linear Project Id
-			 * Format: uuid
-			 * @description Connection metadata; Linear integration is not implemented yet.
-			 */
-			linear_project_id: string;
+			/** Linear Project Id */
+			linear_project_id?: string | null;
 			/**
 			 * Github Connector Id
 			 * Format: uuid
@@ -1137,28 +1156,13 @@ export interface components {
 		ProjectRead: {
 			/** Name */
 			name: string;
-			/** Repository */
-			repository: string;
-			/**
-			 * Linear Project Id
-			 * Format: uuid
-			 */
-			linear_project_id: string;
-			/**
-			 * Github Connector Id
-			 * Format: uuid
-			 */
-			github_connector_id: string;
-			/** Linear Connector Id */
-			linear_connector_id?: string | null;
-			verification: components['schemas']['VerificationConfig'];
+			github?: components['schemas']['GitHubProjectConnection'] | null;
+			linear?: components['schemas']['LinearProjectConnection'] | null;
 			/**
 			 * Enabled
 			 * @default true
 			 */
 			enabled: boolean;
-			/** Template Id */
-			template_id?: ('python-uv' | 'node-npm') | null;
 			/**
 			 * Created At
 			 * Format: date-time
@@ -1179,65 +1183,47 @@ export interface components {
 			/** Template Version */
 			template_version: string | null;
 			last_check: components['schemas']['ConnectionCheck'] | null;
+			/** Repository */
+			repository?: string | null;
+			/** Linear Project Id */
+			linear_project_id?: string | null;
+			/** Github Connector Id */
+			github_connector_id?: string | null;
+			/** Linear Connector Id */
+			linear_connector_id?: string | null;
+			verification?: components['schemas']['VerificationConfig'] | null;
 		};
 		/** ProjectUpdate */
 		ProjectUpdate: {
 			/** Name */
 			name: string;
-			/** Repository */
-			repository: string;
-			/**
-			 * Linear Project Id
-			 * Format: uuid
-			 */
-			linear_project_id: string;
-			/**
-			 * Github Connector Id
-			 * Format: uuid
-			 */
-			github_connector_id: string;
-			/** Linear Connector Id */
-			linear_connector_id?: string | null;
-			verification: components['schemas']['VerificationConfig'];
+			github?: components['schemas']['GitHubProjectConnection'] | null;
+			linear?: components['schemas']['LinearProjectConnection'] | null;
 			/**
 			 * Enabled
 			 * @default true
 			 */
 			enabled: boolean;
-			/** Template Id */
-			template_id?: ('python-uv' | 'node-npm') | null;
 			/**
 			 * Expected Revision
 			 * @description Reject edits based on an outdated project version.
 			 */
 			expected_revision: number;
 		};
-		/** ProjectWrite */
+		/**
+		 * ProjectWrite
+		 * @description A Hub project can exist before any external system is connected.
+		 */
 		ProjectWrite: {
 			/** Name */
 			name: string;
-			/** Repository */
-			repository: string;
-			/**
-			 * Linear Project Id
-			 * Format: uuid
-			 */
-			linear_project_id: string;
-			/**
-			 * Github Connector Id
-			 * Format: uuid
-			 */
-			github_connector_id: string;
-			/** Linear Connector Id */
-			linear_connector_id?: string | null;
-			verification: components['schemas']['VerificationConfig'];
+			github?: components['schemas']['GitHubProjectConnection'] | null;
+			linear?: components['schemas']['LinearProjectConnection'] | null;
 			/**
 			 * Enabled
 			 * @default true
 			 */
 			enabled: boolean;
-			/** Template Id */
-			template_id?: ('python-uv' | 'node-npm') | null;
 		};
 		/** PullObservation */
 		PullObservation: {

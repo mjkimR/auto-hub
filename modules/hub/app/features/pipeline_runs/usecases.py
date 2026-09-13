@@ -70,7 +70,7 @@ class PipelineRunUseCase:
         async with AsyncTransaction() as session:
             project = await self.projects.get(session, project_id)
             if not project.enabled:
-                raise ProjectError(422, "Project connection is disabled")
+                raise ProjectError(422, "Project is disabled")
             expected_project_revision = project.revision
             existing = await self.repo.get_active(session, project_id)
             if existing is not None:
@@ -86,7 +86,7 @@ class PipelineRunUseCase:
             async with AsyncTransaction() as session:
                 project = await self.projects.get(session, project_id, lock=True)
                 if not project.enabled:
-                    raise ProjectError(422, "Project connection is disabled")
+                    raise ProjectError(422, "Project is disabled")
                 if project.revision != expected_project_revision:
                     raise ProjectError(409, "Project changed during pipeline run acquisition; retry")
                 existing = await self.repo.get_active(session, project_id, lock=True)
@@ -200,7 +200,7 @@ class PipelineRunUseCase:
             if existing is not None:
                 implementation_request, request_digest, _ = self._build_implementation_request(
                     run,
-                    project.repository,
+                    self._github_repository(project),
                     request.base_branch,
                     idempotency_key=existing.idempotency_key,
                 )
@@ -217,7 +217,7 @@ class PipelineRunUseCase:
             if run.state != PipelineRunState.QUEUED:
                 raise ProjectError(409, "Pipeline run is not ready for an implementation attempt")
             implementation_request, request_digest, idempotency_key = self._build_implementation_request(
-                run, project.repository, request.base_branch
+                run, self._github_repository(project), request.base_branch
             )
             attempt = await self.repo.create_attempt(
                 session,
@@ -240,6 +240,12 @@ class PipelineRunUseCase:
                 run_revision=run.revision,
                 created=True,
             )
+
+    @staticmethod
+    def _github_repository(project) -> str:
+        if project.github_repository is None:
+            raise ProjectError(422, "Add a GitHub connection before preparing an implementation")
+        return project.github_repository
 
     @staticmethod
     def _build_implementation_request(

@@ -13,22 +13,30 @@ VERIFICATION = {"workflow": "ci.yml", "required_jobs": ["lint", "test"]}
 def make_write(**overrides) -> dict:
     return {
         "name": "My application",
-        "repository": "Owner/App",
-        "linear_project_id": str(uuid4()),
-        "github_connector_id": str(uuid4()),
-        "verification": VERIFICATION,
+        "github": {
+            "repository": "Owner/App",
+            "github_connector_id": str(uuid4()),
+            "verification": VERIFICATION,
+        },
+        "linear": {"project_id": str(uuid4()), "connector_id": str(uuid4())},
         **overrides,
     }
 
 
 class TestProjectWrite:
     def test_repository_is_normalized_before_the_pattern_is_applied(self):
-        assert ProjectWrite.model_validate(make_write(repository="  Owner/App  ")).repository == "owner/app"
+        data = make_write()
+        data["github"]["repository"] = "  Owner/App  "
+        project = ProjectWrite.model_validate(data)
+        assert project.github is not None
+        assert project.github.repository == "owner/app"
 
     @pytest.mark.parametrize("repository", ["owner", "owner/", "/app", "owner/app/extra", "-owner/app", "own er/app"])
     def test_malformed_repositories_are_rejected(self, repository):
         with pytest.raises(ValidationError):
-            ProjectWrite.model_validate(make_write(repository=repository))
+            data = make_write()
+            data["github"]["repository"] = repository
+            ProjectWrite.model_validate(data)
 
     @pytest.mark.parametrize("name", ["", "   "])
     def test_blank_names_are_rejected(self, name):
@@ -45,11 +53,17 @@ class TestProjectWrite:
 
     def test_observation_config_carries_the_saved_connection(self):
         data = ProjectWrite.model_validate(make_write())
+        assert data.github is not None
         config = data.observation_config([7, 9])
         assert (config.repository, config.pull_numbers) == ("owner/app", [7, 9])
-        assert config.github_connector_id == data.github_connector_id
-        assert config.linear_project_id == data.linear_project_id
-        assert config.verification == data.verification
+        assert config.github_connector_id == data.github.github_connector_id
+        assert config.verification == data.github.verification
+
+    def test_project_can_be_created_without_any_provider_connection(self):
+        project = ProjectWrite.model_validate({"name": "Planning"})
+        assert project.github is None and project.linear is None
+        with pytest.raises(ValueError, match="GitHub connection"):
+            project.observation_config([7])
 
     def test_updates_require_the_revision_the_editor_started_from(self):
         with pytest.raises(ValidationError):

@@ -2,7 +2,7 @@ from typing import Annotated
 from uuid import UUID
 
 from app.features.pipelines.schemas import PipelineObservationConfig
-from app.features.projects.models import ProjectConnection
+from app.features.projects.models import Project
 from app.features.projects.repos import PROJECT_OBSERVATION_TASK, ProjectRepository
 from app.features.projects.schemas import ProjectObservationPayload, ProjectRead, ProjectUpdate, ProjectWrite
 from app.features.projects.templates import TEMPLATE_VERSION
@@ -40,45 +40,61 @@ class ProjectService:
     def __init__(self, repo: Annotated[ProjectRepository, Depends()]):
         self.repo = repo
 
-    async def get(self, session: AsyncSession, project_id: UUID, *, lock: bool = False) -> ProjectConnection:
+    async def get(self, session: AsyncSession, project_id: UUID, *, lock: bool = False) -> Project:
         project = await self.repo.get(session, project_id, lock=lock)
         if project is None:
-            raise ProjectError(404, "Project connection not found")
+            raise ProjectError(404, "Project not found")
         return project
 
     async def validate(self, session: AsyncSession, data: ProjectWrite, project_id: UUID | None = None) -> None:
-        for connector_id, provider in ((data.github_connector_id, "github"), (data.linear_connector_id, "linear")):
-            if connector_id is None:
-                continue
+        connections = []
+        if data.github is not None:
+            connections.append((data.github.github_connector_id, "github"))
+        if data.linear is not None and data.linear.connector_id is not None:
+            connections.append((data.linear.connector_id, "linear"))
+        for connector_id, provider in connections:
             connector = await self.repo.connector(session, connector_id)
             if connector is None or connector.provider != provider or not connector.enabled:
                 raise ProjectError(422, f"Select an enabled {provider} connector")
-        if any(
-            row.id != project_id for row in await self.repo.conflicts(session, data.repository, data.linear_project_id)
-        ):
+        repository = data.github.repository if data.github else None
+        linear_project_id = data.linear.project_id if data.linear else None
+        if any(row.id != project_id for row in await self.repo.conflicts(session, repository, linear_project_id)):
             raise ProjectError(409, "Repository or Linear project is already connected")
 
-    async def create(self, session: AsyncSession, data: ProjectWrite) -> ProjectConnection:
+    async def create(self, session: AsyncSession, data: ProjectWrite) -> Project:
         await self.validate(session, data)
-        values = data.model_dump(mode="python")
-        values["verification"] = data.verification.model_dump(mode="json")
+        values = {
+            "name": data.name,
+            "enabled": data.enabled,
+            "github_repository": data.github.repository if data.github else None,
+            "github_connector_id": data.github.github_connector_id if data.github else None,
+            "verification": data.github.verification.model_dump(mode="json") if data.github else None,
+            "template_id": data.github.template_id if data.github else None,
+            "linear_project_id": data.linear.project_id if data.linear else None,
+            "linear_connector_id": data.linear.connector_id if data.linear else None,
+        }
         return await self.repo.save(
             session,
-            ProjectConnection(
+            Project(
                 **values,
-                template_version=TEMPLATE_VERSION if data.template_id else None,
+                template_version=TEMPLATE_VERSION if data.github and data.github.template_id else None,
             ),
         )
 
-    async def update(self, session: AsyncSession, project_id: UUID, data: ProjectUpdate) -> ProjectConnection:
+    async def update(self, session: AsyncSession, project_id: UUID, data: ProjectUpdate) -> Project:
         project = await self.get(session, project_id, lock=True)
         if project.revision != data.expected_revision:
             raise ProjectError(409, "Project changed; reload before saving")
         await self.validate(session, data, project_id)
-        for key, value in data.model_dump(exclude={"expected_revision", "verification"}).items():
-            setattr(project, key, value)
-        project.verification = data.verification.model_dump(mode="json")
-        project.template_version = TEMPLATE_VERSION if data.template_id else None
+        project.name = data.name
+        project.enabled = data.enabled
+        project.github_repository = data.github.repository if data.github else None
+        project.github_connector_id = data.github.github_connector_id if data.github else None
+        project.verification = data.github.verification.model_dump(mode="json") if data.github else None
+        project.template_id = data.github.template_id if data.github else None
+        project.template_version = TEMPLATE_VERSION if data.github and data.github.template_id else None
+        project.linear_project_id = data.linear.project_id if data.linear else None
+        project.linear_connector_id = data.linear.connector_id if data.linear else None
         project.revision += 1
         project.last_check = None
         return await self.repo.save(session, project)
@@ -91,7 +107,7 @@ class ProjectService:
             raise ProjectError(409, "Pipeline run history prevents deleting this project")
         await self.repo.delete(session, project)
 
-    async def import_schedule(self, session: AsyncSession, schedule_id: UUID) -> ProjectConnection:
+    async def import_schedule(self, session: AsyncSession, schedule_id: UUID) -> Project:
         schedule = await self.repo.schedule(session, schedule_id)
         if schedule is None:
             raise ProjectError(404, "Schedule not found")
@@ -104,25 +120,25 @@ class ProjectService:
             old = PipelineObservationConfig.model_validate(schedule.payload)
         except ValidationError:
             raise ProjectError(422, "Legacy observation payload is invalid; correct it before importing") from None
-        data = ProjectWrite(
-            name=schedule.name,
-            repository=old.repository,
-            linear_project_id=old.linear_project_id,
-            github_connector_id=old.github_connector_id,
-            verification=old.verification,
+        data = ProjectWrite.model_validate(
+            {
+                "name": schedule.name,
+                "github": {
+                    "repository": old.repository,
+                    "github_connector_id": old.github_connector_id,
+                    "verification": old.verification,
+                },
+                "linear": {"project_id": old.linear_project_id},
+            }
         )
-        matches = await self.repo.conflicts(session, data.repository, data.linear_project_id)
+        assert data.github is not None
+        matches = await self.repo.conflicts(session, data.github.repository, None)
         if matches:
             if len(matches) != 1:
                 raise ProjectError(409, "Legacy mapping conflicts with existing project connections")
             project = matches[0]
             existing = ProjectRead.model_validate(project)
-            if (
-                existing.repository != data.repository
-                or existing.linear_project_id != data.linear_project_id
-                or existing.github_connector_id != data.github_connector_id
-                or existing.verification != data.verification
-            ):
+            if existing.github != data.github:
                 raise ProjectError(409, "Legacy configuration differs from the existing project; nothing was migrated")
             await self.validate(session, data, project.id)
         else:

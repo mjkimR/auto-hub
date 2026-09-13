@@ -198,17 +198,17 @@ class SelectActionableIssueUseCase:
     ) -> ActionableIssueSelection:
         project = await self.projects.get(project_id)
         if not project.enabled:
-            raise ProjectError(422, "Project connection is disabled")
-        if project.linear_connector_id is None:
-            raise ProjectError(422, "Select an enabled Linear connector")
+            raise ProjectError(422, "Project is disabled")
+        if project.linear is None or project.linear.connector_id is None:
+            raise ProjectError(422, "Add a Linear connection before selecting issues")
         try:
-            token = await self.observer.get_token(project.linear_connector_id, "linear")
+            token = await self.observer.get_token(project.linear.connector_id, "linear")
         except PipelineConfigurationError as exc:
             raise ProjectError(422, str(exc)) from None
         try:
             async with asyncio.timeout(30):
                 async with create_linear_client(token) as client:
-                    result = await LinearIssueReader(client).select(project.linear_project_id, excluded_issue_ids)
+                    result = await LinearIssueReader(client).select(project.linear.project_id, excluded_issue_ids)
         except TimeoutError:
             raise ProjectError(504, "Linear issue query exceeded its time budget") from None
 
@@ -218,8 +218,8 @@ class SelectActionableIssueUseCase:
                 current is None
                 or not current.enabled
                 or current.revision != project.revision
-                or current.linear_project_id != project.linear_project_id
-                or current.linear_connector_id != project.linear_connector_id
+                or current.linear_project_id != project.linear.project_id
+                or current.linear_connector_id != project.linear.connector_id
             ):
                 raise ProjectError(
                     409, "Project changed during the Linear issue query; retry with the new configuration"
