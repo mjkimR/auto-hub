@@ -11,7 +11,8 @@
 		History,
 		Settings,
 		FileCode,
-		LogOut
+		LogOut,
+		Workflow
 	} from '@lucide/svelte';
 	import { onMount } from 'svelte';
 
@@ -38,6 +39,7 @@
 	const navItems = [
 		{ id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
 		{ id: 'projects', label: 'Projects', icon: FolderKanban },
+		{ id: 'pipeline-runs', label: 'Pipeline Runs', icon: Workflow },
 		{ id: 'configs', label: 'Schedule Configs', icon: CalendarClock },
 		{ id: 'jobs', label: 'Schedule Jobs', icon: History },
 		{ id: 'system', label: 'System Configs', icon: Settings },

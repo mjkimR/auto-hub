@@ -331,8 +331,8 @@ class TestConnectionCheck:
         checks = {check["name"]: check["status"] for check in response.json()["checks"]}
         assert checks["Linear access"] == "skipped"
         assert not linear_scenario.requests
-        # A skipped optional check is not a verified connection: only Linear-backed dispatch can confirm it.
-        assert response.json()["ready"] is False
+        # When optional Linear check is skipped, project is ready if GitHub CI passes and no checks fail.
+        assert response.json()["ready"] is True
 
     async def test_editing_a_project_discards_its_previous_check(self, client, project, project_payload):
         assert_status_code(await client.post(f"/api/v1/projects/{project['id']}/check", json={"pull_number": 42}), 200)

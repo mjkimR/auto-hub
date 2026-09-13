@@ -4,6 +4,7 @@
 	import LoginView from '$lib/components/views/LoginView.svelte';
 	import DashboardView from '$lib/components/views/DashboardView.svelte';
 	import ProjectsView from '$lib/components/views/ProjectsView.svelte';
+	import PipelineRunsView from '$lib/components/views/PipelineRunsView.svelte';
 	import ScheduleConfigsView from '$lib/components/views/ScheduleConfigsView.svelte';
 	import ScheduleJobsView from '$lib/components/views/ScheduleJobsView.svelte';
 	import SystemConfigsView from '$lib/components/views/SystemConfigsView.svelte';
@@ -14,6 +15,8 @@
 	<AppShell>
 		{#if session.activeTab === 'projects'}
 			<ProjectsView />
+		{:else if session.activeTab === 'pipeline-runs'}
+			<PipelineRunsView />
 		{:else if session.activeTab === 'configs'}
 			<ScheduleConfigsView />
 		{:else if session.activeTab === 'jobs'}

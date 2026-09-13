@@ -1,9 +1,16 @@
 from app.features.connectors.crypto import ConnectorCredentialCipher, get_credential_key_provider
+from app.features.pipeline_runs.models import PipelineRunState
+from app.features.pipeline_runs.repos import PipelineRunRepository
+from app.features.pipeline_runs.schemas import LeaseMutation, LeaseRequest, PrepareImplementationAttempt
+from app.features.pipeline_runs.usecases import PipelineRunUseCase
 from app.features.pipelines.repos import PipelineObservationRepository
 from app.features.pipelines.schemas import PipelineObservationConfig
 from app.features.pipelines.services import OBSERVATION_TASK, PipelineObservationService
-from app.features.projects.repos import PROJECT_OBSERVATION_TASK
-from app.features.projects.schemas import ProjectObservationPayload
+from app.features.projects.linear import SelectActionableIssueUseCase
+from app.features.projects.repos import PROJECT_DISPATCH_TASK, PROJECT_OBSERVATION_TASK, ProjectRepository
+from app.features.projects.schemas import ProjectDispatchPayload, ProjectObservationPayload
+from app.features.projects.services import ProjectService
+from app.features.projects.usecases import ProjectUseCase
 from app.features.tasks import task
 from app.features.tasks.core.context import get_task_meta
 
@@ -30,3 +37,40 @@ async def observe_project_task(payload: ProjectObservationPayload) -> None:
         PipelineObservationRepository(), ConnectorCredentialCipher(get_credential_key_provider())
     )
     await service.observe_project_and_save(payload, meta.config_id)
+
+
+@task(name=PROJECT_DISPATCH_TASK)
+async def dispatch_project_task(payload: ProjectDispatchPayload) -> None:
+    """Acquire or advance pipeline run for the project within bounded execution time."""
+    meta = get_task_meta()
+    if meta is None:
+        raise RuntimeError(f"{PROJECT_DISPATCH_TASK} requires a schedule task context")
+    cipher = ConnectorCredentialCipher(get_credential_key_provider())
+    pipeline_repo = PipelineObservationRepository()
+    observer = PipelineObservationService(pipeline_repo, cipher)
+    project_service = ProjectService(ProjectRepository())
+    project_use_case = ProjectUseCase(project_service)
+    selector = SelectActionableIssueUseCase(project_use_case, observer)
+    run_use_case = PipelineRunUseCase(PipelineRunRepository(), project_service, selector)
+
+    acquisition = await run_use_case.acquire(payload.project_id)
+    if acquisition.run is None:
+        return
+
+    run = acquisition.run
+    owner = f"job:{meta.run_id}"
+
+    if run.state == PipelineRunState.QUEUED:
+        lease = await run_use_case.acquire_lease(run.id, LeaseRequest(owner=owner, ttl_seconds=120))
+        try:
+            await run_use_case.prepare_implementation(
+                run.id,
+                PrepareImplementationAttempt(
+                    owner=owner,
+                    token=lease.token,
+                    expected_run_revision=lease.run_revision,
+                    base_branch="main",
+                ),
+            )
+        finally:
+            await run_use_case.release_lease(run.id, LeaseMutation(owner=owner, token=lease.token))

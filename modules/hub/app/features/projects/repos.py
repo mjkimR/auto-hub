@@ -8,6 +8,7 @@ from sqlalchemy import func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 PROJECT_OBSERVATION_TASK = "pipeline.observe_project"
+PROJECT_DISPATCH_TASK = "pipeline.dispatch_project"
 
 
 class ProjectRepository:

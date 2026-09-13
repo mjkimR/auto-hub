@@ -37,8 +37,8 @@ Verification on 2026-09-10: All 260 backend tests passing (including 53 new proj
 Migration upgrade and downgrade were applied against a scratch SQLite database with a seeded project and adopted schedule; the downgrade restored the inline legacy payload before dropping the table.
 Live GitHub and Linear API calls were not performed; both boundaries are covered with test HTTP transports.
 
-Deferred: the connection check reports `ready` only when every check passed, so a project with no Linear connector stays `skipped` and therefore not ready.
-Extracting repeated template steps into reusable workflows also remains follow-up work.
+Resolved: the connection check evaluates `ready` as true when configured checks pass and no checks fail, allowing projects without a Linear connector to be verified for CI observation.
+Extracting repeated template steps into reusable workflows remains follow-up work.
 
 ## 3. Linear Issue → Codex Implementation Dispatch
 

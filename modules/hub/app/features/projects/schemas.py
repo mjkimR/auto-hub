@@ -202,6 +202,11 @@ class ProjectObservationPayload(BaseModel):
         return value
 
 
+class ProjectDispatchPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    project_id: UUID
+
+
 class TemplateRead(BaseModel):
     id: TemplateId
     name: str

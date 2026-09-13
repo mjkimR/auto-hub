@@ -109,10 +109,12 @@ class CheckProjectUseCase:
                     name="Connection check", status="failed", detail="Connection check exceeded its time budget"
                 )
             )
+        has_passed = any(check.status == "passed" for check in checks)
+        has_failed = any(check.status == "failed" for check in checks)
         report = ConnectionCheck(
             checked_at=datetime.now(UTC),
             project_revision=project.revision,
-            ready=bool(checks) and all(check.status == "passed" for check in checks),
+            ready=has_passed and not has_failed,
             checks=checks,
             observation=observation,
         )
