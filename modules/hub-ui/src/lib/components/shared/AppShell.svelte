@@ -12,7 +12,8 @@
 		Settings,
 		FileCode,
 		LogOut,
-		Workflow
+		Workflow,
+		KeyRound
 	} from '@lucide/svelte';
 	import { onMount } from 'svelte';
 
@@ -40,6 +41,7 @@
 		{ id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
 		{ id: 'projects', label: 'Projects', icon: FolderKanban },
 		{ id: 'pipeline-runs', label: 'Pipeline Runs', icon: Workflow },
+		{ id: 'connectors', label: 'Connectors', icon: KeyRound },
 		{ id: 'configs', label: 'Schedule Configs', icon: CalendarClock },
 		{ id: 'jobs', label: 'Schedule Jobs', icon: History },
 		{ id: 'system', label: 'System Configs', icon: Settings },

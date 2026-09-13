@@ -74,3 +74,18 @@ async def dispatch_project_task(payload: ProjectDispatchPayload) -> None:
             )
         finally:
             await run_use_case.release_lease(run.id, LeaseMutation(owner=owner, token=lease.token))
+    elif run.state in (
+        PipelineRunState.DISPATCHING,
+        PipelineRunState.IMPLEMENTING,
+        PipelineRunState.AWAITING_CI,
+    ):
+        lease = await run_use_case.acquire_lease(run.id, LeaseRequest(owner=owner, ttl_seconds=120))
+        try:
+            await run_use_case.advance_run(
+                run.id,
+                owner=owner,
+                token=lease.token,
+                observer=observer,
+            )
+        finally:
+            await run_use_case.release_lease(run.id, LeaseMutation(owner=owner, token=lease.token))

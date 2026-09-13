@@ -25,8 +25,10 @@ from app.features.pipeline_runs.schemas import (
     PreparedImplementationAttempt,
     PrepareImplementationAttempt,
 )
+from app.features.pipelines.schemas import VerificationStatus
+from app.features.pipelines.services import PipelineObservationService
 from app.features.projects.linear import SelectActionableIssueUseCase
-from app.features.projects.schemas import LinearIssue
+from app.features.projects.schemas import LinearIssue, ProjectRead
 from app.features.projects.services import ProjectError, ProjectService
 from app_layer_base.core.database.transaction import AsyncTransaction
 from fastapi import Depends
@@ -240,6 +242,75 @@ class PipelineRunUseCase:
                 run_revision=run.revision,
                 created=True,
             )
+
+    async def advance_run(
+        self,
+        run_id: UUID,
+        *,
+        owner: str,
+        token: UUID,
+        observer: PipelineObservationService,
+    ) -> PipelineRunRead:
+        now = datetime.now(UTC)
+        async with AsyncTransaction() as session:
+            run = await self.repo.get_leased(
+                session,
+                run_id,
+                owner=owner,
+                token=token,
+                now=now,
+            )
+            if run is None:
+                await self._raise_lease_conflict(session, run_id, "advance run")
+            project = await self.projects.get(session, run.project_id)
+            if not project.enabled or project.revision != run.project_revision:
+                raise ProjectError(409, "Project changed after this pipeline run was acquired")
+            if project.github_repository is None or project.github_connector_id is None:
+                raise ProjectError(422, "Project missing GitHub connection for pipeline run")
+
+            # 1. If DISPATCHING or IMPLEMENTING: Check GitHub for open PR
+            if run.state in (PipelineRunState.DISPATCHING, PipelineRunState.IMPLEMENTING):
+                pr = await observer.find_pull_request(
+                    project.github_connector_id, project.github_repository, run.branch
+                )
+                if pr is not None:
+                    run.pull_number = int(pr["number"])
+                    run.pull_url = str(
+                        pr.get("html_url") or f"https://github.com/{project.github_repository}/pull/{pr['number']}"
+                    )
+                    run.state = PipelineRunState.AWAITING_CI
+                    run.revision += 1
+                    active_attempt = await self.repo.active_attempt(session, run.id)
+                    if active_attempt is not None:
+                        active_attempt.state = ExecutionAttemptState.RUNNING
+                    await session.flush()
+
+            # 2. If AWAITING_CI: Observe CI status
+            elif run.state == PipelineRunState.AWAITING_CI and run.pull_number is not None:
+                project_read = ProjectRead.model_validate(project)
+                observation = await observer.observe(project_read.observation_config([run.pull_number]))
+                pull_result = observation.pulls[0].result
+                if pull_result.status == VerificationStatus.PASSED:
+                    run.state = PipelineRunState.COMPLETED
+                    run.revision += 1
+                    active_attempt = await self.repo.active_attempt(session, run.id)
+                    if active_attempt is not None:
+                        active_attempt.state = ExecutionAttemptState.COMPLETED
+                        active_attempt.finished_at = now
+                    await session.flush()
+                elif pull_result.status == VerificationStatus.FAILED:
+                    run.state = PipelineRunState.FAILED
+                    run.pause_reason = pull_result.reason
+                    run.revision += 1
+                    active_attempt = await self.repo.active_attempt(session, run.id)
+                    if active_attempt is not None:
+                        active_attempt.state = ExecutionAttemptState.FAILED
+                        active_attempt.finished_at = now
+                        active_attempt.failure_code = "CI_FAILED"
+                        active_attempt.failure_detail = pull_result.reason
+                    await session.flush()
+
+            return PipelineRunRead.model_validate(run)
 
     @staticmethod
     def _github_repository(project) -> str:

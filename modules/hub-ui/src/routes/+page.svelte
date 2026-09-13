@@ -9,12 +9,15 @@
 	import ScheduleJobsView from '$lib/components/views/ScheduleJobsView.svelte';
 	import SystemConfigsView from '$lib/components/views/SystemConfigsView.svelte';
 	import TaskSpecsView from '$lib/components/views/TaskSpecsView.svelte';
+	import ConnectorsView from '$lib/components/views/ConnectorsView.svelte';
 </script>
 
 {#if session.isAuthenticated}
 	<AppShell>
 		{#if session.activeTab === 'projects'}
 			<ProjectsView />
+		{:else if session.activeTab === 'connectors'}
+			<ConnectorsView />
 		{:else if session.activeTab === 'pipeline-runs'}
 			<PipelineRunsView />
 		{:else if session.activeTab === 'configs'}

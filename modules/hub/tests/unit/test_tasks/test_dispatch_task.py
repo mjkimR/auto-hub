@@ -68,3 +68,34 @@ async def test_dispatch_task_acquires_lease_and_prepares_implementation_for_queu
         mock_use_case.acquire_lease.assert_awaited_once()
         mock_use_case.prepare_implementation.assert_awaited_once()
         mock_use_case.release_lease.assert_awaited_once()
+
+
+async def test_dispatch_task_acquires_lease_and_advances_active_run():
+    project_id = uuid4()
+    run_id = uuid4()
+    lease_token = uuid4()
+
+    mock_run = MagicMock(spec=PipelineRunRead)
+    mock_run.id = run_id
+    mock_run.state = PipelineRunState.DISPATCHING
+
+    grant = MagicMock(spec=LeaseGrant)
+    grant.token = lease_token
+    grant.run_revision = 2
+
+    with (
+        task_context(config_id=uuid4(), config_name="test", run_id=uuid4()),
+        patch("app.features.tasks.domains.pipeline.task.PipelineRunUseCase") as mock_use_case_cls,
+    ):
+        mock_use_case = mock_use_case_cls.return_value
+        mock_use_case.acquire = AsyncMock(return_value=PipelineRunAcquisition(run=mock_run, created=False))
+        mock_use_case.acquire_lease = AsyncMock(return_value=grant)
+        mock_use_case.advance_run = AsyncMock(return_value=mock_run)
+        mock_use_case.release_lease = AsyncMock()
+
+        await dispatch_project_task(ProjectDispatchPayload(project_id=project_id))
+
+        mock_use_case.acquire.assert_awaited_once_with(project_id)
+        mock_use_case.acquire_lease.assert_awaited_once()
+        mock_use_case.advance_run.assert_awaited_once()
+        mock_use_case.release_lease.assert_awaited_once()

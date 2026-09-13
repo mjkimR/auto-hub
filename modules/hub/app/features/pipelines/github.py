@@ -52,6 +52,29 @@ class GitHubActionsReader:
             raise GitHubObservationError("GitHub observation returned an invalid object")
         return value
 
+    async def _get_list(self, path: str, params: dict[str, str | int] | None = None) -> list[dict[str, Any]]:
+        try:
+            response = await self.client.get(path, params=params)
+            response.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            raise GitHubObservationError(f"GitHub observation returned HTTP {exc.response.status_code}") from None
+        except httpx.RequestError:
+            raise GitHubObservationError("GitHub observation request failed") from None
+        try:
+            value = response.json()
+        except ValueError:
+            raise GitHubObservationError("GitHub observation returned invalid JSON") from None
+        if not isinstance(value, list) or any(not isinstance(item, dict) for item in value):
+            raise GitHubObservationError("GitHub observation returned an invalid list")
+        return value
+
+    async def find_pull_request(self, repository: str, head_branch: str) -> dict[str, Any] | None:
+        owner = repository.split("/")[0]
+        pulls = await self._get_list(f"/repos/{repository}/pulls", {"head": f"{owner}:{head_branch}", "state": "open"})
+        if not pulls:
+            pulls = await self._get_list(f"/repos/{repository}/pulls", {"head": head_branch, "state": "open"})
+        return pulls[0] if pulls else None
+
     async def _list(self, path: str, key: str, params: dict[str, str | int]) -> list[dict[str, Any]]:
         items = []
         # Bounded pagination: incomplete observations fail instead of passing with partial evidence.

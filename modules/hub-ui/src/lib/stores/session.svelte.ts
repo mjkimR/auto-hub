@@ -16,7 +16,14 @@ class Session {
 	apiKey = $state(readInitialKey());
 	isAuthenticated = $derived(this.apiKey.trim().length > 0);
 	activeTab = $state<
-		'dashboard' | 'projects' | 'pipeline-runs' | 'configs' | 'jobs' | 'system' | 'specs'
+		| 'dashboard'
+		| 'projects'
+		| 'pipeline-runs'
+		| 'connectors'
+		| 'configs'
+		| 'jobs'
+		| 'system'
+		| 'specs'
 	>('dashboard');
 
 	setApiKey(key: string) {
