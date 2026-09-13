@@ -13,12 +13,15 @@ from app.features.pipeline_runs.models import (
 )
 from app.features.pipeline_runs.repos import PipelineRunRepository
 from app.features.pipeline_runs.schemas import (
+    AttachPRRequest,
+    CompleteAttemptRequest,
     ExecutionAttemptList,
     ExecutionAttemptRead,
     ImplementationRequest,
     LeaseGrant,
     LeaseMutation,
     LeaseRequest,
+    PauseRunRequest,
     PipelineRunAcquisition,
     PipelineRunList,
     PipelineRunRead,
@@ -311,6 +314,117 @@ class PipelineRunUseCase:
                     await session.flush()
 
             return PipelineRunRead.model_validate(run)
+
+    async def manual_advance(self, run_id: UUID, observer: PipelineObservationService) -> PipelineRunRead:
+        owner = f"manual:{uuid4().hex[:8]}"
+        grant = await self.acquire_lease(run_id, LeaseRequest(owner=owner, ttl_seconds=60))
+        try:
+            return await self.advance_run(run_id, owner=owner, token=grant.token, observer=observer)
+        finally:
+            await self.release_lease(run_id, LeaseMutation(owner=owner, token=grant.token))
+
+    async def pause_run(self, run_id: UUID, request: PauseRunRequest | None = None) -> PipelineRunRead:
+        async with AsyncTransaction() as session:
+            run = await self.repo.get(session, run_id)
+            if run is None:
+                raise ProjectError(404, "Pipeline run not found")
+            if run.state in (PipelineRunState.COMPLETED, PipelineRunState.FAILED, PipelineRunState.CANCELED):
+                raise ProjectError(422, f"Cannot pause a run in {run.state} state")
+            run.state = PipelineRunState.PAUSED
+            run.pause_reason = request.reason if request and request.reason else "Manually paused by user"
+            run.lease_owner = None
+            run.lease_token = None
+            run.lease_expires_at = None
+            run.revision += 1
+            await session.flush()
+            return PipelineRunRead.model_validate(run)
+
+    async def resume_run(self, run_id: UUID) -> PipelineRunRead:
+        async with AsyncTransaction() as session:
+            run = await self.repo.get(session, run_id)
+            if run is None:
+                raise ProjectError(404, "Pipeline run not found")
+            if run.state != PipelineRunState.PAUSED:
+                raise ProjectError(422, f"Cannot resume a run that is not paused (current state: {run.state})")
+            if run.pull_number is not None:
+                run.state = PipelineRunState.AWAITING_CI
+            else:
+                run.state = PipelineRunState.DISPATCHING
+            run.pause_reason = None
+            run.revision += 1
+            await session.flush()
+            return PipelineRunRead.model_validate(run)
+
+    async def cancel_run(self, run_id: UUID) -> PipelineRunRead:
+        now = datetime.now(UTC)
+        async with AsyncTransaction() as session:
+            run = await self.repo.get(session, run_id)
+            if run is None:
+                raise ProjectError(404, "Pipeline run not found")
+            if run.state in (PipelineRunState.COMPLETED, PipelineRunState.FAILED, PipelineRunState.CANCELED):
+                raise ProjectError(422, f"Cannot cancel a run in {run.state} state")
+            run.state = PipelineRunState.CANCELED
+            run.pause_reason = "Manually canceled"
+            run.lease_owner = None
+            run.lease_token = None
+            run.lease_expires_at = None
+            run.revision += 1
+            active_attempt = await self.repo.active_attempt(session, run.id)
+            if active_attempt is not None:
+                active_attempt.state = ExecutionAttemptState.FAILED
+                active_attempt.failure_code = "CANCELED"
+                active_attempt.failure_detail = "Run was canceled"
+                active_attempt.finished_at = now
+            await session.flush()
+            return PipelineRunRead.model_validate(run)
+
+    async def attach_pr(self, run_id: UUID, request: AttachPRRequest) -> PipelineRunRead:
+        async with AsyncTransaction() as session:
+            run = await self.repo.get(session, run_id)
+            if run is None:
+                raise ProjectError(404, "Pipeline run not found")
+            if run.state not in (PipelineRunState.QUEUED, PipelineRunState.DISPATCHING, PipelineRunState.IMPLEMENTING):
+                raise ProjectError(422, f"Cannot attach PR to a run in {run.state} state")
+            project = await self.projects.get(session, run.project_id)
+            repo_name = project.github_repository or "repo"
+            run.pull_number = request.pull_number
+            run.pull_url = request.pull_url or f"https://github.com/{repo_name}/pull/{request.pull_number}"
+            run.state = PipelineRunState.AWAITING_CI
+            run.revision += 1
+            active_attempt = await self.repo.active_attempt(session, run.id)
+            if active_attempt is not None and active_attempt.state in (
+                ExecutionAttemptState.PLANNED,
+                ExecutionAttemptState.DISPATCHING,
+            ):
+                active_attempt.state = ExecutionAttemptState.RUNNING
+            await session.flush()
+            return PipelineRunRead.model_validate(run)
+
+    async def complete_attempt(
+        self, run_id: UUID, attempt_id: UUID, request: CompleteAttemptRequest
+    ) -> ExecutionAttemptRead:
+        now = datetime.now(UTC)
+        async with AsyncTransaction() as session:
+            run = await self.repo.get(session, run_id)
+            if run is None:
+                raise ProjectError(404, "Pipeline run not found")
+            attempt = await self.repo.get_attempt(session, attempt_id)
+            if attempt is None or attempt.pipeline_run_id != run_id:
+                raise ProjectError(404, "Execution attempt not found for this pipeline run")
+            if request.status == "completed":
+                attempt.state = ExecutionAttemptState.COMPLETED
+                attempt.finished_at = now
+            else:
+                attempt.state = ExecutionAttemptState.FAILED
+                attempt.finished_at = now
+                attempt.failure_code = request.failure_code or "WORKER_FAILED"
+                attempt.failure_detail = request.failure_detail or "External worker reported failure"
+                if run.state in (PipelineRunState.DISPATCHING, PipelineRunState.IMPLEMENTING):
+                    run.state = PipelineRunState.FAILED
+                    run.pause_reason = attempt.failure_detail
+                    run.revision += 1
+            await session.flush()
+            return ExecutionAttemptRead.model_validate(attempt)
 
     @staticmethod
     def _github_repository(project) -> str:

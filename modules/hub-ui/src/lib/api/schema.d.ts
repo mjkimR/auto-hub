@@ -239,6 +239,126 @@ export interface paths {
 		patch?: never;
 		trace?: never;
 	};
+	'/api/v1/pipeline-runs/{run_id}/advance': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		get?: never;
+		put?: never;
+		/**
+		 * Advance Pipeline Run
+		 * @description Trigger manual run progression check (PR detection or CI verification).
+		 */
+		post: operations['advance_pipeline_run_api_v1_pipeline_runs__run_id__advance_post'];
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/api/v1/pipeline-runs/{run_id}/pause': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		get?: never;
+		put?: never;
+		/**
+		 * Pause Pipeline Run
+		 * @description Pause an active pipeline run.
+		 */
+		post: operations['pause_pipeline_run_api_v1_pipeline_runs__run_id__pause_post'];
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/api/v1/pipeline-runs/{run_id}/resume': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		get?: never;
+		put?: never;
+		/**
+		 * Resume Pipeline Run
+		 * @description Resume a paused pipeline run.
+		 */
+		post: operations['resume_pipeline_run_api_v1_pipeline_runs__run_id__resume_post'];
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/api/v1/pipeline-runs/{run_id}/cancel': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		get?: never;
+		put?: never;
+		/**
+		 * Cancel Pipeline Run
+		 * @description Cancel a pipeline run.
+		 */
+		post: operations['cancel_pipeline_run_api_v1_pipeline_runs__run_id__cancel_post'];
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/api/v1/pipeline-runs/{run_id}/attach-pr': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		get?: never;
+		put?: never;
+		/**
+		 * Attach Pull Request
+		 * @description Worker callback: attach opened PR to run and transition to awaiting_ci.
+		 */
+		post: operations['attach_pull_request_api_v1_pipeline_runs__run_id__attach_pr_post'];
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/api/v1/pipeline-runs/{run_id}/attempts/{attempt_id}/complete': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		get?: never;
+		put?: never;
+		/**
+		 * Complete Attempt
+		 * @description Worker callback: record attempt completion or failure.
+		 */
+		post: operations['complete_attempt_api_v1_pipeline_runs__run_id__attempts__attempt_id__complete_post'];
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
 	'/api/v1/projects': {
 		parameters: {
 			query?: never;
@@ -545,10 +665,29 @@ export interface components {
 			/** Blocked Count */
 			blocked_count: number;
 		};
+		/** AttachPRRequest */
+		AttachPRRequest: {
+			/** Pull Number */
+			pull_number: number;
+			/** Pull Url */
+			pull_url?: string | null;
+		};
 		/** CheckRequest */
 		CheckRequest: {
 			/** Pull Number */
 			pull_number: number;
+		};
+		/** CompleteAttemptRequest */
+		CompleteAttemptRequest: {
+			/**
+			 * Status
+			 * @enum {string}
+			 */
+			status: 'completed' | 'failed';
+			/** Failure Code */
+			failure_code?: string | null;
+			/** Failure Detail */
+			failure_detail?: string | null;
 		};
 		/** ConnectionCheck */
 		ConnectionCheck: {
@@ -1011,6 +1150,11 @@ export interface components {
 			readonly last: boolean | null;
 			/** First */
 			readonly first: boolean;
+		};
+		/** PauseRunRequest */
+		PauseRunRequest: {
+			/** Reason */
+			reason?: string | null;
 		};
 		/** PipelineObservation */
 		PipelineObservation: {
@@ -2435,6 +2579,205 @@ export interface operations {
 				};
 				content: {
 					'application/json': components['schemas']['PreparedImplementationAttempt'];
+				};
+			};
+			/** @description Validation Error */
+			422: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json': components['schemas']['HTTPValidationError'];
+				};
+			};
+		};
+	};
+	advance_pipeline_run_api_v1_pipeline_runs__run_id__advance_post: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				run_id: string;
+			};
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description Successful Response */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json': components['schemas']['PipelineRunRead'];
+				};
+			};
+			/** @description Validation Error */
+			422: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json': components['schemas']['HTTPValidationError'];
+				};
+			};
+		};
+	};
+	pause_pipeline_run_api_v1_pipeline_runs__run_id__pause_post: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				run_id: string;
+			};
+			cookie?: never;
+		};
+		requestBody?: {
+			content: {
+				'application/json': components['schemas']['PauseRunRequest'] | null;
+			};
+		};
+		responses: {
+			/** @description Successful Response */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json': components['schemas']['PipelineRunRead'];
+				};
+			};
+			/** @description Validation Error */
+			422: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json': components['schemas']['HTTPValidationError'];
+				};
+			};
+		};
+	};
+	resume_pipeline_run_api_v1_pipeline_runs__run_id__resume_post: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				run_id: string;
+			};
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description Successful Response */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json': components['schemas']['PipelineRunRead'];
+				};
+			};
+			/** @description Validation Error */
+			422: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json': components['schemas']['HTTPValidationError'];
+				};
+			};
+		};
+	};
+	cancel_pipeline_run_api_v1_pipeline_runs__run_id__cancel_post: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				run_id: string;
+			};
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description Successful Response */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json': components['schemas']['PipelineRunRead'];
+				};
+			};
+			/** @description Validation Error */
+			422: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json': components['schemas']['HTTPValidationError'];
+				};
+			};
+		};
+	};
+	attach_pull_request_api_v1_pipeline_runs__run_id__attach_pr_post: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				run_id: string;
+			};
+			cookie?: never;
+		};
+		requestBody: {
+			content: {
+				'application/json': components['schemas']['AttachPRRequest'];
+			};
+		};
+		responses: {
+			/** @description Successful Response */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json': components['schemas']['PipelineRunRead'];
+				};
+			};
+			/** @description Validation Error */
+			422: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json': components['schemas']['HTTPValidationError'];
+				};
+			};
+		};
+	};
+	complete_attempt_api_v1_pipeline_runs__run_id__attempts__attempt_id__complete_post: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				run_id: string;
+				attempt_id: string;
+			};
+			cookie?: never;
+		};
+		requestBody: {
+			content: {
+				'application/json': components['schemas']['CompleteAttemptRequest'];
+			};
+		};
+		responses: {
+			/** @description Successful Response */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json': components['schemas']['ExecutionAttemptRead'];
 				};
 			};
 			/** @description Validation Error */

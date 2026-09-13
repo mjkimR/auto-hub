@@ -107,6 +107,9 @@ class PipelineRunRepository:
         )
         return list(rows)
 
+    async def get_attempt(self, session: AsyncSession, attempt_id: UUID) -> ExecutionAttempt | None:
+        return await session.get(ExecutionAttempt, attempt_id)
+
     async def acquire_lease(
         self,
         session: AsyncSession,

@@ -2,16 +2,21 @@ from typing import Annotated
 from uuid import UUID
 
 from app.features.pipeline_runs.schemas import (
+    AttachPRRequest,
+    CompleteAttemptRequest,
     ExecutionAttemptList,
+    ExecutionAttemptRead,
     LeaseGrant,
     LeaseMutation,
     LeaseRequest,
+    PauseRunRequest,
     PipelineRunList,
     PipelineRunRead,
     PreparedImplementationAttempt,
     PrepareImplementationAttempt,
 )
 from app.features.pipeline_runs.usecases import PipelineRunUseCase
+from app.features.pipelines.services import PipelineObservationService
 from fastapi import APIRouter, Depends, Query, Response, status
 
 router = APIRouter(prefix="/pipeline-runs", tags=["Pipeline Run"])
@@ -67,3 +72,62 @@ async def prepare_implementation_attempt(
 ):
     """Persist an immutable attempt before any external delegation."""
     return await use_case.prepare_implementation(run_id, request)
+
+
+@router.post("/{run_id}/advance", response_model=PipelineRunRead)
+async def advance_pipeline_run(
+    run_id: UUID,
+    use_case: Annotated[PipelineRunUseCase, Depends()],
+    observer: Annotated[PipelineObservationService, Depends()],
+):
+    """Trigger manual run progression check (PR detection or CI verification)."""
+    return await use_case.manual_advance(run_id, observer)
+
+
+@router.post("/{run_id}/pause", response_model=PipelineRunRead)
+async def pause_pipeline_run(
+    run_id: UUID,
+    use_case: Annotated[PipelineRunUseCase, Depends()],
+    request: PauseRunRequest | None = None,
+):
+    """Pause an active pipeline run."""
+    return await use_case.pause_run(run_id, request)
+
+
+@router.post("/{run_id}/resume", response_model=PipelineRunRead)
+async def resume_pipeline_run(
+    run_id: UUID,
+    use_case: Annotated[PipelineRunUseCase, Depends()],
+):
+    """Resume a paused pipeline run."""
+    return await use_case.resume_run(run_id)
+
+
+@router.post("/{run_id}/cancel", response_model=PipelineRunRead)
+async def cancel_pipeline_run(
+    run_id: UUID,
+    use_case: Annotated[PipelineRunUseCase, Depends()],
+):
+    """Cancel a pipeline run."""
+    return await use_case.cancel_run(run_id)
+
+
+@router.post("/{run_id}/attach-pr", response_model=PipelineRunRead)
+async def attach_pull_request(
+    run_id: UUID,
+    request: AttachPRRequest,
+    use_case: Annotated[PipelineRunUseCase, Depends()],
+):
+    """Worker callback: attach opened PR to run and transition to awaiting_ci."""
+    return await use_case.attach_pr(run_id, request)
+
+
+@router.post("/{run_id}/attempts/{attempt_id}/complete", response_model=ExecutionAttemptRead)
+async def complete_attempt(
+    run_id: UUID,
+    attempt_id: UUID,
+    request: CompleteAttemptRequest,
+    use_case: Annotated[PipelineRunUseCase, Depends()],
+):
+    """Worker callback: record attempt completion or failure."""
+    return await use_case.complete_attempt(run_id, attempt_id, request)

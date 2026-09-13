@@ -35,7 +35,13 @@
 		Layers,
 		History,
 		Key,
-		ShieldCheck
+		ShieldCheck,
+		Plus,
+		Play,
+		Pause,
+		XCircle,
+		Link2,
+		Sparkles
 	} from '@lucide/svelte';
 
 	type PipelineRun = components['schemas']['PipelineRunRead'];
@@ -55,6 +61,21 @@
 	let loadingAttempts = $state(false);
 	let selectedRun = $state<PipelineRun | null>(null);
 	let attempts = $state<ExecutionAttempt[]>([]);
+
+	// Acquire Run Dialog
+	let isAcquireOpen = $state(false);
+	let isAcquiring = $state(false);
+	let acquireProjectId = $state('');
+
+	// Attach PR Dialog
+	let isAttachPrOpen = $state(false);
+	let isAttachingPr = $state(false);
+	let attachTargetRun = $state<PipelineRun | null>(null);
+	let attachPullNumber = $state<number>(1);
+	let attachPullUrl = $state('');
+
+	// Action loading state
+	let operatingRunId = $state<string | null>(null);
 
 	let filteredRuns = $derived(
 		runs.filter((r) => {
@@ -147,6 +168,156 @@
 		}
 	}
 
+	async function handleAdvance(runId: string) {
+		operatingRunId = runId;
+		try {
+			const res = await api.POST('/api/v1/pipeline-runs/{run_id}/advance', {
+				params: { path: { run_id: runId } }
+			});
+			if (res.error) {
+				const detail = (res.error as { detail?: string }).detail || 'Failed to advance run';
+				toast.error(detail);
+			} else {
+				toast.success(`Run advanced to ${res.data?.state ?? 'next state'}`);
+				loadRuns();
+			}
+		} catch {
+			toast.error('Error advancing run');
+		} finally {
+			operatingRunId = null;
+		}
+	}
+
+	async function handlePause(runId: string) {
+		operatingRunId = runId;
+		try {
+			const res = await api.POST('/api/v1/pipeline-runs/{run_id}/pause', {
+				params: { path: { run_id: runId } },
+				body: { reason: 'Paused via UI' }
+			});
+			if (res.error) {
+				const detail = (res.error as { detail?: string }).detail || 'Failed to pause run';
+				toast.error(detail);
+			} else {
+				toast.success('Run paused');
+				loadRuns();
+			}
+		} catch {
+			toast.error('Error pausing run');
+		} finally {
+			operatingRunId = null;
+		}
+	}
+
+	async function handleResume(runId: string) {
+		operatingRunId = runId;
+		try {
+			const res = await api.POST('/api/v1/pipeline-runs/{run_id}/resume', {
+				params: { path: { run_id: runId } }
+			});
+			if (res.error) {
+				const detail = (res.error as { detail?: string }).detail || 'Failed to resume run';
+				toast.error(detail);
+			} else {
+				toast.success(`Run resumed (${res.data?.state})`);
+				loadRuns();
+			}
+		} catch {
+			toast.error('Error resuming run');
+		} finally {
+			operatingRunId = null;
+		}
+	}
+
+	async function handleCancel(runId: string) {
+		if (!confirm('Are you sure you want to cancel this pipeline run?')) return;
+		operatingRunId = runId;
+		try {
+			const res = await api.POST('/api/v1/pipeline-runs/{run_id}/cancel', {
+				params: { path: { run_id: runId } }
+			});
+			if (res.error) {
+				const detail = (res.error as { detail?: string }).detail || 'Failed to cancel run';
+				toast.error(detail);
+			} else {
+				toast.success('Run canceled');
+				loadRuns();
+			}
+		} catch {
+			toast.error('Error canceling run');
+		} finally {
+			operatingRunId = null;
+		}
+	}
+
+	function openAttachPr(run: PipelineRun) {
+		attachTargetRun = run;
+		attachPullNumber = run.pull_number || 1;
+		attachPullUrl = run.pull_url || '';
+		isAttachPrOpen = true;
+	}
+
+	async function handleAttachPrSubmit(e: SubmitEvent) {
+		e.preventDefault();
+		if (!attachTargetRun) return;
+		isAttachingPr = true;
+		try {
+			const res = await api.POST('/api/v1/pipeline-runs/{run_id}/attach-pr', {
+				params: { path: { run_id: attachTargetRun.id } },
+				body: {
+					pull_number: Number(attachPullNumber),
+					pull_url: attachPullUrl.trim() || null
+				}
+			});
+			if (res.error) {
+				const detail = (res.error as { detail?: string }).detail || 'Failed to attach PR';
+				toast.error(detail);
+			} else {
+				toast.success(`PR #${attachPullNumber} attached!`);
+				isAttachPrOpen = false;
+				loadRuns();
+			}
+		} catch {
+			toast.error('Error attaching PR');
+		} finally {
+			isAttachingPr = false;
+		}
+	}
+
+	async function handleAcquireRunSubmit(e: SubmitEvent) {
+		e.preventDefault();
+		if (!acquireProjectId) {
+			toast.error('Please select a project');
+			return;
+		}
+		isAcquiring = true;
+		try {
+			const res = await api.POST('/api/v1/projects/{project_id}/runs/acquire', {
+				params: { path: { project_id: acquireProjectId } }
+			});
+			if (res.error) {
+				const detail = (res.error as { detail?: string }).detail || 'Failed to acquire run';
+				toast.error(detail);
+			} else if (res.data) {
+				if (res.data.created && res.data.run) {
+					toast.success(`Acquired new run for issue ${res.data.run.linear_issue_identifier}!`);
+				} else if (res.data.run) {
+					toast.info(
+						`Active run already in progress for issue ${res.data.run.linear_issue_identifier}`
+					);
+				} else {
+					toast.info('No actionable Linear issues found for this project');
+				}
+				isAcquireOpen = false;
+				loadRuns();
+			}
+		} catch {
+			toast.error('Error acquiring run');
+		} finally {
+			isAcquiring = false;
+		}
+	}
+
 	onMount(() => {
 		loadProjects();
 		loadRuns();
@@ -163,6 +334,18 @@
 			</p>
 		</div>
 		<div class="flex items-center gap-3">
+			<Button
+				variant="default"
+				size="sm"
+				onclick={() => {
+					acquireProjectId = selectedProjectId || (projects[0]?.id ?? '');
+					isAcquireOpen = true;
+				}}
+				class="gap-1.5"
+			>
+				<Plus class="size-4" />
+				Acquire Run
+			</Button>
 			<Button variant="outline" size="sm" onclick={loadRuns} disabled={loading} class="gap-2">
 				<RefreshCw class="size-4 {loading ? 'animate-spin' : ''}" />
 				Refresh
@@ -348,16 +531,83 @@
 							</TableCell>
 
 							<TableCell class="text-right">
-								<Button
-									variant="ghost"
-									size="icon"
-									onclick={() => openAttempts(run)}
-									class="size-8 text-muted-foreground hover:text-foreground"
-									title="View Attempt History"
-									aria-label="View Attempt History"
-								>
-									<History class="size-4" />
-								</Button>
+								<div class="flex items-center justify-end gap-1">
+									{#if run.state !== 'completed' && run.state !== 'failed' && run.state !== 'canceled'}
+										{#if run.state === 'paused'}
+											<Button
+												variant="ghost"
+												size="icon"
+												onclick={() => handleResume(run.id)}
+												disabled={operatingRunId === run.id}
+												class="size-8 text-amber-500 hover:text-amber-600"
+												title="Resume Run"
+												aria-label="Resume Run"
+											>
+												<Play class="size-4" />
+											</Button>
+										{:else}
+											<Button
+												variant="ghost"
+												size="icon"
+												onclick={() => handlePause(run.id)}
+												disabled={operatingRunId === run.id}
+												class="size-8 text-muted-foreground hover:text-amber-500"
+												title="Pause Run"
+												aria-label="Pause Run"
+											>
+												<Pause class="size-4" />
+											</Button>
+										{/if}
+
+										{#if !run.pull_number}
+											<Button
+												variant="ghost"
+												size="icon"
+												onclick={() => openAttachPr(run)}
+												class="size-8 text-muted-foreground hover:text-primary"
+												title="Attach Pull Request"
+												aria-label="Attach Pull Request"
+											>
+												<Link2 class="size-4" />
+											</Button>
+										{/if}
+
+										<Button
+											variant="ghost"
+											size="icon"
+											onclick={() => handleAdvance(run.id)}
+											disabled={operatingRunId === run.id}
+											class="size-8 text-muted-foreground hover:text-emerald-500"
+											title="Advance / Sync Run Status"
+											aria-label="Advance Run"
+										>
+											<RefreshCw class="size-4 {operatingRunId === run.id ? 'animate-spin' : ''}" />
+										</Button>
+
+										<Button
+											variant="ghost"
+											size="icon"
+											onclick={() => handleCancel(run.id)}
+											disabled={operatingRunId === run.id}
+											class="size-8 text-muted-foreground hover:text-rose-500"
+											title="Cancel Run"
+											aria-label="Cancel Run"
+										>
+											<XCircle class="size-4" />
+										</Button>
+									{/if}
+
+									<Button
+										variant="ghost"
+										size="icon"
+										onclick={() => openAttempts(run)}
+										class="size-8 text-muted-foreground hover:text-foreground"
+										title="View Attempt History"
+										aria-label="View Attempt History"
+									>
+										<History class="size-4" />
+									</Button>
+								</div>
 							</TableCell>
 						</TableRow>
 					{/each}
@@ -489,6 +739,115 @@
 					Close
 				</Button>
 			</DialogFooter>
+		</DialogContent>
+	</Dialog>
+
+	<!-- Acquire Run Dialog -->
+	<Dialog bind:open={isAcquireOpen}>
+		<DialogContent class="sm:max-w-[450px]">
+			<DialogHeader>
+				<div class="flex items-center gap-2">
+					<div
+						class="flex size-8 items-center justify-center rounded-lg bg-primary/10 text-primary"
+					>
+						<Sparkles class="size-4" />
+					</div>
+					<div>
+						<DialogTitle>Acquire Next Linear Issue</DialogTitle>
+						<DialogDescription>
+							Atomically pick the next actionable Linear task and create an active pipeline run.
+						</DialogDescription>
+					</div>
+				</div>
+			</DialogHeader>
+
+			<form onsubmit={handleAcquireRunSubmit} class="space-y-4 py-2">
+				<div class="space-y-1.5">
+					<label for="acquireProject" class="text-xs font-semibold text-muted-foreground uppercase">
+						Target Project
+					</label>
+					<select
+						id="acquireProject"
+						bind:value={acquireProjectId}
+						class="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-xs focus:ring-1 focus:ring-ring"
+						required
+					>
+						<option value="" disabled>Select a project</option>
+						{#each projects as project (project.id)}
+							<option value={project.id}>{project.name}</option>
+						{/each}
+					</select>
+				</div>
+
+				<DialogFooter class="pt-2">
+					<Button type="button" variant="outline" onclick={() => (isAcquireOpen = false)}>
+						Cancel
+					</Button>
+					<Button type="submit" disabled={isAcquiring || !acquireProjectId}>
+						{isAcquiring ? 'Acquiring...' : 'Acquire & Start Run'}
+					</Button>
+				</DialogFooter>
+			</form>
+		</DialogContent>
+	</Dialog>
+
+	<!-- Attach PR Dialog -->
+	<Dialog bind:open={isAttachPrOpen}>
+		<DialogContent class="sm:max-w-[450px]">
+			<DialogHeader>
+				<div class="flex items-center gap-2">
+					<div
+						class="flex size-8 items-center justify-center rounded-lg bg-primary/10 text-primary"
+					>
+						<Link2 class="size-4" />
+					</div>
+					<div>
+						<DialogTitle>Attach Pull Request</DialogTitle>
+						<DialogDescription>
+							Associate an open GitHub PR with run <span class="font-semibold text-foreground"
+								>{attachTargetRun?.linear_issue_identifier}</span
+							>.
+						</DialogDescription>
+					</div>
+				</div>
+			</DialogHeader>
+
+			<form onsubmit={handleAttachPrSubmit} class="space-y-4 py-2">
+				<div class="space-y-1.5">
+					<label for="attachPRNum" class="text-xs font-semibold text-muted-foreground uppercase">
+						Pull Request Number
+					</label>
+					<Input
+						id="attachPRNum"
+						type="number"
+						min="1"
+						bind:value={attachPullNumber}
+						placeholder="e.g. 42"
+						required
+					/>
+				</div>
+
+				<div class="space-y-1.5">
+					<label for="attachPRUrl" class="text-xs font-semibold text-muted-foreground uppercase">
+						Pull Request URL (optional)
+					</label>
+					<Input
+						id="attachPRUrl"
+						type="url"
+						bind:value={attachPullUrl}
+						placeholder="https://github.com/owner/repo/pull/42"
+					/>
+				</div>
+
+				<DialogFooter class="pt-2">
+					<Button type="button" variant="outline" onclick={() => (isAttachPrOpen = false)}>
+						Cancel
+					</Button>
+					<Button type="submit" disabled={isAttachingPr}>
+						{isAttachingPr ? 'Attaching...' : 'Attach PR'}
+					</Button>
+				</DialogFooter>
+			</form>
 		</DialogContent>
 	</Dialog>
 </div>
