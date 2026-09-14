@@ -65,9 +65,12 @@ async def dispatch_project_task(payload: ProjectDispatchPayload) -> None:
 
     async with AsyncTransaction() as session:
         runs = await run_repo.list_active(
-            session, payload.project_id, limit=get_scheduler_defaults().MAX_CONCURRENT_TASKS
+            session,
+            payload.project_id,
+            limit=get_scheduler_defaults().MAX_CONCURRENT_TASKS,
+            ready_at=datetime.now(UTC),
         )
-    ready = [run for run in runs if run.next_action_at is None or run.next_action_at <= datetime.now(UTC)]
+    ready = runs
     if not ready:
         return
 

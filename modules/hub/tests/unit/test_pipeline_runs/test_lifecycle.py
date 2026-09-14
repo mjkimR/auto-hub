@@ -70,6 +70,7 @@ async def test_quota_reply_schedules_retry_or_blocks_after_two_retries(delivery_
     project = MagicMock(enabled=True, revision=1, github_repository="owner/repo", github_connector_id=uuid4())
     attempt = MagicMock(spec=ExecutionAttempt)
     attempt.id = uuid4()
+    attempt.request_snapshot = {"pull_request": run.pull_snapshot}
     delivery = MagicMock(spec=ExecutionDelivery)
     delivery.delivery_number = delivery_number
     delivery.posted_at = datetime.now(UTC)
@@ -80,6 +81,7 @@ async def test_quota_reply_schedules_retry_or_blocks_after_two_retries(delivery_
     repo.list_deliveries = AsyncMock(return_value=[MagicMock(cause="quota") for _ in range(quota_retries)])
     repo.create_delivery = AsyncMock()
     projects.get = AsyncMock(return_value=project)
+    observer.get_pull_request = AsyncMock(return_value={"state": "open", "head": {"sha": "a" * 40}})
     observer.list_pull_comments = AsyncMock(
         return_value=[
             {
@@ -172,6 +174,7 @@ async def test_resume_run_transitions_paused_run_back_to_active():
 
     mock_run = create_mock_run(state=PipelineRunState.PAUSED, pull_number=42)
     repo.get = AsyncMock(return_value=mock_run)
+    repo.active_attempt = AsyncMock(return_value=MagicMock(spec=ExecutionAttempt))
 
     with MagicMock() as mock_tx:
         mock_session = AsyncMock()
@@ -332,3 +335,66 @@ async def test_manual_advance_leases_and_advances():
     use_case.acquire_lease.assert_awaited_once()
     use_case.advance_run.assert_awaited_once()
     use_case.release_lease.assert_awaited_once()
+
+
+async def test_dispatch_waits_until_next_action_without_reading_github(monkeypatch):
+    run = create_mock_run(state=PipelineRunState.DISPATCHING)
+    run.next_action_at = datetime.now(UTC) + timedelta(hours=5)
+    repo = MagicMock()
+    repo.get_leased = AsyncMock(return_value=run)
+    projects = MagicMock()
+    projects.get = AsyncMock(side_effect=AssertionError("Waiting dispatch must not resolve its project"))
+    observer = MagicMock()
+    observer.get_token = AsyncMock(side_effect=AssertionError("Waiting dispatch must not call GitHub"))
+    tx = MagicMock()
+    tx.__aenter__ = AsyncMock(return_value=AsyncMock())
+    tx.__aexit__ = AsyncMock(return_value=None)
+    monkeypatch.setattr("app.features.project_management.pipeline_runs.usecases.lifecycle.AsyncTransaction", lambda: tx)
+
+    result = await PipelineRunUseCase(repo, projects, observer).dispatch_implementation(
+        run.id, owner="worker-1", token=run.lease_token
+    )
+
+    assert result.state == PipelineRunState.DISPATCHING
+    assert result.next_action_at == run.next_action_at
+    projects.get.assert_not_awaited()
+    observer.get_token.assert_not_awaited()
+
+
+@pytest.mark.parametrize("elapsed_hours", [1, 3, 12])
+async def test_pushed_head_wins_over_watchdog_and_quota_replies(monkeypatch, elapsed_hours):
+    run = create_mock_run()
+    repo = MagicMock()
+    repo.get_leased = AsyncMock(return_value=run)
+    attempt = MagicMock(spec=ExecutionAttempt)
+    attempt.id = uuid4()
+    attempt.request_snapshot = {"pull_request": run.pull_snapshot}
+    repo.active_attempt = AsyncMock(return_value=attempt)
+    delivery = MagicMock(spec=ExecutionDelivery)
+    delivery.posted_at = datetime.now(UTC) - timedelta(hours=elapsed_hours)
+    repo.latest_delivery = AsyncMock(return_value=delivery)
+    repo.create_delivery = AsyncMock()
+    projects = MagicMock()
+    projects.get = AsyncMock(
+        return_value=MagicMock(enabled=True, revision=1, github_repository="owner/repo", github_connector_id=uuid4())
+    )
+    observer = MagicMock()
+    observer.get_pull_request = AsyncMock(return_value={"state": "open", "head": {"sha": "b" * 40}})
+    observer.list_pull_comments = AsyncMock(
+        return_value=[{"user": {"login": "chatgpt-codex-connector"}, "body": "Codex usage limit"}]
+    )
+    tx = MagicMock()
+    tx.__aenter__ = AsyncMock(return_value=AsyncMock())
+    tx.__aexit__ = AsyncMock(return_value=None)
+    monkeypatch.setattr("app.features.project_management.pipeline_runs.usecases.lifecycle.AsyncTransaction", lambda: tx)
+
+    result = await PipelineRunUseCase(repo, projects, observer).advance_run(
+        run.id, owner="worker-1", token=run.lease_token, observer=observer
+    )
+
+    assert result.state == PipelineRunState.AWAITING_CI
+    repo.create_delivery.assert_not_awaited()
+    observer.list_pull_comments.assert_not_awaited()
+    observer.get_pull_request.assert_awaited_once_with(
+        projects.get.return_value.github_connector_id, "owner/repo", run.pull_number
+    )

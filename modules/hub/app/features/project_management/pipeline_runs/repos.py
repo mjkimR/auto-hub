@@ -10,6 +10,7 @@ from app.features.project_management.pipeline_runs.models import (
     ExecutionDelivery,
     ExecutionReply,
     PipelineRun,
+    PipelineRunState,
 )
 from sqlalchemy import func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -53,10 +54,28 @@ class PipelineRunRepository:
             stmt = stmt.with_for_update()
         return (await session.execute(stmt)).scalar_one_or_none()
 
-    async def list_active(self, session: AsyncSession, project_id: UUID, *, limit: int) -> list[PipelineRun]:
+    async def list_active(
+        self, session: AsyncSession, project_id: UUID, *, limit: int, ready_at: datetime | None = None
+    ) -> list[PipelineRun]:
+        filters = [PipelineRun.project_id == project_id, PipelineRun.state.in_(ACTIVE_RUN_STATES)]
+        if ready_at is not None:
+            filters.extend(
+                [
+                    PipelineRun.state.in_(
+                        (
+                            PipelineRunState.QUEUED,
+                            PipelineRunState.DISPATCHING,
+                            PipelineRunState.IMPLEMENTING,
+                            PipelineRunState.AWAITING_CI,
+                        )
+                    ),
+                    or_(PipelineRun.next_action_at.is_(None), PipelineRun.next_action_at <= ready_at),
+                    or_(PipelineRun.lease_token.is_(None), PipelineRun.lease_expires_at <= ready_at),
+                ]
+            )
         rows = await session.scalars(
             select(PipelineRun)
-            .where(PipelineRun.project_id == project_id, PipelineRun.state.in_(ACTIVE_RUN_STATES))
+            .where(*filters)
             .order_by(PipelineRun.next_action_at.nullsfirst(), PipelineRun.created_at, PipelineRun.id)
             .limit(limit)
         )

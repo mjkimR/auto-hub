@@ -54,6 +54,11 @@ class PipelineObservationService:
             reader = GitHubActionsReader(client)
             return await reader.find_pull_request(repository, head_branch)
 
+    async def get_pull_request(self, connector_id: UUID, repository: str, pull_number: int) -> dict[str, Any]:
+        token = await self.get_token(connector_id, "github")
+        async with create_github_client(token) as client:
+            return await GitHubActionsReader(client)._get(f"/repos/{repository}/pulls/{pull_number}")
+
     async def list_pull_comments(self, connector_id: UUID, repository: str, pull_number: int) -> list[dict[str, Any]]:
         token = await self.get_token(connector_id, "github")
         async with create_github_client(token) as client:

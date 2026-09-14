@@ -401,3 +401,151 @@ class TestImplementationAttemptPreparation:
 
         assert_status_code(response, 409)
         assert response.json()["detail"] == "Project changed after this pipeline run was enrolled"
+
+
+async def prepare_run(client, project):
+    response = await enroll(client, project)
+    assert_status_code(response, 201)
+    run = response.json()
+    leased = await client.post(f"/api/v1/pipeline-runs/{run['id']}/lease", json={"owner": "recovery-test"})
+    assert_status_code(leased, 200)
+    lease = leased.json()
+    prepared = await client.post(
+        f"/api/v1/pipeline-runs/{run['id']}/attempts/implementation",
+        json={"owner": lease["owner"], "token": lease["token"], "expected_run_revision": run["revision"]},
+    )
+    assert_status_code(prepared, 200)
+    released = await client.post(
+        f"/api/v1/pipeline-runs/{run['id']}/lease/release",
+        json={"owner": lease["owner"], "token": lease["token"]},
+    )
+    assert_status_code(released, 204)
+    return run, prepared.json()["attempt"]
+
+
+class TestRunRecovery:
+    async def test_resume_before_attempt_preparation_can_prepare_again(self, client, project):
+        run = (await enroll(client, project)).json()
+        root = f"/api/v1/pipeline-runs/{run['id']}"
+        assert_status_code(await client.post(f"{root}/pause"), 200)
+        resumed = await client.post(f"{root}/resume")
+        assert_status_code(resumed, 200)
+        assert resumed.json()["state"] == "queued"
+        lease = (await client.post(f"{root}/lease", json={"owner": "resumed-worker"})).json()
+        prepared = await client.post(
+            f"{root}/attempts/implementation",
+            json={
+                "owner": lease["owner"],
+                "token": lease["token"],
+                "expected_run_revision": resumed.json()["revision"],
+            },
+        )
+        assert_status_code(prepared, 200)
+        assert prepared.json()["attempt"]["epoch"] == 2
+
+    async def test_resume_after_environment_failure_delivers_new_attempt(
+        self, client, project, github, session, monkeypatch
+    ):
+        from app.features.project_management.pipeline_runs.models import ExecutionAttempt
+
+        run, attempt = await prepare_run(client, project)
+        await session.execute(update(PipelineRun).where(PipelineRun.id == UUID(run["id"])).values(state="paused"))
+        await session.execute(
+            update(ExecutionAttempt)
+            .where(ExecutionAttempt.id == UUID(attempt["id"]))
+            .values(state="failed", finished_at=NOW, failure_code="CI_ENVIRONMENT_FAILURE")
+        )
+        await session.commit()
+        comments = []
+
+        def respond(request):
+            if request.url.path == "/user":
+                return httpx.Response(200, json={"login": "connector-user", "type": "User"})
+            if request.url.path.endswith("/comments"):
+                if request.method == "POST":
+                    comments.append({"id": 123, "body": json.loads(request.content)["body"]})
+                    return httpx.Response(201, json=comments[-1])
+                return httpx.Response(200, json=comments)
+            raise AssertionError(f"Unexpected request: {request.method} {request.url.path}")
+
+        monkeypatch.setattr(github, "respond", respond)
+        root = f"/api/v1/pipeline-runs/{run['id']}"
+        resumed = await client.post(f"{root}/resume")
+        assert_status_code(resumed, 200)
+        assert resumed.json()["state"] == "dispatching"
+        advanced = await client.post(f"{root}/advance")
+        assert_status_code(advanced, 200)
+        assert advanced.json()["state"] == "implementing"
+        attempts = (await client.get(f"{root}/attempts")).json()["items"]
+        assert len(attempts) == 2
+        assert attempts[0]["state"] == "failed"
+        assert attempts[0]["failure_code"] == "CI_ENVIRONMENT_FAILURE"
+        assert attempts[1]["epoch"] == 2
+        assert attempts[1]["idempotency_key"] != attempts[0]["idempotency_key"]
+        assert len(comments) == 1
+
+    @pytest.mark.parametrize("state", ["implementing", "awaiting_ci"])
+    @pytest.mark.parametrize("merged", [True, False])
+    async def test_closed_pull_recovers_actual_merge_outcome(self, client, project, github, session, state, merged):
+        run, _ = await prepare_run(client, project)
+        await session.execute(update(PipelineRun).where(PipelineRun.id == UUID(run["id"])).values(state=state))
+        await session.commit()
+        github.pulls[7] = pull(7, state="closed", merged=merged)
+        root = f"/api/v1/pipeline-runs/{run['id']}"
+
+        response = await client.post(f"{root}/advance")
+
+        assert_status_code(response, 200)
+        assert response.json()["state"] == ("completed" if merged else "canceled")
+        attempts = (await client.get(f"{root}/attempts")).json()["items"]
+        assert attempts[0]["state"] == ("completed" if merged else "failed")
+        assert attempts[0]["finished_at"] is not None
+        assert attempts[0]["failure_code"] == (None if merged else "PR_CLOSED")
+
+    async def test_webhook_cannot_deliver_a_quota_retry_early(self, client, project, github, session):
+        from unittest.mock import AsyncMock, MagicMock
+
+        from app.features.project_management.github_webhooks.repos import GitHubWebhookRepository
+        from app.features.project_management.github_webhooks.usecases import GitHubWebhookUseCase
+        from app.features.project_management.pipeline_runs.repos import PipelineRunRepository
+        from app.features.project_management.pipeline_runs.usecases.lifecycle import PipelineRunUseCase
+
+        run, _ = await prepare_run(client, project)
+        due = datetime.now(UTC) + timedelta(hours=5)
+        await session.execute(update(PipelineRun).where(PipelineRun.id == UUID(run["id"])).values(next_action_at=due))
+        await session.commit()
+        reads = len(github.paths)
+        # The deferred dispatch returns before resolving any project or credentials.
+        lifecycle = PipelineRunUseCase(PipelineRunRepository(), MagicMock(), MagicMock())
+        webhook = GitHubWebhookUseCase(GitHubWebhookRepository(), PipelineRunRepository(), lifecycle)
+        webhook._finish = AsyncMock()
+        await webhook.process("quota-event", {"repository": {"full_name": "owner/app"}, "issue": {"number": 7}})
+        webhook._finish.assert_awaited_once_with("quota-event", "processed")
+        detail = await client.get(f"/api/v1/pipeline-runs/{run['id']}")
+        assert detail.json()["state"] == "dispatching"
+        recorded_due = datetime.fromisoformat(detail.json()["next_action_at"].replace("Z", "+00:00"))
+        assert recorded_due.replace(tzinfo=UTC) == due
+        assert len(github.paths) == reads
+        attempts = (await client.get(f"/api/v1/pipeline-runs/{run['id']}/attempts")).json()["items"]
+        deliveries = await client.get(f"/api/v1/pipeline-runs/{run['id']}/attempts/{attempts[0]['id']}/deliveries")
+        assert deliveries.json() == []
+
+
+@pytest.mark.parametrize("excluded", ["paused", "blocked", "future", "leased"])
+async def test_ready_batch_filters_before_limit(client, project, github, session, excluded):
+    from app.features.project_management.pipeline_runs.repos import PipelineRunRepository
+
+    first = (await enroll(client, project)).json()
+    now = datetime.now(UTC)
+    values: dict = {"state": excluded} if excluded in ("paused", "blocked") else {}
+    if excluded == "future":
+        values["next_action_at"] = now + timedelta(hours=5)
+    if excluded == "leased":
+        values.update(lease_owner="busy-worker", lease_token=uuid4(), lease_expires_at=now + timedelta(minutes=2))
+    await session.execute(update(PipelineRun).where(PipelineRun.id == UUID(first["id"])).values(**values))
+    await session.commit()
+    second = (await enroll(client, project, 8)).json()
+
+    ready = await PipelineRunRepository().list_active(session, UUID(project["id"]), limit=1, ready_at=now)
+
+    assert [str(run.id) for run in ready] == [second["id"]]

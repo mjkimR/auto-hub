@@ -1,5 +1,6 @@
 from datetime import datetime
 from enum import StrEnum
+from typing import ClassVar
 from uuid import UUID
 
 from app.common.database import JSON_VARIANT
@@ -49,6 +50,7 @@ ACTIVE_RUN_PREDICATE = text("state IN ('queued', 'dispatching', 'implementing', 
 
 class PipelineRun(Base, UUIDMixin, TimestampMixin):
     __tablename__ = "pipeline_runs"
+    __mapper_args__: ClassVar[dict] = {"eager_defaults": True}
     __table_args__ = (
         CheckConstraint("revision >= 1", name="ck_pipeline_runs_revision_positive"),
         Index(
@@ -82,6 +84,7 @@ class PipelineRun(Base, UUIDMixin, TimestampMixin):
 
 class ExecutionAttempt(Base, UUIDMixin, TimestampMixin):
     __tablename__ = "execution_attempts"
+    __mapper_args__: ClassVar[dict] = {"eager_defaults": True}
     __table_args__ = (
         CheckConstraint("attempt_number >= 1", name="ck_execution_attempts_number_positive"),
         Index("uq_execution_attempts_run_number", "pipeline_run_id", "attempt_number", unique=True),

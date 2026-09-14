@@ -52,6 +52,7 @@ def build_codex_mention_comment(request: ImplementationRequest, *, delivery: int
         sections.append(f"### Linked issue #{issue.number}: {_task_text(issue.title)}")
         sections.append(_task_text(issue.body) or "(No description)")
     sections += [
+        f"## Request instructions\n\n{_task_text(request.instructions)}",
         "## Ground rules\n\n"
         "- Follow the repository's AGENTS.md.\n"
         "- Stay within the task scope; leave unrelated code untouched.\n"
