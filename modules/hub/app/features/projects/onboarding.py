@@ -28,18 +28,22 @@ class CheckProjectUseCase:
         try:
             async with asyncio.timeout(75):
                 try:
-                    token = await self.observer.get_token(project.github_connector_id, "github")
+                    if project.github is None:
+                        raise ProjectError(422, "Add a GitHub connection before checking CI")
+                    token = await self.observer.get_token(project.github.github_connector_id, "github")
                     async with pipeline_services.create_github_client(token) as client:
                         reader = GitHubActionsReader(client)
-                        repository = await reader._get(f"/repos/{project.repository}")
+                        repository = await reader._get(f"/repos/{project.github.repository}")
                         workflow = await reader._get(
-                            f"/repos/{project.repository}/actions/workflows/{project.verification.workflow}"
+                            f"/repos/{project.github.repository}/actions/workflows/{project.github.verification.workflow}"
                         )
-                        if repository.get("full_name", "").lower() != project.repository or repository.get("archived"):
+                        if repository.get("full_name", "").lower() != project.github.repository or repository.get(
+                            "archived"
+                        ):
                             raise ProjectError(422, "Repository is archived or does not match this connection")
                         if (
                             workflow.get("state") != "active"
-                            or workflow.get("path") != f".github/workflows/{project.verification.workflow}"
+                            or workflow.get("path") != f".github/workflows/{project.github.verification.workflow}"
                         ):
                             raise ProjectError(422, "Configured workflow is missing, disabled, or has a different path")
                     checks.append(
@@ -58,28 +62,31 @@ class CheckProjectUseCase:
                     )
                 except (GitHubObservationError, PipelineConfigurationError, ProjectError) as exc:
                     checks.append(ConnectionCheckItem(name="GitHub / CI", status="failed", detail=str(exc)))
-                try:
-                    github_login = await self._github_login(project.github_connector_id)
-                    checks.append(
-                        ConnectionCheckItem(
-                            name="GitHub identity",
-                            status="passed",
-                            detail=f"Codex mentions will be posted as @{github_login}. "
-                            "It must be the GitHub account linked to Codex.",
+                if project.github is not None:
+                    try:
+                        github_login = await self._github_login(project.github.github_connector_id)
+                        checks.append(
+                            ConnectionCheckItem(
+                                name="GitHub identity",
+                                status="passed",
+                                detail=f"Codex mentions will be posted as @{github_login}. "
+                                "It must be the GitHub account linked to Codex.",
+                            )
                         )
-                    )
-                except (GitHubObservationError, PipelineConfigurationError, ProjectError) as exc:
-                    checks.append(ConnectionCheckItem(name="GitHub identity", status="failed", detail=str(exc)))
+                    except (GitHubObservationError, PipelineConfigurationError, ProjectError) as exc:
+                        checks.append(ConnectionCheckItem(name="GitHub identity", status="failed", detail=str(exc)))
         except TimeoutError:
             checks.append(
                 ConnectionCheckItem(
                     name="Connection check", status="failed", detail="Connection check exceeded its time budget"
                 )
             )
+        has_passed = any(check.status == "passed" for check in checks)
+        has_failed = any(check.status == "failed" for check in checks)
         report = ConnectionCheck(
             checked_at=datetime.now(UTC),
             project_revision=project.revision,
-            ready=bool(checks) and all(check.status == "passed" for check in checks),
+            ready=has_passed and not has_failed,
             checks=checks,
             observation=observation,
             github_login=github_login,

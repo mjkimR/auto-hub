@@ -8,7 +8,7 @@ AVAILABLE_MODULES="all hub hub-ui"
 resolve_module() {
     case "$1" in
         hub|back|backend) echo "hub" ;;
-        hub-ui|ui|front|frontend) echo "hub-ui" ;;
+        hub-ui|ui|front|frontend|svelte|hub-ui-svelte) echo "hub-ui" ;;
         all) echo "all" ;;
         *) echo "$1" ;;
     esac

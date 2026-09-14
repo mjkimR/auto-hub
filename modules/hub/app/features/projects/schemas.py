@@ -1,28 +1,60 @@
 from datetime import datetime
-from typing import Literal
+from typing import Any, Literal
 from uuid import UUID
 
 from app.features.pipelines.schemas import PipelineObservation, PipelineObservationConfig, VerificationConfig
 from app_layer_base.base.schemas.mixin import TimestampSchemaMixin, UUIDSchemaMixin
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 TemplateId = Literal["python-uv", "node-npm"]
 
 
-class ProjectWrite(BaseModel):
+class GitHubProjectConnection(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    name: str = Field(min_length=1, max_length=255)
     repository: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9-]*/[A-Za-z0-9_][A-Za-z0-9_.-]*$", max_length=255)
     github_connector_id: UUID
     verification: VerificationConfig
-    enabled: bool = True
     template_id: TemplateId | None = None
 
     @field_validator("repository", mode="before")
     @classmethod
     def normalize_repository(cls, value: str) -> str:
         return value.strip().lower() if isinstance(value, str) else value
+
+
+class ProjectWrite(BaseModel):
+    """A Hub project can exist before any external system is connected."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(min_length=1, max_length=255)
+    github: GitHubProjectConnection | None = None
+    enabled: bool = True
+
+    @model_validator(mode="before")
+    @classmethod
+    def accept_legacy_connection_payload(cls, value: object) -> object:
+        """Translate the former flat connection shape during the API transition."""
+        if not isinstance(value, dict) or "github" in value:
+            return value
+        result = dict(value)
+        if "repository" in result:
+            repository = result.pop("repository")
+            connector_id = result.pop("github_connector_id", None)
+            verification = result.pop("verification", None)
+            template_id = result.pop("template_id", None)
+            if connector_id is not None and verification is not None:
+                result["github"] = {
+                    "repository": repository,
+                    "github_connector_id": connector_id,
+                    "verification": verification,
+                    "template_id": template_id,
+                }
+        result.pop("linear_project_id", None)
+        result.pop("linear_connector_id", None)
+        result.pop("linear", None)
+        return result
 
     @field_validator("name")
     @classmethod
@@ -32,10 +64,12 @@ class ProjectWrite(BaseModel):
         return value.strip()
 
     def observation_config(self, pull_numbers: list[int]) -> PipelineObservationConfig:
+        if self.github is None:
+            raise ValueError("A GitHub connection is required for pipeline observation")
         return PipelineObservationConfig(
-            repository=self.repository,
-            github_connector_id=self.github_connector_id,
-            verification=self.verification,
+            repository=self.github.repository,
+            github_connector_id=self.github.github_connector_id,
+            verification=self.github.verification,
             pull_numbers=pull_numbers,
         )
 
@@ -63,6 +97,39 @@ class ProjectRead(UUIDSchemaMixin, TimestampSchemaMixin, ProjectWrite):
     revision: int
     template_version: str | None
     last_check: ConnectionCheck | None
+    # Compatibility fields for clients that have not yet adopted the nested connection shape.
+    repository: str | None = None
+    github_connector_id: UUID | None = None
+    verification: VerificationConfig | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def nest_provider_connections(cls, value: object) -> object:
+        if isinstance(value, dict) or not hasattr(value, "github_repository"):
+            return value
+        row: Any = value
+        github = None
+        if row.github_repository is not None:
+            github = {
+                "repository": row.github_repository,
+                "github_connector_id": row.github_connector_id,
+                "verification": row.verification,
+                "template_id": row.template_id,
+            }
+        return {
+            "id": row.id,
+            "created_at": row.created_at,
+            "updated_at": row.updated_at,
+            "name": row.name,
+            "enabled": row.enabled,
+            "github": github,
+            "revision": row.revision,
+            "template_version": row.template_version,
+            "last_check": row.last_check,
+            "repository": row.github_repository,
+            "github_connector_id": row.github_connector_id,
+            "verification": row.verification,
+        }
 
 
 class ProjectUpdate(ProjectWrite):
@@ -93,6 +160,11 @@ class ProjectObservationPayload(BaseModel):
         if any(number <= 0 for number in value) or len(set(value)) != len(value):
             raise ValueError("PR numbers must be positive and unique")
         return value
+
+
+class ProjectDispatchPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    project_id: UUID
 
 
 class TemplateRead(BaseModel):

@@ -2,42 +2,43 @@ from uuid import UUID
 
 from app.features.connectors.models import Connector
 from app.features.pipeline_runs.models import PipelineRun
-from app.features.projects.models import ProjectConnection
+from app.features.projects.models import Project
 from app.features.schedule_configs.models import ScheduleConfig
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 PROJECT_OBSERVATION_TASK = "pipeline.observe_project"
+PROJECT_DISPATCH_TASK = "pipeline.dispatch_project"
 
 
 class ProjectRepository:
-    async def get(self, session: AsyncSession, project_id: UUID, *, lock: bool = False) -> ProjectConnection | None:
-        stmt = select(ProjectConnection).where(ProjectConnection.id == project_id)
+    async def get(self, session: AsyncSession, project_id: UUID, *, lock: bool = False) -> Project | None:
+        stmt = select(Project).where(Project.id == project_id)
         if lock:
             stmt = stmt.with_for_update()
         return (await session.execute(stmt)).scalar_one_or_none()
 
-    async def get_multi(self, session: AsyncSession, offset: int, limit: int) -> tuple[list[ProjectConnection], int]:
-        total = await session.scalar(select(func.count()).select_from(ProjectConnection))
-        rows = await session.scalars(
-            select(ProjectConnection).order_by(ProjectConnection.name, ProjectConnection.id).offset(offset).limit(limit)
-        )
+    async def get_multi(self, session: AsyncSession, offset: int, limit: int) -> tuple[list[Project], int]:
+        total = await session.scalar(select(func.count()).select_from(Project))
+        rows = await session.scalars(select(Project).order_by(Project.name, Project.id).offset(offset).limit(limit))
         return list(rows), total or 0
 
-    async def conflicts(self, session: AsyncSession, repository: str) -> list[ProjectConnection]:
-        rows = await session.scalars(select(ProjectConnection).where(ProjectConnection.repository == repository))
+    async def conflicts(self, session: AsyncSession, repository: str | None) -> list[Project]:
+        if repository is None:
+            return []
+        rows = await session.scalars(select(Project).where(Project.github_repository == repository))
         return list(rows)
 
     async def connector(self, session: AsyncSession, connector_id: UUID) -> Connector | None:
         return await session.get(Connector, connector_id)
 
-    async def save(self, session: AsyncSession, project: ProjectConnection) -> ProjectConnection:
+    async def save(self, session: AsyncSession, project: Project) -> Project:
         session.add(project)
         await session.flush()
         await session.refresh(project)
         return project
 
-    async def delete(self, session: AsyncSession, project: ProjectConnection) -> None:
+    async def delete(self, session: AsyncSession, project: Project) -> None:
         await session.delete(project)
         await session.flush()
 
@@ -65,10 +66,10 @@ class ProjectRepository:
 
     async def save_check(self, session: AsyncSession, project_id: UUID, revision: int, report: dict) -> bool:
         result = await session.execute(
-            update(ProjectConnection)
+            update(Project)
             .where(
-                ProjectConnection.id == project_id,
-                ProjectConnection.revision == revision,
+                Project.id == project_id,
+                Project.revision == revision,
             )
             .values(last_check=report)
         )

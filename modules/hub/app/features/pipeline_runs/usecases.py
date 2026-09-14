@@ -15,6 +15,8 @@ from app.features.pipeline_runs.models import (
 )
 from app.features.pipeline_runs.repos import PipelineRunRepository
 from app.features.pipeline_runs.schemas import (
+    AttachPRRequest,
+    CompleteAttemptRequest,
     EnrollPullRequest,
     ExecutionAttemptList,
     ExecutionAttemptRead,
@@ -22,6 +24,7 @@ from app.features.pipeline_runs.schemas import (
     LeaseGrant,
     LeaseMutation,
     LeaseRequest,
+    PauseRunRequest,
     PipelineRunList,
     PipelineRunRead,
     PreparedImplementationAttempt,
@@ -30,7 +33,9 @@ from app.features.pipeline_runs.schemas import (
 )
 from app.features.pipelines import services as pipeline_services
 from app.features.pipelines.github import GitHubActionsReader
+from app.features.pipelines.schemas import VerificationStatus
 from app.features.pipelines.services import PipelineConfigurationError, PipelineObservationService
+from app.features.projects.schemas import ProjectRead
 from app.features.projects.services import ProjectError, ProjectService
 from app_layer_base.core.database.transaction import AsyncTransaction
 from fastapi import Depends
@@ -76,11 +81,13 @@ class PipelineRunUseCase:
         async with AsyncTransaction() as session:
             project = await self.projects.get(session, project_id)
             if not project.enabled:
-                raise ProjectError(422, "Project connection is disabled")
+                raise ProjectError(422, "Project is disabled")
+            if project.github_repository is None or project.github_connector_id is None:
+                raise ProjectError(422, "Project missing GitHub connection for pipeline run")
             if await self.repo.get_active(session, project_id) is not None:
                 raise ProjectError(409, ACTIVE_RUN_CONFLICT)
             repository, connector_id, expected_revision = (
-                project.repository,
+                project.github_repository,
                 project.github_connector_id,
                 project.revision,
             )
@@ -101,7 +108,7 @@ class PipelineRunUseCase:
             async with AsyncTransaction() as session:
                 project = await self.projects.get(session, project_id, lock=True)
                 if not project.enabled:
-                    raise ProjectError(422, "Project connection is disabled")
+                    raise ProjectError(422, "Project is disabled")
                 if project.revision != expected_revision:
                     raise ProjectError(409, "Project changed during pull request enrollment; retry")
                 if await self.repo.get_active(session, project_id, lock=True) is not None:
@@ -205,7 +212,7 @@ class PipelineRunUseCase:
             existing = await self.repo.active_attempt(session, run_id)
             if existing is not None:
                 _, request_digest, _ = self._build_implementation_request(
-                    run, project.repository, idempotency_key=existing.idempotency_key
+                    run, self._github_repository(project), idempotency_key=existing.idempotency_key
                 )
                 if existing.request_digest != request_digest:
                     raise ProjectError(409, "The active attempt was prepared with a different request")
@@ -220,7 +227,7 @@ class PipelineRunUseCase:
             if run.state != PipelineRunState.QUEUED:
                 raise ProjectError(409, "Pipeline run is not ready for an implementation attempt")
             implementation_request, request_digest, idempotency_key = self._build_implementation_request(
-                run, project.repository
+                run, self._github_repository(project)
             )
             attempt = await self.repo.create_attempt(
                 session,
@@ -243,6 +250,192 @@ class PipelineRunUseCase:
                 run_revision=run.revision,
                 created=True,
             )
+
+    async def advance_run(
+        self,
+        run_id: UUID,
+        *,
+        owner: str,
+        token: UUID,
+        observer: PipelineObservationService,
+    ) -> PipelineRunRead:
+        now = datetime.now(UTC)
+        async with AsyncTransaction() as session:
+            run = await self.repo.get_leased(
+                session,
+                run_id,
+                owner=owner,
+                token=token,
+                now=now,
+            )
+            if run is None:
+                await self._raise_lease_conflict(session, run_id, "advance run")
+            project = await self.projects.get(session, run.project_id)
+            if not project.enabled or project.revision != run.project_revision:
+                raise ProjectError(409, "Project changed after this pipeline run was acquired")
+            if project.github_repository is None or project.github_connector_id is None:
+                raise ProjectError(422, "Project missing GitHub connection for pipeline run")
+
+            # 1. If DISPATCHING or IMPLEMENTING: Check GitHub for open PR
+            if run.state in (PipelineRunState.DISPATCHING, PipelineRunState.IMPLEMENTING):
+                pr = await observer.find_pull_request(
+                    project.github_connector_id, project.github_repository, run.branch
+                )
+                if pr is not None:
+                    run.pull_number = int(pr["number"])
+                    run.pull_url = str(
+                        pr.get("html_url") or f"https://github.com/{project.github_repository}/pull/{pr['number']}"
+                    )
+                    run.state = PipelineRunState.AWAITING_CI
+                    run.revision += 1
+                    active_attempt = await self.repo.active_attempt(session, run.id)
+                    if active_attempt is not None:
+                        active_attempt.state = ExecutionAttemptState.RUNNING
+                    await session.flush()
+
+            # 2. If AWAITING_CI: Observe CI status
+            elif run.state == PipelineRunState.AWAITING_CI and run.pull_number is not None:
+                project_read = ProjectRead.model_validate(project)
+                observation = await observer.observe(project_read.observation_config([run.pull_number]))
+                pull_result = observation.pulls[0].result
+                if pull_result.status == VerificationStatus.PASSED:
+                    run.state = PipelineRunState.COMPLETED
+                    run.revision += 1
+                    active_attempt = await self.repo.active_attempt(session, run.id)
+                    if active_attempt is not None:
+                        active_attempt.state = ExecutionAttemptState.COMPLETED
+                        active_attempt.finished_at = now
+                    await session.flush()
+                elif pull_result.status == VerificationStatus.FAILED:
+                    run.state = PipelineRunState.FAILED
+                    run.pause_reason = pull_result.reason
+                    run.revision += 1
+                    active_attempt = await self.repo.active_attempt(session, run.id)
+                    if active_attempt is not None:
+                        active_attempt.state = ExecutionAttemptState.FAILED
+                        active_attempt.finished_at = now
+                        active_attempt.failure_code = "CI_FAILED"
+                        active_attempt.failure_detail = pull_result.reason
+                    await session.flush()
+
+            return PipelineRunRead.model_validate(run)
+
+    async def manual_advance(self, run_id: UUID, observer: PipelineObservationService) -> PipelineRunRead:
+        owner = f"manual:{uuid4().hex[:8]}"
+        grant = await self.acquire_lease(run_id, LeaseRequest(owner=owner, ttl_seconds=60))
+        try:
+            return await self.advance_run(run_id, owner=owner, token=grant.token, observer=observer)
+        finally:
+            await self.release_lease(run_id, LeaseMutation(owner=owner, token=grant.token))
+
+    async def pause_run(self, run_id: UUID, request: PauseRunRequest | None = None) -> PipelineRunRead:
+        async with AsyncTransaction() as session:
+            run = await self.repo.get(session, run_id)
+            if run is None:
+                raise ProjectError(404, "Pipeline run not found")
+            if run.state in (PipelineRunState.COMPLETED, PipelineRunState.FAILED, PipelineRunState.CANCELED):
+                raise ProjectError(422, f"Cannot pause a run in {run.state} state")
+            run.state = PipelineRunState.PAUSED
+            run.pause_reason = request.reason if request and request.reason else "Manually paused by user"
+            run.lease_owner = None
+            run.lease_token = None
+            run.lease_expires_at = None
+            run.revision += 1
+            await session.flush()
+            return PipelineRunRead.model_validate(run)
+
+    async def resume_run(self, run_id: UUID) -> PipelineRunRead:
+        async with AsyncTransaction() as session:
+            run = await self.repo.get(session, run_id)
+            if run is None:
+                raise ProjectError(404, "Pipeline run not found")
+            if run.state != PipelineRunState.PAUSED:
+                raise ProjectError(422, f"Cannot resume a run that is not paused (current state: {run.state})")
+            if run.pull_number is not None:
+                run.state = PipelineRunState.AWAITING_CI
+            else:
+                run.state = PipelineRunState.DISPATCHING
+            run.pause_reason = None
+            run.revision += 1
+            await session.flush()
+            return PipelineRunRead.model_validate(run)
+
+    async def cancel_run(self, run_id: UUID) -> PipelineRunRead:
+        now = datetime.now(UTC)
+        async with AsyncTransaction() as session:
+            run = await self.repo.get(session, run_id)
+            if run is None:
+                raise ProjectError(404, "Pipeline run not found")
+            if run.state in (PipelineRunState.COMPLETED, PipelineRunState.FAILED, PipelineRunState.CANCELED):
+                raise ProjectError(422, f"Cannot cancel a run in {run.state} state")
+            run.state = PipelineRunState.CANCELED
+            run.pause_reason = "Manually canceled"
+            run.lease_owner = None
+            run.lease_token = None
+            run.lease_expires_at = None
+            run.revision += 1
+            active_attempt = await self.repo.active_attempt(session, run.id)
+            if active_attempt is not None:
+                active_attempt.state = ExecutionAttemptState.FAILED
+                active_attempt.failure_code = "CANCELED"
+                active_attempt.failure_detail = "Run was canceled"
+                active_attempt.finished_at = now
+            await session.flush()
+            return PipelineRunRead.model_validate(run)
+
+    async def attach_pr(self, run_id: UUID, request: AttachPRRequest) -> PipelineRunRead:
+        async with AsyncTransaction() as session:
+            run = await self.repo.get(session, run_id)
+            if run is None:
+                raise ProjectError(404, "Pipeline run not found")
+            if run.state not in (PipelineRunState.QUEUED, PipelineRunState.DISPATCHING, PipelineRunState.IMPLEMENTING):
+                raise ProjectError(422, f"Cannot attach PR to a run in {run.state} state")
+            project = await self.projects.get(session, run.project_id)
+            repo_name = project.github_repository or "repo"
+            run.pull_number = request.pull_number
+            run.pull_url = request.pull_url or f"https://github.com/{repo_name}/pull/{request.pull_number}"
+            run.state = PipelineRunState.AWAITING_CI
+            run.revision += 1
+            active_attempt = await self.repo.active_attempt(session, run.id)
+            if active_attempt is not None and active_attempt.state in (
+                ExecutionAttemptState.PLANNED,
+                ExecutionAttemptState.DISPATCHING,
+            ):
+                active_attempt.state = ExecutionAttemptState.RUNNING
+            await session.flush()
+            return PipelineRunRead.model_validate(run)
+
+    async def complete_attempt(
+        self, run_id: UUID, attempt_id: UUID, request: CompleteAttemptRequest
+    ) -> ExecutionAttemptRead:
+        now = datetime.now(UTC)
+        async with AsyncTransaction() as session:
+            run = await self.repo.get(session, run_id)
+            if run is None:
+                raise ProjectError(404, "Pipeline run not found")
+            attempt = await self.repo.get_attempt(session, attempt_id)
+            if attempt is None or attempt.pipeline_run_id != run_id:
+                raise ProjectError(404, "Execution attempt not found for this pipeline run")
+            if request.status == "completed":
+                attempt.state = ExecutionAttemptState.COMPLETED
+                attempt.finished_at = now
+            else:
+                attempt.state = ExecutionAttemptState.FAILED
+                attempt.finished_at = now
+                attempt.failure_code = request.failure_code or "WORKER_FAILED"
+                attempt.failure_detail = request.failure_detail or "External worker reported failure"
+                if run.state in (PipelineRunState.DISPATCHING, PipelineRunState.IMPLEMENTING):
+                    run.state = PipelineRunState.FAILED
+                    run.pause_reason = attempt.failure_detail
+                    run.revision += 1
+            await session.flush()
+            return ExecutionAttemptRead.model_validate(attempt)
+
+    @staticmethod
+    def _github_repository(project) -> str:
+        if project.github_repository is None:
+            raise ProjectError(422, "Add a GitHub connection before preparing an implementation")
+        return project.github_repository
 
     @staticmethod
     def _build_implementation_request(

@@ -2,20 +2,27 @@ from uuid import UUID
 
 from app.common.database import JSON_VARIANT
 from app_layer_base.base.models.mixin import Base, TimestampMixin, UUIDMixin
-from sqlalchemy import CheckConstraint, ForeignKey, String
+from sqlalchemy import ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 
-class ProjectConnection(Base, UUIDMixin, TimestampMixin):
-    __tablename__ = "project_connections"
-    __table_args__ = (CheckConstraint("repository = lower(repository)", name="ck_project_repository_lowercase"),)
+class Project(Base, UUIDMixin, TimestampMixin):
+    """A workspace owned by Hub, with optional provider-specific connections."""
+
+    __tablename__ = "projects"
 
     name: Mapped[str] = mapped_column(String(255))
-    repository: Mapped[str] = mapped_column(String(255), unique=True)
-    github_connector_id: Mapped[UUID] = mapped_column(ForeignKey("connectors.id", ondelete="RESTRICT"))
-    verification: Mapped[dict] = mapped_column(JSON_VARIANT)
+    github_repository: Mapped[str | None] = mapped_column(String(255), unique=True, nullable=True)
+    github_connector_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("connectors.id", ondelete="RESTRICT"), nullable=True
+    )
+    verification: Mapped[dict | None] = mapped_column(JSON_VARIANT, nullable=True)
     enabled: Mapped[bool] = mapped_column(default=True)
     revision: Mapped[int] = mapped_column(default=1)
     template_id: Mapped[str | None] = mapped_column(String(50))
     template_version: Mapped[str | None] = mapped_column(String(50))
     last_check: Mapped[dict | None] = mapped_column(JSON_VARIANT, nullable=True)
+
+
+# Kept as an import alias for extensions written against the pre-refactor model.
+ProjectConnection = Project

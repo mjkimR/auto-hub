@@ -117,3 +117,18 @@ class PreparedImplementationAttempt(BaseModel):
     request: ImplementationRequest
     run_revision: int
     created: bool
+
+
+class PauseRunRequest(BaseModel):
+    reason: str | None = Field(default=None, max_length=500)
+
+
+class AttachPRRequest(BaseModel):
+    pull_number: int = Field(gt=0)
+    pull_url: str | None = Field(default=None, max_length=1000)
+
+
+class CompleteAttemptRequest(BaseModel):
+    status: Literal["completed", "failed"]
+    failure_code: str | None = Field(default=None, max_length=100)
+    failure_detail: str | None = Field(default=None, max_length=2000)

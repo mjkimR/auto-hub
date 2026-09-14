@@ -16,7 +16,7 @@ from alembic import op
 from sqlalchemy.dialects import postgresql
 
 revision: str = "e6f7a8b9c0d1"
-down_revision: str | None = "d5e6f7a8b9c0"
+down_revision: str | None = "d7e8f9a0b1c2"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
@@ -28,7 +28,7 @@ schedules = sa.table(
     "schedule_configs", sa.column("id", sa.Uuid()), sa.column("task_func", sa.String()), sa.column("payload", JSON_TYPE)
 )
 task_states = sa.table("task_states", sa.column("config_id", sa.Uuid()), sa.column("data", JSON_TYPE))
-projects = sa.table("project_connections", sa.column("id", sa.Uuid()), sa.column(REMOVED_FIELD, sa.Uuid()))
+projects = sa.table("projects", sa.column("id", sa.Uuid()), sa.column(REMOVED_FIELD, sa.Uuid()))
 
 
 def _create_active_project_index() -> None:
@@ -66,7 +66,7 @@ def upgrade() -> None:
         sqlite_where=ACTIVE,
     )
 
-    with op.batch_alter_table("project_connections") as batch:
+    with op.batch_alter_table("projects") as batch:
         batch.drop_column("linear_connector_id")
         batch.drop_column(REMOVED_FIELD)
     op.execute("DELETE FROM connectors WHERE provider = 'linear'")
@@ -98,17 +98,17 @@ def downgrade() -> None:
     """
     bind = op.get_bind()
 
-    with op.batch_alter_table("project_connections") as batch:
+    with op.batch_alter_table("projects") as batch:
         batch.add_column(sa.Column(REMOVED_FIELD, sa.Uuid(), nullable=True))
         batch.add_column(sa.Column("linear_connector_id", sa.Uuid(), nullable=True))
         batch.create_foreign_key(
-            "fk_project_connections_linear_connector_id", "connectors", ["linear_connector_id"], ["id"], ondelete="RESTRICT"
+            "fk_projects_linear_connector_id", "connectors", ["linear_connector_id"], ["id"], ondelete="RESTRICT"
         )
     for row in bind.execute(sa.select(projects.c.id)).mappings().all():
         bind.execute(projects.update().where(projects.c.id == row["id"]).values({REMOVED_FIELD: uuid4()}))
-    with op.batch_alter_table("project_connections") as batch:
+    with op.batch_alter_table("projects") as batch:
         batch.alter_column(REMOVED_FIELD, existing_type=sa.Uuid(), nullable=False)
-        batch.create_unique_constraint("uq_project_connections_linear_project_id", [REMOVED_FIELD])
+        batch.create_unique_constraint("uq_projects_linear_project_id", [REMOVED_FIELD])
 
     for row in bind.execute(sa.select(schedules).where(schedules.c.task_func == "pipeline.observe")).mappings().all():
         payload = row["payload"]

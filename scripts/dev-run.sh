@@ -9,7 +9,7 @@ PID_HUB=""
 
 if should_run "$target" "hub-ui"; then
     path=$(resolve_module_path "hub-ui")
-    echo "Starting React frontend ($path)..."
+    echo "Starting Svelte frontend ($path)..."
     npm --prefix "$path" run dev &
     PID_UI=$!
 fi
@@ -17,6 +17,11 @@ fi
 if should_run "$target" "hub"; then
     path=$(resolve_module_path "hub")
     echo "Starting Python backend ($path)..."
+    if [ -f "$path/.env" ]; then
+        set -a
+        source "$path/.env"
+        set +a
+    fi
     just db-upgrade
     uv run --directory "$path" uvicorn app.main:create_app --port 8389 --reload &
     PID_HUB=$!

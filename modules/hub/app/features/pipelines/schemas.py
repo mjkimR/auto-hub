@@ -29,6 +29,7 @@ class PipelineObservationConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     repository: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9-]*/[A-Za-z0-9_][A-Za-z0-9_.-]*$")
+
     github_connector_id: UUID
     pull_numbers: list[Annotated[int, Field(gt=0)]] = Field(min_length=1, max_length=10)
     verification: VerificationConfig

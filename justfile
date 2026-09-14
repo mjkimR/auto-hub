@@ -15,11 +15,12 @@ init module="all":
         echo "Initializing Python backend ($path)..."
         uv sync
         just hooks-install
+        just link-skills
     fi
 
     if should_run "$target" "hub-ui"; then
         path=$(resolve_module_path "hub-ui")
-        echo "Initializing React frontend ($path)..."
+        echo "Initializing Svelte frontend ($path)..."
         npm --prefix "$path" install
     fi
 
@@ -38,7 +39,7 @@ lint module="all":
 
     if should_run "$target" "hub-ui"; then
         path=$(resolve_module_path "hub-ui")
-        echo "Linting React frontend ($path)..."
+        echo "Linting Svelte frontend ($path)..."
         npm --prefix "$path" run lint
     fi
 
@@ -56,7 +57,8 @@ check module="all":
 
     if should_run "$target" "hub-ui"; then
         path=$(resolve_module_path "hub-ui")
-        echo "Compiling and type checking React frontend ($path)..."
+        echo "Checking and compiling Svelte frontend ($path)..."
+        npm --prefix "$path" run check
         npm --prefix "$path" run build
     fi
 
@@ -115,6 +117,11 @@ db-upgrade module="hub":
     source ./scripts/_lib.sh
     target=$(resolve_module "{{ module }}")
     path=$(resolve_module_path "$target")
+    if [ -f "$path/.env" ]; then
+        set -a
+        source "$path/.env"
+        set +a
+    fi
     uv run --directory "$path" alembic upgrade head
 
 # Run tests with SQLite (default)
@@ -132,3 +139,8 @@ test-ui:
 # Generate OpenAPI client for the frontend UI module from Python backend schema
 gen-ui-api:
     @bash ./scripts/gen-ui-api.sh
+
+# Link or install agent skills from app-common
+link-skills +args="":
+    @bash ./scripts/install-skills.sh {{ args }}
+

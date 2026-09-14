@@ -1,6 +1,6 @@
 import asyncio
 from datetime import UTC, datetime
-from typing import Annotated
+from typing import Annotated, Any
 from uuid import UUID
 
 from app.features.connectors.crypto import ConnectorCredentialCipher, EncryptedCredentials
@@ -43,6 +43,12 @@ class PipelineObservationService:
             reader = GitHubActionsReader(client)
             pulls = [await reader.observe_pull(config, number) for number in config.pull_numbers]
         return PipelineObservation(observed_at=datetime.now(UTC), config=config, pulls=pulls)
+
+    async def find_pull_request(self, connector_id: UUID, repository: str, head_branch: str) -> dict[str, Any] | None:
+        token = await self.get_token(connector_id, "github")
+        async with create_github_client(token) as client:
+            reader = GitHubActionsReader(client)
+            return await reader.find_pull_request(repository, head_branch)
 
     async def get_token(self, connector_id: UUID, expected_provider: str) -> str:
         # Keep network I/O outside the database transaction.

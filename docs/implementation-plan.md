@@ -37,6 +37,7 @@ Verification on 2026-09-10: All 260 backend tests passing (including 53 new proj
 Migration upgrade and downgrade were applied against a scratch SQLite database with a seeded project and adopted schedule; the downgrade restored the inline legacy payload before dropping the table.
 Live GitHub and Linear API calls were not performed; both boundaries are covered with test HTTP transports.
 
+
 Extracting repeated template steps into reusable workflows remains follow-up work.
 
 The Linear mapping, connector, and access check delivered in this phase were removed by §3.0. That also resolved the earlier deferral: the connection check no longer has an optional `skipped` item, so a healthy project reports `ready`.

@@ -1,1 +1,1 @@
-"""Persistent repository/project connections and CI onboarding."""
+"""Hub-owned projects with optional provider connections and CI onboarding."""
