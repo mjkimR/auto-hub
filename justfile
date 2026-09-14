@@ -144,3 +144,11 @@ gen-ui-api:
 link-skills +args="":
     @bash ./scripts/install-skills.sh {{ args }}
 
+# Setup Secret Manager secrets for Cloud Run
+setup-secrets +args="":
+    @bash ./docker/helper/setup_secrets.sh {{ args }}
+
+# Deploy Auto Hub to Cloud Run via Cloud Build
+deploy-cloud-run +args="":
+    @bash ./docker/helper/deploy_cloud_run.sh {{ args }}
+
