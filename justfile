@@ -148,6 +148,10 @@ test-ui:
 gen-ui-api:
     @bash ./scripts/gen-ui-api.sh
 
+# Sync the local signed-in Codex quota reset time to the global personal-codex provider.
+sync-codex-quota:
+    @python3 ./scripts/sync-codex-quota.py
+
 # Link or install agent skills from app-common
 link-skills +args="":
     @bash ./scripts/install-skills.sh {{ args }}

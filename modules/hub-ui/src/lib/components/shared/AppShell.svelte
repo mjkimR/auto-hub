@@ -14,7 +14,8 @@
 		FileCode,
 		LogOut,
 		Workflow,
-		KeyRound
+		KeyRound,
+		Bot
 	} from '@lucide/svelte';
 	import { onMount } from 'svelte';
 
@@ -61,6 +62,7 @@
 			label: 'Configuration',
 			items: [
 				{ href: '/settings/connectors', label: 'Connectors', icon: KeyRound },
+				{ href: '/settings/execution-providers', label: 'AI Catalogs', icon: Bot },
 				{ href: '/settings/system', label: 'System configs', icon: Settings }
 			]
 		},

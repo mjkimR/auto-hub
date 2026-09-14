@@ -65,6 +65,9 @@ class PipelineRun(Base, UUIDMixin, TimestampMixin):
     )
 
     project_id: Mapped[UUID] = mapped_column(ForeignKey("projects.id", ondelete="RESTRICT"), nullable=False)
+    execution_provider_id: Mapped[UUID] = mapped_column(
+        ForeignKey("execution_providers.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
     project_revision: Mapped[int] = mapped_column(Integer, nullable=False)
     pull_number: Mapped[int] = mapped_column(Integer, nullable=False)
     pull_url: Mapped[str] = mapped_column(String(2048), nullable=False)
@@ -80,6 +83,7 @@ class PipelineRun(Base, UUIDMixin, TimestampMixin):
     lease_token: Mapped[UUID | None] = mapped_column(nullable=True)
     lease_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
     next_action_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
+    quota_block_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
 
 class ExecutionAttempt(Base, UUIDMixin, TimestampMixin):

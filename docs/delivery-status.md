@@ -43,5 +43,5 @@ These are not required for the current single-PR operating model:
 ## Explicitly deferred
 
 - Automatic planning/WBS generation and dynamic agent selection.
-- Configurable account/repository dispatch limits and richer quota history.
+- Additional provider families, project-level provider selection, and richer quota history. The active Codex global-availability contract is in [Execution Provider Catalog](execution-providers.md).
 - A bounded LLM review lane before merge.

@@ -41,6 +41,7 @@ class PipelineRunRead(UUIDSchemaMixin, TimestampSchemaMixin):
     model_config = ConfigDict(from_attributes=True)
 
     project_id: UUID
+    execution_provider_id: UUID
     project_revision: int
     pull_number: int
     pull_url: str
@@ -53,6 +54,7 @@ class PipelineRunRead(UUIDSchemaMixin, TimestampSchemaMixin):
     lease_owner: str | None
     lease_expires_at: datetime | None
     next_action_at: datetime | None
+    quota_block_count: int
 
 
 class ExecutionAttemptRead(UUIDSchemaMixin, TimestampSchemaMixin):

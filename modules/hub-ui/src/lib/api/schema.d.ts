@@ -569,6 +569,58 @@ export interface paths {
 		patch: operations['patch_system_config_api_v1_system_configs__system_config_id__patch'];
 		trace?: never;
 	};
+	'/api/v1/execution-providers': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		/** List Execution Providers */
+		get: operations['list_execution_providers_api_v1_execution_providers_get'];
+		put?: never;
+		post?: never;
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/api/v1/execution-providers/{provider_key}/availability': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		get?: never;
+		/** Set Execution Provider Availability */
+		put: operations['set_execution_provider_availability_api_v1_execution_providers__provider_key__availability_put'];
+		post?: never;
+		/** Clear Execution Provider Availability */
+		delete: operations['clear_execution_provider_availability_api_v1_execution_providers__provider_key__availability_delete'];
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/api/v1/execution-providers/{provider_key}/enabled': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		get?: never;
+		/** Set Execution Provider Enabled */
+		put: operations['set_execution_provider_enabled_api_v1_execution_providers__provider_key__enabled_put'];
+		post?: never;
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
 	'/api/v1/schedule_jobs': {
 		parameters: {
 			query?: never;
@@ -975,6 +1027,72 @@ export interface components {
 			/** Posted At */
 			posted_at: string | null;
 		};
+		/**
+		 * ExecutionProviderAvailability
+		 * @enum {string}
+		 */
+		ExecutionProviderAvailability: 'normal' | 'quota_blocked' | 'probe' | 'disabled' | 'unknown';
+		/**
+		 * ExecutionProviderKind
+		 * @enum {string}
+		 */
+		ExecutionProviderKind: 'codex' | 'jules' | 'openai-api';
+		/** ExecutionProviderList */
+		ExecutionProviderList: {
+			/** Items */
+			items: components['schemas']['ExecutionProviderRead'][];
+		};
+		/** ExecutionProviderRead */
+		ExecutionProviderRead: {
+			/**
+			 * Created At
+			 * Format: date-time
+			 */
+			created_at: string;
+			/**
+			 * Updated At
+			 * Format: date-time
+			 */
+			updated_at: string;
+			/**
+			 * Id
+			 * Format: uuid
+			 */
+			id: string;
+			/** Key */
+			key: string;
+			/** Name */
+			name: string;
+			kind: components['schemas']['ExecutionProviderKind'];
+			/** Adapter */
+			adapter: string;
+			/** Enabled */
+			enabled: boolean;
+			availability_state: components['schemas']['ExecutionProviderAvailability'];
+			/** Available At */
+			available_at: string | null;
+			/** Availability Source */
+			availability_source: string | null;
+			/** Availability Updated At */
+			availability_updated_at: string | null;
+			/** Availability Note */
+			availability_note: string | null;
+			/** Configured Concurrency */
+			configured_concurrency: number;
+			/** Effective Concurrency */
+			effective_concurrency: number;
+			/** Probe Started At */
+			probe_started_at: string | null;
+			/** Probe Window Minutes */
+			probe_window_minutes: number;
+			/** Revision */
+			revision: number;
+			/**
+			 * Held Run Count
+			 * @default 0
+			 */
+			held_run_count: number;
+		};
 		/** ExecutionReplyRead */
 		ExecutionReplyRead: {
 			/**
@@ -1323,6 +1441,11 @@ export interface components {
 			 * Format: uuid
 			 */
 			project_id: string;
+			/**
+			 * Execution Provider Id
+			 * Format: uuid
+			 */
+			execution_provider_id: string;
 			/** Project Revision */
 			project_revision: number;
 			/** Pull Number */
@@ -1345,6 +1468,8 @@ export interface components {
 			lease_expires_at: string | null;
 			/** Next Action At */
 			next_action_at: string | null;
+			/** Quota Block Count */
+			quota_block_count: number;
 		};
 		/**
 		 * PipelineRunState
@@ -1960,6 +2085,26 @@ export interface components {
 			 * @default 200
 			 */
 			MAX_DISPATCH_LIMIT: number;
+		};
+		/** SetAvailabilityRequest */
+		SetAvailabilityRequest: {
+			/**
+			 * Available At
+			 * Format: date-time
+			 */
+			available_at: string;
+			/** Note */
+			note?: string | null;
+			/**
+			 * Source
+			 * @default manual
+			 */
+			source: string;
+		};
+		/** SetEnabledRequest */
+		SetEnabledRequest: {
+			/** Enabled */
+			enabled: boolean;
 		};
 		/** SystemConfigCreate */
 		SystemConfigCreate: {
@@ -3648,6 +3793,127 @@ export interface operations {
 				};
 				content: {
 					'application/json': components['schemas']['SystemConfigRead'];
+				};
+			};
+			/** @description Validation Error */
+			422: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json': components['schemas']['HTTPValidationError'];
+				};
+			};
+		};
+	};
+	list_execution_providers_api_v1_execution_providers_get: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description Successful Response */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json': components['schemas']['ExecutionProviderList'];
+				};
+			};
+		};
+	};
+	set_execution_provider_availability_api_v1_execution_providers__provider_key__availability_put: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				provider_key: string;
+			};
+			cookie?: never;
+		};
+		requestBody: {
+			content: {
+				'application/json': components['schemas']['SetAvailabilityRequest'];
+			};
+		};
+		responses: {
+			/** @description Successful Response */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json': components['schemas']['ExecutionProviderRead'];
+				};
+			};
+			/** @description Validation Error */
+			422: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json': components['schemas']['HTTPValidationError'];
+				};
+			};
+		};
+	};
+	clear_execution_provider_availability_api_v1_execution_providers__provider_key__availability_delete: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				provider_key: string;
+			};
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description Successful Response */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json': components['schemas']['ExecutionProviderRead'];
+				};
+			};
+			/** @description Validation Error */
+			422: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json': components['schemas']['HTTPValidationError'];
+				};
+			};
+		};
+	};
+	set_execution_provider_enabled_api_v1_execution_providers__provider_key__enabled_put: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				provider_key: string;
+			};
+			cookie?: never;
+		};
+		requestBody: {
+			content: {
+				'application/json': components['schemas']['SetEnabledRequest'];
+			};
+		};
+		responses: {
+			/** @description Successful Response */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json': components['schemas']['ExecutionProviderRead'];
 				};
 			};
 			/** @description Validation Error */

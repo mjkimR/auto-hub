@@ -30,6 +30,7 @@ def create_mock_run(
     run = MagicMock(spec=PipelineRun)
     run.id = run_id or uuid4()
     run.project_id = uuid4()
+    run.execution_provider_id = uuid4()
     run.project_revision = 1
     run.pull_number = pull_number
     run.pull_url = pull_url or f"https://github.com/test-org/test-repo/pull/{pull_number}"
@@ -52,20 +53,20 @@ def create_mock_run(
     run.lease_token = uuid4()
     run.lease_expires_at = datetime.now(UTC)
     run.next_action_at = None
+    run.quota_block_count = 0
     run.created_at = datetime.now(UTC)
     run.updated_at = datetime.now(UTC)
     return run
 
 
-@pytest.mark.parametrize(
-    ("delivery_number", "quota_retries", "expected_state"),
-    [(1, 0, PipelineRunState.DISPATCHING), (3, 2, PipelineRunState.BLOCKED)],
-)
-async def test_quota_reply_schedules_retry_or_blocks_after_two_retries(delivery_number, quota_retries, expected_state):
+@pytest.mark.parametrize("delivery_number", [1, 3])
+async def test_quota_reply_sets_a_global_provider_hold_without_a_run_retry_cap(delivery_number):
     repo = MagicMock()
     projects = MagicMock()
     observer = MagicMock()
-    use_case = PipelineRunUseCase(repo, projects, observer)
+    providers = MagicMock()
+    providers.record_quota_event = AsyncMock()
+    use_case = PipelineRunUseCase(repo, projects, observer, providers)
     run = create_mock_run()
     project = MagicMock(enabled=True, revision=1, github_repository="owner/repo", github_connector_id=uuid4())
     attempt = MagicMock(spec=ExecutionAttempt)
@@ -78,7 +79,6 @@ async def test_quota_reply_schedules_retry_or_blocks_after_two_retries(delivery_
     repo.get_leased = AsyncMock(return_value=run)
     repo.active_attempt = AsyncMock(return_value=attempt)
     repo.latest_delivery = AsyncMock(return_value=delivery)
-    repo.list_deliveries = AsyncMock(return_value=[MagicMock(cause="quota") for _ in range(quota_retries)])
     repo.create_delivery = AsyncMock()
     projects.get = AsyncMock(return_value=project)
     observer.get_pull_request = AsyncMock(return_value={"state": "open", "head": {"sha": "a" * 40}})
@@ -100,12 +100,10 @@ async def test_quota_reply_schedules_retry_or_blocks_after_two_retries(delivery_
         mp.setattr("app.features.project_management.pipeline_runs.usecases.lifecycle.AsyncTransaction", lambda: mock_tx)
         result = await use_case.advance_run(run.id, owner="worker-1", token=run.lease_token, observer=observer)
 
-    assert result.state == expected_state
-    if expected_state == PipelineRunState.DISPATCHING:
-        assert run.next_action_at is not None
-        assert timedelta(hours=5, minutes=9) < run.next_action_at - delivery.posted_at < timedelta(hours=5, minutes=11)
-    else:
-        assert "persisted" in run.pause_reason
+    assert result.state == PipelineRunState.DISPATCHING
+    assert run.next_action_at is None
+    assert run.pause_reason is None
+    providers.record_quota_event.assert_awaited_once()
 
 
 async def test_manual_advance_dispatches_a_prepared_implementation():

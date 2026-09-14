@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from uuid import UUID
 
+from app.features.execution_providers.models import ExecutionProvider, ExecutionProviderAvailability
 from app.features.project_management.pipeline_runs.models import (
     ACTIVE_RUN_STATES,
     ExecutionAttempt,
@@ -57,7 +58,22 @@ class PipelineRunRepository:
     async def list_active(
         self, session: AsyncSession, project_id: UUID, *, limit: int, ready_at: datetime | None = None
     ) -> list[PipelineRun]:
-        filters = [PipelineRun.project_id == project_id, PipelineRun.state.in_(ACTIVE_RUN_STATES)]
+        filters = [
+            PipelineRun.project_id == project_id,
+            PipelineRun.state.in_(ACTIVE_RUN_STATES),
+            ExecutionProvider.enabled.is_(True),
+            (
+                (
+                    ExecutionProvider.availability_state.in_(
+                        (ExecutionProviderAvailability.NORMAL, ExecutionProviderAvailability.PROBE)
+                    )
+                )
+                | (
+                    (ExecutionProvider.availability_state == ExecutionProviderAvailability.QUOTA_BLOCKED)
+                    & (ExecutionProvider.available_at <= ready_at)
+                )
+            ),
+        ]
         if ready_at is not None:
             filters.extend(
                 [
@@ -75,6 +91,7 @@ class PipelineRunRepository:
             )
         rows = await session.scalars(
             select(PipelineRun)
+            .join(ExecutionProvider, PipelineRun.execution_provider_id == ExecutionProvider.id)
             .where(*filters)
             .order_by(PipelineRun.next_action_at.nullsfirst(), PipelineRun.created_at, PipelineRun.id)
             .limit(limit)
