@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Send the blocking local Codex reset time to Auto-Hub's global provider."""
+"""Send the blocking local Codex reset time to Auto-Hub's global AI catalog."""
 
 from __future__ import annotations
 
@@ -59,7 +59,7 @@ def main() -> int:
     reset_at = datetime.fromtimestamp(blocking_reset(result), UTC)
     payload = json.dumps({"available_at": reset_at.isoformat(), "source": "local-codex-cli"}).encode()
     request = Request(
-        f"{hub_url()}/api/v1/execution-providers/personal-codex/availability",
+        f"{hub_url()}/api/v1/ai-catalogs/personal-codex/availability",
         data=payload,
         method="PUT",
         headers={"Content-Type": "application/json", "X-API-Key": api_key},

@@ -7,13 +7,13 @@ from hashlib import sha256
 from typing import Annotated, Never
 from uuid import UUID, uuid4
 
-from app.features.execution_providers.models import (
-    ExecutionProvider,
-    ExecutionProviderAvailability,
-    ExecutionProviderKind,
+from app.features.ai_catalogs.models import (
+    AICatalog,
+    AICatalogKind,
+    AICatalogState,
 )
-from app.features.execution_providers.repos import ExecutionProviderRepository
-from app.features.execution_providers.services import ExecutionProviderService
+from app.features.ai_catalogs.repos import AICatalogRepository
+from app.features.ai_catalogs.services import AICatalogService
 from app.features.project_management.pipeline_runs.dispatch import (
     CODEX_CONNECTOR_LOGIN,
     build_codex_mention_comment,
@@ -76,12 +76,12 @@ class PipelineRunUseCase:
         repo: Annotated[PipelineRunRepository, Depends()],
         projects: Annotated[ProjectService, Depends()],
         observer: Annotated[PipelineObservationService, Depends()],
-        providers: Annotated[ExecutionProviderService | None, Depends(ExecutionProviderService)] = None,
+        ai_catalogs: Annotated[AICatalogService | None, Depends(AICatalogService)] = None,
     ):
         self.repo = repo
         self.projects = projects
         self.observer = observer
-        self.providers = providers
+        self.ai_catalogs = ai_catalogs
 
     async def list(self, project_id: UUID | None, offset: int, limit: int) -> PipelineRunList:
         async with AsyncTransaction() as session:
@@ -157,12 +157,12 @@ class PipelineRunUseCase:
                     raise ProjectError(409, "Project changed during pull request enrollment; retry")
                 if await self.repo.get_active_for_pull(session, project_id, snapshot.number, lock=True) is not None:
                     raise ProjectError(409, ACTIVE_RUN_CONFLICT)
-                provider = await self._default_provider(session)
+                catalog = await self._default_catalog(session)
                 run = await self.repo.create(
                     session,
                     PipelineRun(
                         project_id=project_id,
-                        execution_provider_id=provider.id,
+                        ai_catalog_id=catalog.id,
                         project_revision=project.revision,
                         pull_number=snapshot.number,
                         pull_url=snapshot.url,
@@ -383,8 +383,8 @@ class PipelineRunUseCase:
                                 ),
                             )
                 if delivery is not None and delivery.posted_at is not None and quota_reply:
-                    if self.providers is not None:
-                        await self.providers.record_quota_event(session, run, quota_reply_at or now)
+                    if self.ai_catalogs is not None:
+                        await self.ai_catalogs.record_quota_event(session, run, quota_reply_at or now)
                     if run.state != PipelineRunState.BLOCKED:
                         await self.repo.create_delivery(
                             session,
@@ -634,23 +634,23 @@ class PipelineRunUseCase:
             attempt.failure_detail = run.pause_reason
         await session.flush()
 
-    async def _default_provider(self, session: AsyncSession) -> ExecutionProvider:
-        """Return the seeded provider; create it for metadata-only test databases."""
-        providers = ExecutionProviderRepository()
-        provider = await providers.get_by_key(session, "personal-codex", lock=True)
-        if provider is None:
-            provider = ExecutionProvider(
+    async def _default_catalog(self, session: AsyncSession) -> AICatalog:
+        """Return the seeded AI catalog; create it for metadata-only test databases."""
+        catalogs = AICatalogRepository()
+        catalog = await catalogs.get_by_key(session, "personal-codex", lock=True)
+        if catalog is None:
+            catalog = AICatalog(
                 key="personal-codex",
                 name="Personal Codex",
-                kind=ExecutionProviderKind.CODEX,
+                kind=AICatalogKind.CODEX,
                 adapter="codex-github-mention",
                 enabled=True,
-                availability_state=ExecutionProviderAvailability.NORMAL,
+                availability_state=AICatalogState.NORMAL,
                 revision=1,
             )
-            session.add(provider)
+            session.add(catalog)
             await session.flush()
-        return provider
+        return catalog
 
     async def dispatch_implementation(self, run_id: UUID, *, owner: str, token: UUID) -> PipelineRunRead:
         """Reconcile then post one initial mention, retaining state across uncertain writes."""
@@ -663,8 +663,8 @@ class PipelineRunUseCase:
                 return PipelineRunRead.model_validate(run)
             if run.next_action_at is not None and _utc(run.next_action_at) > now:
                 return PipelineRunRead.model_validate(run)
-            if self.providers is not None:
-                await self.providers.request_dispatch(session, run.execution_provider_id, run.id, now)
+            if self.ai_catalogs is not None:
+                await self.ai_catalogs.request_dispatch(session, run.ai_catalog_id, run.id, now)
             project = await self.projects.get(session, run.project_id)
             if not project.enabled or project.revision != run.project_revision:
                 raise ProjectError(409, "Project changed after this pipeline run was enrolled")
@@ -767,8 +767,8 @@ class PipelineRunUseCase:
             project = await self.projects.get(session, run.project_id)
             if not project.enabled or project.revision != run.project_revision:
                 raise ProjectError(409, "Project changed before mention delivery")
-            if self.providers is not None:
-                await self.providers.require_dispatchable(session, run.execution_provider_id, now)
+            if self.ai_catalogs is not None:
+                await self.ai_catalogs.require_dispatchable(session, run.ai_catalog_id, now)
             now = datetime.now(UTC)
             renewed = await self.repo.renew_lease(
                 session,

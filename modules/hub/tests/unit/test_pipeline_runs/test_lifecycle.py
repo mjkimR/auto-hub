@@ -30,7 +30,7 @@ def create_mock_run(
     run = MagicMock(spec=PipelineRun)
     run.id = run_id or uuid4()
     run.project_id = uuid4()
-    run.execution_provider_id = uuid4()
+    run.ai_catalog_id = uuid4()
     run.project_revision = 1
     run.pull_number = pull_number
     run.pull_url = pull_url or f"https://github.com/test-org/test-repo/pull/{pull_number}"
@@ -60,13 +60,13 @@ def create_mock_run(
 
 
 @pytest.mark.parametrize("delivery_number", [1, 3])
-async def test_quota_reply_sets_a_global_provider_hold_without_a_run_retry_cap(delivery_number):
+async def test_quota_reply_sets_a_global_catalog_hold_without_a_run_retry_cap(delivery_number):
     repo = MagicMock()
     projects = MagicMock()
     observer = MagicMock()
-    providers = MagicMock()
-    providers.record_quota_event = AsyncMock()
-    use_case = PipelineRunUseCase(repo, projects, observer, providers)
+    catalogs = MagicMock()
+    catalogs.record_quota_event = AsyncMock()
+    use_case = PipelineRunUseCase(repo, projects, observer, catalogs)
     run = create_mock_run()
     project = MagicMock(enabled=True, revision=1, github_repository="owner/repo", github_connector_id=uuid4())
     attempt = MagicMock(spec=ExecutionAttempt)
@@ -103,7 +103,7 @@ async def test_quota_reply_sets_a_global_provider_hold_without_a_run_retry_cap(d
     assert result.state == PipelineRunState.DISPATCHING
     assert run.next_action_at is None
     assert run.pause_reason is None
-    providers.record_quota_event.assert_awaited_once()
+    catalogs.record_quota_event.assert_awaited_once()
 
 
 async def test_manual_advance_dispatches_a_prepared_implementation():

@@ -20,7 +20,8 @@
 
 	async function handleSubmit(e: SubmitEvent) {
 		e.preventDefault();
-		if (!apiKey.trim()) {
+		const key = apiKey.trim();
+		if (!key) {
 			errorMsg = 'API Key is required';
 			return;
 		}
@@ -30,14 +31,15 @@
 
 		try {
 			const res = await api.GET('/api/v1/tasks/specs', {
-				headers: { 'X-API-Key': apiKey.trim() }
+				headers: { 'X-API-Key': key }
 			});
 
 			if (res.error) {
 				errorMsg = 'Authentication failed. Please check your API key.';
 				toast.error('Authentication failed');
 			} else {
-				session.setApiKey(apiKey.trim());
+				session.setApiKey(key);
+				apiKey = '';
 				toast.success('Authenticated successfully');
 			}
 		} catch {

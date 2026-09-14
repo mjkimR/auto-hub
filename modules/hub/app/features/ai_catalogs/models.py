@@ -6,13 +6,13 @@ from sqlalchemy import Boolean, DateTime, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 
-class ExecutionProviderKind(StrEnum):
+class AICatalogKind(StrEnum):
     CODEX = "codex"
     JULES = "jules"
     OPENAI_API = "openai-api"
 
 
-class ExecutionProviderAvailability(StrEnum):
+class AICatalogState(StrEnum):
     NORMAL = "normal"
     QUOTA_BLOCKED = "quota_blocked"
     PROBE = "probe"
@@ -20,8 +20,8 @@ class ExecutionProviderAvailability(StrEnum):
     UNKNOWN = "unknown"
 
 
-class ExecutionProvider(Base, UUIDMixin, TimestampMixin):
-    __tablename__ = "execution_providers"
+class AICatalog(Base, UUIDMixin, TimestampMixin):
+    __tablename__ = "ai_catalogs"
 
     key: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
     name: Mapped[str] = mapped_column(String(255), nullable=False)

@@ -1,7 +1,7 @@
 """Add AI catalog gateway capacity and quota controls.
 
 Revision ID: c3d4e5f6a7b8
-Revises: b2c3d4e5f6a7
+Revises: b3c4d5e6f7a8
 """
 
 from collections.abc import Sequence
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "c3d4e5f6a7b8"
-down_revision: str | None = "b2c3d4e5f6a7"
+down_revision: str | None = "b3c4d5e6f7a8"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

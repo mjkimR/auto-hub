@@ -2,12 +2,11 @@
 
 ## Status
 
-The seeded `personal-codex` record is now the initial **AI Catalog gateway**.
-It owns dispatch admission, quota block state, probe recovery, and per-run
-quota block counts. The persistence/API module keeps the historical
-`ExecutionProvider` name during this compatibility rollout; its UI and runtime
-role are AI Catalogs. A separate adapter/credential-binding entity remains a
-future extraction once a second adapter is introduced.
+The seeded `personal-codex` record is the initial **AI Catalog gateway**. It
+owns dispatch admission, quota block state, probe recovery, and per-run quota
+block counts. The persistence table, API, run reference, and UI are all named
+AI Catalog. A separate adapter/credential-binding entity remains a future
+extraction once a second adapter is introduced.
 
 ## Why a catalog is the gateway
 
@@ -125,6 +124,6 @@ behind one capacity and recovery policy.
 4. Move quota-event handling, task block counts, and fallback block duration
    into the Catalog service.
 5. Add probe recovery and refresh/replanning.
-6. Replace the Settings provider page with AI Catalogs.
+6. Deliver the Settings AI Catalogs page.
 7. Add Jules or API-key adapters only after they implement the adapter
    contract and catalog integration tests.

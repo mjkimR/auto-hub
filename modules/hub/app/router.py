@@ -1,11 +1,11 @@
 from typing import Annotated
 
 from app.auth import verify_api_key
+from app.features.ai_catalogs.api.v1 import router as v1_ai_catalogs_router
 from app.features.configuration.connectors.api.v1 import router as v1_connectors_router
 from app.features.configuration.system_configs.api.v1 import router as v1_system_configs_router
 from app.features.execution.dispatchers.api.v1 import router as v1_dispatchers_router
 from app.features.execution.tasks.api.v1 import router as v1_tasks_router
-from app.features.execution_providers.api.v1 import router as v1_execution_providers_router
 from app.features.project_management.github_webhooks.api import router as github_webhooks_router
 from app.features.project_management.pipeline_runs.api.v1 import router as v1_pipeline_runs_router
 from app.features.project_management.pipelines.api.v1 import router as v1_pipelines_router
@@ -45,7 +45,7 @@ v1_router.include_router(v1_pipeline_runs_router)
 v1_router.include_router(v1_projects_router)
 v1_router.include_router(v1_schedule_configs_router)
 v1_router.include_router(v1_system_configs_router)
-v1_router.include_router(v1_execution_providers_router)
+v1_router.include_router(v1_ai_catalogs_router)
 v1_router.include_router(v1_schedule_jobs_router)
 v1_router.include_router(v1_dispatchers_router)
 v1_router.include_router(v1_tasks_router)

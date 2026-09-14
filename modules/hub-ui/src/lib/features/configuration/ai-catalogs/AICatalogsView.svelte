@@ -13,9 +13,9 @@
 	} from '$lib/components/ui/dialog';
 	import { Input } from '$lib/components/ui/input';
 	import { Bot, Clock3, RefreshCw, ShieldAlert } from '@lucide/svelte';
-	import { ExecutionProvidersState } from './execution-providers.svelte';
+	import { AICatalogsState } from './ai-catalogs.svelte';
 
-	const providers = new ExecutionProvidersState();
+	const catalogs = new AICatalogsState();
 	let selectedKey = $state<string | null>(null);
 	let availableAt = $state('');
 	let note = $state('');
@@ -30,7 +30,7 @@
 
 	async function saveAvailability(event: SubmitEvent) {
 		event.preventDefault();
-		if (selectedKey && (await providers.setAvailability(selectedKey, availableAt, note)))
+		if (selectedKey && (await catalogs.setAvailability(selectedKey, availableAt, note)))
 			dialogOpen = false;
 	}
 
@@ -38,7 +38,7 @@
 		return value.replace('_', ' ');
 	}
 
-	onMount(() => providers.load());
+	onMount(() => catalogs.load());
 </script>
 
 <div class="space-y-6">
@@ -52,21 +52,21 @@
 		<Button
 			variant="outline"
 			size="sm"
-			onclick={() => providers.load()}
-			disabled={providers.loading}
+			onclick={() => catalogs.load()}
+			disabled={catalogs.loading}
 			class="gap-2"
 		>
-			<RefreshCw class="size-4 {providers.loading ? 'animate-spin' : ''}" /> Refresh
+			<RefreshCw class="size-4 {catalogs.loading ? 'animate-spin' : ''}" /> Refresh
 		</Button>
 	</div>
 
-	{#if providers.loading && providers.items.length === 0}
+	{#if catalogs.loading && catalogs.items.length === 0}
 		<div class="flex h-40 items-center justify-center text-sm text-muted-foreground">
-			Loading providers…
+			Loading AI catalogs…
 		</div>
 	{:else}
 		<div class="grid gap-5 lg:grid-cols-2">
-			{#each providers.items as provider (provider.id)}
+			{#each catalogs.items as catalog (catalog.id)}
 				<Card class="border-border/80 bg-card/60">
 					<CardHeader class="pb-3">
 						<div class="flex items-start justify-between gap-4">
@@ -77,14 +77,14 @@
 									<Bot class="size-5" />
 								</div>
 								<div>
-									<CardTitle class="text-base">{provider.name}</CardTitle>
+									<CardTitle class="text-base">{catalog.name}</CardTitle>
 									<p class="mt-1 text-xs text-muted-foreground">
-										{provider.kind} · {provider.adapter}
+										{catalog.kind} · {catalog.adapter}
 									</p>
 								</div>
 							</div>
-							<Badge variant={provider.availability_state === 'normal' ? 'default' : 'secondary'}
-								>{stateLabel(provider.availability_state)}</Badge
+							<Badge variant={catalog.availability_state === 'normal' ? 'default' : 'secondary'}
+								>{stateLabel(catalog.availability_state)}</Badge
 							>
 						</div>
 					</CardHeader>
@@ -92,43 +92,43 @@
 						<div class="rounded-lg bg-muted/50 p-3">
 							<div class="flex items-center gap-2 font-medium">
 								<Clock3 class="size-4" />
-								{provider.available_at
-									? `Available ${new Date(provider.available_at).toLocaleString()}`
+								{catalog.available_at
+									? `Available ${new Date(catalog.available_at).toLocaleString()}`
 									: 'Available now'}
 							</div>
 							<p class="mt-1 text-xs text-muted-foreground">
-								Source: {provider.availability_source ?? 'not set'} · {provider.held_run_count} active
-								run(s) affected
+								Source: {catalog.availability_source ?? 'not set'} · {catalog.held_run_count} active run(s)
+								affected
 							</p>
 							<p class="mt-1 text-xs text-muted-foreground">
-								Concurrency: {provider.effective_concurrency} active now / {provider.configured_concurrency}
-								configured{provider.availability_state === 'probe' ? ' (recovery probe)' : ''}
+								Concurrency: {catalog.effective_concurrency} active now / {catalog.configured_concurrency}
+								configured{catalog.availability_state === 'probe' ? ' (recovery probe)' : ''}
 							</p>
-							{#if provider.availability_note}<p class="mt-2 text-xs text-muted-foreground">
-									{provider.availability_note}
+							{#if catalog.availability_note}<p class="mt-2 text-xs text-muted-foreground">
+									{catalog.availability_note}
 								</p>{/if}
 						</div>
 						<div class="flex flex-wrap gap-2">
 							<Button
 								size="sm"
-								onclick={() => openAvailability(provider.key)}
-								disabled={providers.saving}>Set refresh time</Button
+								onclick={() => openAvailability(catalog.key)}
+								disabled={catalogs.saving}>Set refresh time</Button
 							>
-							{#if provider.availability_state === 'quota_blocked'}<Button
+							{#if catalog.availability_state === 'quota_blocked'}<Button
 									size="sm"
 									variant="outline"
-									onclick={() => providers.clearAvailability(provider.key)}
-									disabled={providers.saving}>Clear hold</Button
+									onclick={() => catalogs.clearAvailability(catalog.key)}
+									disabled={catalogs.saving}>Clear hold</Button
 								>{/if}
 							<Button
 								size="sm"
 								variant="ghost"
-								onclick={() => providers.setEnabled(provider.key, !provider.enabled)}
-								disabled={providers.saving}>{provider.enabled ? 'Disable' : 'Enable'}</Button
+								onclick={() => catalogs.setEnabled(catalog.key, !catalog.enabled)}
+								disabled={catalogs.saving}>{catalog.enabled ? 'Disable' : 'Enable'}</Button
 							>
 						</div>
-						{#if !provider.enabled}<p class="flex items-center gap-1 text-xs text-destructive">
-								<ShieldAlert class="size-3" /> Dispatch is disabled for this provider.
+						{#if !catalog.enabled}<p class="flex items-center gap-1 text-xs text-destructive">
+								<ShieldAlert class="size-3" /> Dispatch is disabled for this catalog.
 							</p>{/if}
 					</CardContent>
 				</Card>
@@ -150,7 +150,7 @@
 			<Input bind:value={note} maxlength={500} placeholder="Optional operator note" />
 			<DialogFooter
 				><Button type="button" variant="outline" onclick={() => (dialogOpen = false)}>Cancel</Button
-				><Button type="submit" disabled={providers.saving}>Save global hold</Button></DialogFooter
+				><Button type="submit" disabled={catalogs.saving}>Save global hold</Button></DialogFooter
 			>
 		</form>
 	</DialogContent>

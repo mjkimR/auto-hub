@@ -642,9 +642,9 @@ async def test_reconciled_delivery_preserves_time_and_processes_existing_quota_r
     assert_status_code(response, 200)
     assert response.json()["state"] == "dispatching"
     assert response.json()["next_action_at"] is None
-    providers = (await client.get("/api/v1/execution-providers")).json()["items"]
-    provider = next(item for item in providers if item["key"] == "personal-codex")
-    due = datetime.fromisoformat(provider["available_at"].replace("Z", "+00:00")).replace(tzinfo=UTC)
+    catalogs = (await client.get("/api/v1/ai-catalogs")).json()["items"]
+    catalog = next(item for item in catalogs if item["key"] == "personal-codex")
+    due = datetime.fromisoformat(catalog["available_at"].replace("Z", "+00:00")).replace(tzinfo=UTC)
     assert due == replied_at + timedelta(hours=5, minutes=10)
     replies = (await client.get(f"{root}/attempts/{attempt['id']}/replies")).json()
     assert len(replies) == 1 and replies[0]["is_quota_limit"] is True

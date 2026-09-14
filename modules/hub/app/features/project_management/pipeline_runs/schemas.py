@@ -41,7 +41,7 @@ class PipelineRunRead(UUIDSchemaMixin, TimestampSchemaMixin):
     model_config = ConfigDict(from_attributes=True)
 
     project_id: UUID
-    execution_provider_id: UUID
+    ai_catalog_id: UUID
     project_revision: int
     pull_number: int
     pull_url: str

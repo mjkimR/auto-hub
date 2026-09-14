@@ -148,7 +148,7 @@ test-ui:
 gen-ui-api:
     @bash ./scripts/gen-ui-api.sh
 
-# Sync the local signed-in Codex quota reset time to the global personal-codex provider.
+# Sync the local signed-in Codex quota reset time to the global personal-codex AI catalog.
 sync-codex-quota:
     @python3 ./scripts/sync-codex-quota.py
 
@@ -167,3 +167,8 @@ deploy-cloud-run +args="":
 # Register or update GitHub Webhook for a repository via gh CLI
 register-webhook repo:
     @bash ./scripts/register-webhook.sh {{ repo }}
+
+# Update API key across Secret Manager, Cloud Scheduler, Cloud Run, and local .env
+update-api-key key="":
+    @bash ./scripts/update-api-key.sh {{ key }}
+

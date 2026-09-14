@@ -19,7 +19,7 @@ class DispatchObservation(BaseModel):
     conversation_url: str | None = None
 
 
-class ExecutionProvider(Protocol):
+class ExecutionAdapter(Protocol):
     async def reconcile(self, request: ImplementationRequest, delivery: int) -> DispatchObservation | None: ...
 
     async def dispatch(self, request: ImplementationRequest, delivery: int, body: str) -> DispatchObservation: ...

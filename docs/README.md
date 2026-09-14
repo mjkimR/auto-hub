@@ -7,7 +7,7 @@ These documents explicitly distinguish between design goals and current function
 2. [CI Connection Contract](ci-contract.md): Configuration required when connecting a repository and current observation APIs.
 3. [Codex PR Mention Protocol](codex-pr-mention.md): Design contract for dispatching Codex cloud work through PR comments.
 4. [Delivery Status](delivery-status.md): Delivered capabilities, verification record, and optional follow-ups.
-5. [Execution Provider Catalog](execution-providers.md): Global Codex availability implementation and provider/adapter expansion contract.
+5. [AI Catalog Gateway](ai-catalogs.md): Global Codex availability implementation and provider/adapter expansion contract.
 6. [Development & Operations](development.md): Commands, testing, and constraints of the existing scheduler foundation.
 
 [CI Template Usage](../templates/github-actions/README.md) covers CI setup in target repositories.

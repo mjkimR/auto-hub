@@ -65,8 +65,8 @@ class PipelineRun(Base, UUIDMixin, TimestampMixin):
     )
 
     project_id: Mapped[UUID] = mapped_column(ForeignKey("projects.id", ondelete="RESTRICT"), nullable=False)
-    execution_provider_id: Mapped[UUID] = mapped_column(
-        ForeignKey("execution_providers.id", ondelete="RESTRICT"), nullable=False, index=True
+    ai_catalog_id: Mapped[UUID] = mapped_column(
+        ForeignKey("ai_catalogs.id", ondelete="RESTRICT"), nullable=False, index=True
     )
     project_revision: Mapped[int] = mapped_column(Integer, nullable=False)
     pull_number: Mapped[int] = mapped_column(Integer, nullable=False)

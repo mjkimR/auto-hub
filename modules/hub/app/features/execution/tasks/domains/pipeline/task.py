@@ -2,11 +2,11 @@ import asyncio
 from datetime import UTC, datetime
 
 from app.common.config import get_scheduler_defaults
+from app.features.ai_catalogs.repos import AICatalogRepository
+from app.features.ai_catalogs.services import AICatalogService
 from app.features.configuration.connectors.crypto import ConnectorCredentialCipher, get_credential_key_provider
 from app.features.execution.tasks import task
 from app.features.execution.tasks.core.context import get_task_meta
-from app.features.execution_providers.repos import ExecutionProviderRepository
-from app.features.execution_providers.services import ExecutionProviderService
 from app.features.project_management.pipeline_runs.models import PipelineRunState
 from app.features.project_management.pipeline_runs.repos import PipelineRunRepository
 from app.features.project_management.pipeline_runs.schemas import (
@@ -63,9 +63,7 @@ async def dispatch_project_task(payload: ProjectDispatchPayload) -> None:
     observer = PipelineObservationService(pipeline_repo, cipher)
     project_service = ProjectService(ProjectRepository())
     run_repo = PipelineRunRepository()
-    run_use_case = PipelineRunUseCase(
-        run_repo, project_service, observer, ExecutionProviderService(ExecutionProviderRepository())
-    )
+    run_use_case = PipelineRunUseCase(run_repo, project_service, observer, AICatalogService(AICatalogRepository()))
 
     async with AsyncTransaction() as session:
         runs = await run_repo.list_active(

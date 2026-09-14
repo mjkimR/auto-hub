@@ -62,7 +62,7 @@
 			label: 'Configuration',
 			items: [
 				{ href: '/settings/connectors', label: 'Connectors', icon: KeyRound },
-				{ href: '/settings/execution-providers', label: 'AI Catalogs', icon: Bot },
+				{ href: '/settings/ai-catalogs', label: 'AI Catalogs', icon: Bot },
 				{ href: '/settings/system', label: 'System configs', icon: Settings }
 			]
 		},
@@ -149,11 +149,25 @@
 			</div>
 
 			<div class="flex items-center justify-between rounded-lg bg-sidebar-accent/60 p-2.5">
-				<div class="flex flex-col overflow-hidden text-xs">
+				<div class="flex flex-col gap-1 text-xs">
 					<span class="font-semibold text-sidebar-foreground">API Session</span>
-					<span class="max-w-[120px] truncate font-mono text-[10px] text-muted-foreground">
-						{session.apiKey ? `${session.apiKey.slice(0, 10)}...` : 'None'}
-					</span>
+					<div class="flex items-center gap-1.5">
+						{#if session.isAuthenticated}
+							<span
+								class="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400"
+							>
+								<span class="size-1.5 rounded-full bg-emerald-500"></span>
+								Active
+							</span>
+						{:else}
+							<span
+								class="inline-flex items-center gap-1.5 rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground"
+							>
+								<span class="size-1.5 rounded-full bg-muted-foreground/50"></span>
+								No Session
+							</span>
+						{/if}
+					</div>
 				</div>
 				<Button
 					variant="ghost"
