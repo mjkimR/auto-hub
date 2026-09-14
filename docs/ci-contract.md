@@ -5,7 +5,7 @@
 Observes PRs originating from the same repository on GitHub.com and Actions workflows triggered by `pull_request` events.
 Limits: 1 workflow per connection, up to 30 required jobs, and up to 10 explicitly specified PRs.
 Fork PRs, manual workflow dispatches, push-only CIs, and alternative CI providers are not yet supported.
-These limits represent the initial observation phase and are not constraints of the final project model.
+These are current product constraints.
 
 If existing CI is present, register the workflow filename and required job names.
 If there is no CI, install a [starter template](../templates/github-actions/README.md).
@@ -33,7 +33,7 @@ Use the following JSON structure as the request body. Replace UUIDs, repo, and P
 - `required_jobs`: Exact job names as displayed in GitHub Actions. Cannot be empty or contain duplicates.
 - `github_connector_id`: Must reference an active `github` Connector.
 - The Connector's `credentials` stores `{"token": "<GitHub token>"}`. Never place the token directly into the payload.
-- GitHub fine-grained permissions required for this observation: Actions (read) and Pull requests (read) on the target repo. The planned Codex mention dispatch needs a user PAT with more permissions; see [Codex PR Mention Protocol](codex-pr-mention.md#1-prerequisites).
+- GitHub fine-grained permissions must cover the enabled Hub workflow. CI observation requires Actions (read) and Pull requests (read); Codex dispatch, fix requests, and merge automation require the user PAT permissions listed in the [Codex PR Mention Protocol](codex-pr-mention.md#1-prerequisites).
 
 The API uses existing Hub API key authentication. Authorize via `/docs` to issue requests.
 Immediate observation only sends read requests to GitHub and does not persist reports in the database.
@@ -53,12 +53,12 @@ Immediate observation only sends read requests to GitHub and does not persist re
 | `failed` | Workflow failure (code failure vs. environment failure is not yet distinguished) |
 | `blocked` | Contract unfulfilled: missing job, duplicated job names, skipped, neutral, cancelled, timed out, awaiting approval, etc. |
 | `passed` | Workflow and all required jobs succeeded (independent of merge approval) |
-| `closed` | Closed PR (distinguishing merged vs. abandoned close is part of follow-up work) |
+| `closed` | Closed PR; lifecycle handling records whether the run completed through a successful merge or stopped after closure |
 
 If an unregistered job fails and causes the overall workflow to fail, it will not pass.
 During re-runs, the observer waits. If only selected failed jobs were re-run, GitHub's `filter=latest` job list is used.
 If the workflow was never triggered, it is never indefinitely marked as passed.
-Diagnosing missing runs, handling wait timeouts, and triggering automatic re-runs are responsibilities of the upcoming progression gate.
+The pipeline-run lifecycle handles wait timeouts and determines whether to issue a bounded CI-fix request, pause the run, or continue toward merge according to the configured policy.
 
 PR CI may checkout the merge ref synthesized by GitHub. Matching the head commit here verifies which PR revision the run is tied to, rather than a strict SHA equality check against the checked-out merge commit.
 The current observer does not certify re-verification against the latest base branch updates or branch protection enforcement.

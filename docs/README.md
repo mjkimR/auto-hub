@@ -12,5 +12,5 @@ These documents explicitly distinguish between design goals and current function
 [CI Template Usage](../templates/github-actions/README.md) covers CI setup in target repositories.
 The root `justfile` is the single source of truth for commands, and connector credential encryption details are documented in the [Hub module documentation](../modules/hub/README.md#connector-credential-encryption).
 
-When introducing new implementations, update the implementation plan status alongside the corresponding feature documentation.
+When introducing new implementations, update the delivery status alongside the corresponding feature documentation.
 Never document APIs or commands as available features before they actually exist.

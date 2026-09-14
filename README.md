@@ -18,13 +18,11 @@ Drawing on operational experience from `g-sandbox`, Godot-specific logic, planni
 
 ## Implementation Status
 
-The existing scheduler and management UI are preserved. The current implementation scope includes CI observation on saved project connections and initial Codex PR mention delivery.
-A repository is registered as a connection, a connection check confirms CI is readable and verifies one current PR, and scheduled runs persist the latest observation of the required GitHub Actions jobs.
-The CI templates serve as starter files to install in target repositories, and existing `pipeline.observe` schedules can be imported onto a project connection.
-Open pull requests can be enrolled explicitly as durable runs. Hub persists a planned delivery, reconciles its marker against PR comments authored by the configured GitHub user, and posts the initial Codex mention only when no matching comment exists. A changed PR head advances the run to CI observation.
+The existing scheduler and management UI are preserved. Hub supports saved project connections, CI observation, explicit PR enrollment, durable run and delivery history, retries, CI-fix requests, cancellation, and policy-controlled merge automation.
 
-Codex reply handling and watchdog retries, manual CI execution, automated fix/merge, and distribution of shared reusable workflows are planned as follow-up work.
-Currently, a status of `passed` in observation results signifies fulfillment of the CI contract, not approval for merge.
+A repository is registered as a connection, and its connection check confirms that CI is readable and verifies a current PR. Enrolling an open same-repository PR records an immutable task snapshot, creates a durable delivery, reconciles its marker against GitHub comments, and posts the `@codex` request only when no matching comment exists. A new PR head moves the run through CI observation; failed CI can trigger a bounded fix request, while a passing result proceeds through the configured merge checks.
+
+The CI templates remain starter files for manual installation in target repositories. Centralized reusable-workflow distribution is deferred. The detailed delivery state, verification record, optional canaries, and other deferred work are maintained in [Delivery Status](docs/delivery-status.md).
 
 ## Documentation
 

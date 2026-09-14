@@ -19,7 +19,7 @@ These are onboarding steps. Hub cannot read Codex settings, so it records them a
 | Codex environment | An environment for the repository whose setup can run the repository's checks |
 | Codex environment | Agent internet access allowing `github.com` |
 | Codex environment | Variable `GH_TOKEN`: fine-grained PAT limited to the repository with Contents (read/write) and Pull requests (read/write) |
-| Hub GitHub connector | PAT of the **same GitHub user that is linked to Codex**, with Pull requests (read/write), Issues (read), Actions (read), Contents (read). Merge automation later adds Contents (read/write). |
+| Hub GitHub connector | PAT of the **same GitHub user that is linked to Codex**, with Pull requests (read/write), Issues (read), Actions (read), and Contents (read/write) for dispatch, CI-fix, and merge automation. |
 | Repository | `AGENTS.md` with conventions and the check command Codex should run |
 
 *Observed:* mentions posted by `GITHUB_TOKEN` get no Codex response, and pushes by bot identities do not trigger `pull_request` workflows. Hub must never post mentions with an Actions or GitHub App token.

@@ -11,13 +11,14 @@ just dev-run hub-ui
 just lint
 just check
 just test
+just test-ui
 just gen-ui-api
 ```
 
 `just lint` automatically fixes Python formatting and lints.
 `just check` runs Python type checking and the Frontend production build.
 Default tests use SQLite; `just test-pg` uses PostgreSQL testcontainers.
-Frontend tests are not yet configured.
+`just test-ui` runs the frontend component test suite.
 When API definitions change, run `just gen-ui-api` to regenerate the client SDK.
 The Frontend strictly consumes the generated SDK.
 
