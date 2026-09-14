@@ -139,3 +139,32 @@ async def test_dispatch_task_prepares_multiple_pull_requests_in_parallel_batch()
     assert mock_use_case.acquire_lease.await_count == 2
     assert mock_use_case.prepare_implementation.await_count == 2
     assert mock_use_case.release_lease.await_count == 2
+
+
+async def test_dispatch_task_recovers_a_run_when_its_webhook_was_missed():
+    """Scheduler polling advances a ready run even without a webhook delivery."""
+    project_id = uuid4()
+    run_id = uuid4()
+    token = uuid4()
+    run = MagicMock(spec=PipelineRun)
+    run.id = run_id
+    run.state = PipelineRunState.IMPLEMENTING
+    run.next_action_at = None
+    grant = MagicMock(spec=LeaseGrant)
+    grant.token = token
+
+    with (
+        task_context(config_id=uuid4(), config_name="test", run_id=uuid4()),
+        patch("app.features.execution.tasks.domains.pipeline.task.PipelineRunRepository") as mock_repo_cls,
+        patch("app.features.execution.tasks.domains.pipeline.task.PipelineRunUseCase") as mock_use_case_cls,
+    ):
+        mock_repo_cls.return_value.list_active = AsyncMock(return_value=[run])
+        mock_use_case = mock_use_case_cls.return_value
+        mock_use_case.acquire_lease = AsyncMock(return_value=grant)
+        mock_use_case.advance_run = AsyncMock(return_value=run)
+        mock_use_case.release_lease = AsyncMock()
+
+        await dispatch_project_task(ProjectDispatchPayload(project_id=project_id))
+
+    mock_use_case.advance_run.assert_awaited_once_with(run_id, owner=ANY, token=token, observer=ANY)
+    mock_use_case.release_lease.assert_awaited_once()

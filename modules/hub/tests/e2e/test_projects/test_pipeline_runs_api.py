@@ -716,6 +716,48 @@ async def test_delivery_timeout_leaves_one_reconcilable_delivery(client, project
     assert len(mention_github) == 1
 
 
+async def test_post_response_crash_is_reconciled_without_a_duplicate_mention(
+    client, project, mention_github, monkeypatch
+):
+    """A crash after GitHub accepts the comment must be safe to retry.
+
+    The first advance loses the process immediately before it can persist the
+    accepted response.  The retry must discover the connector-authored marker
+    and adopt it instead of posting a second mention.
+    """
+    from app.features.project_management.pipeline_runs.repos import PipelineRunRepository
+
+    run, attempt = await prepare_run(client, project)
+    root = f"/api/v1/pipeline-runs/{run['id']}"
+    original_get_leased = PipelineRunRepository.get_leased
+    calls = 0
+
+    async def crash_before_recording(self, session, run_id, *, owner, token, now):
+        nonlocal calls
+        calls += 1
+        # dispatch setup, its two authorization guards, then the transaction
+        # that records GitHub's already-accepted response.
+        if calls == 4:
+            raise RuntimeError("simulated process crash after GitHub POST")
+        return await original_get_leased(self, session, run_id, owner=owner, token=token, now=now)
+
+    with monkeypatch.context() as patched:
+        patched.setattr(PipelineRunRepository, "get_leased", crash_before_recording)
+        with pytest.raises(RuntimeError, match="simulated process crash"):
+            await client.post(f"{root}/advance")
+
+    assert len(mention_github) == 1
+
+    recovered = await client.post(f"{root}/advance")
+
+    assert_status_code(recovered, 200)
+    assert recovered.json()["state"] == "implementing"
+    assert len(mention_github) == 1
+    deliveries = await client.get(f"{root}/attempts/{attempt['id']}/deliveries")
+    assert len(deliveries.json()) == 1
+    assert deliveries.json()[0]["comment_id"] == str(mention_github[0]["id"])
+
+
 @pytest.mark.parametrize("invalid_time", [None, "not-a-timestamp"])
 async def test_invalid_comment_time_is_not_replaced_by_recovery_time(client, project, mention_github, invalid_time):
     from app.features.project_management.pipeline_runs.dispatch import build_codex_mention_comment

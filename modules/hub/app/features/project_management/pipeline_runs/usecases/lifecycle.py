@@ -417,6 +417,8 @@ class PipelineRunUseCase:
             # 2. If AWAITING_CI: Observe CI status
             elif run.state == PipelineRunState.AWAITING_CI and run.pull_number is not None:
                 project_read = ProjectRead.model_validate(project)
+                if project_read.github is None:
+                    raise ProjectError(422, "Project missing GitHub connection for pipeline run")
                 observation = await observer.observe(project_read.observation_config([run.pull_number]))
                 pull_result = observation.pulls[0].result
                 if pull_result.status == VerificationStatus.FAILED:
@@ -434,6 +436,18 @@ class PipelineRunUseCase:
                             active_attempt.state = ExecutionAttemptState.FAILED
                             active_attempt.finished_at = now
                             active_attempt.failure_code = "CI_ENVIRONMENT_FAILURE"
+                            active_attempt.failure_detail = pull_result.reason
+                        await session.flush()
+                        return PipelineRunRead.model_validate(run)
+                    if not project_read.github.automation.auto_fix_ci:
+                        run.state = PipelineRunState.PAUSED
+                        run.pause_reason = "CI failed; automatic CI fixes are disabled for this project"
+                        run.next_action_at = None
+                        run.revision += 1
+                        if active_attempt is not None:
+                            active_attempt.state = ExecutionAttemptState.FAILED
+                            active_attempt.finished_at = now
+                            active_attempt.failure_code = "CI_FAILED"
                             active_attempt.failure_detail = pull_result.reason
                         await session.flush()
                         return PipelineRunRead.model_validate(run)
@@ -494,6 +508,17 @@ class PipelineRunUseCase:
                     if pr.get("state") == "closed":
                         await self._finish_closed_pull(session, run, pr, now)
                 elif pull_result.status == VerificationStatus.PASSED:
+                    if not project_read.github.automation.auto_merge:
+                        run.state = PipelineRunState.PAUSED
+                        run.pause_reason = "CI passed; automatic merge is disabled for this project"
+                        run.next_action_at = None
+                        run.revision += 1
+                        active_attempt = await self.repo.active_attempt(session, run.id)
+                        if active_attempt is not None:
+                            active_attempt.state = ExecutionAttemptState.COMPLETED
+                            active_attempt.finished_at = now
+                        await session.flush()
+                        return PipelineRunRead.model_validate(run)
                     # Re-observe immediately before the write; the merge API is
                     # still the final authority for branch rules and head SHA.
                     try:
@@ -506,7 +531,10 @@ class PipelineRunUseCase:
                             if current.result.status != VerificationStatus.PASSED:
                                 return PipelineRunRead.model_validate(run)
                             merge = await reader.merge_pull_request(
-                                project.github_repository, run.pull_number, current.head_sha
+                                project.github_repository,
+                                run.pull_number,
+                                current.head_sha,
+                                project_read.github.automation.merge_method,
                             )
                     except PipelineConfigurationError as exc:
                         raise ProjectError(422, str(exc)) from None
@@ -531,7 +559,16 @@ class PipelineRunUseCase:
                             for item in await self.repo.list_attempts(session, run.id)
                             if item.kind == "conflict-fix" and item.epoch == run.epoch
                         ]
-                        if len(conflicts) >= 1:
+                        if not project_read.github.automation.auto_fix_conflicts:
+                            run.state = PipelineRunState.PAUSED
+                            run.pause_reason = "Merge failed; automatic conflict fixes are disabled for this project"
+                            active_attempt = await self.repo.active_attempt(session, run.id)
+                            if active_attempt is not None:
+                                active_attempt.state = ExecutionAttemptState.FAILED
+                                active_attempt.finished_at = now
+                                active_attempt.failure_code = "MERGE_FAILED"
+                                active_attempt.failure_detail = "GitHub could not merge the verified pull request"
+                        elif len(conflicts) >= 1:
                             run.state = PipelineRunState.BLOCKED
                             run.pause_reason = "Merge conflict persisted after one Codex fix request; resume manually"
                         else:

@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 PROJECT_OBSERVATION_TASK = "pipeline.observe_project"
 PROJECT_DISPATCH_TASK = "pipeline.dispatch_project"
+DEFAULT_DISPATCH_INTERVAL_SECONDS = 60
 
 
 class ProjectRepository:
@@ -49,7 +50,7 @@ class ProjectRepository:
             name=f"Dispatch {project.name}",
             description=f"Automated run dispatcher for {project.name}",
             task_func=PROJECT_DISPATCH_TASK,
-            interval_seconds=60,
+            interval_seconds=_dispatch_interval(project),
             payload={"project_id": str(project.id)},
             enabled=project.enabled,
             next_run_at=datetime.now(UTC) + timedelta(seconds=60),
@@ -68,6 +69,7 @@ class ProjectRepository:
         for s in schedules:
             s.name = f"Dispatch {project.name}"
             s.enabled = project.enabled
+            s.interval_seconds = _dispatch_interval(project)
         await session.flush()
 
     async def delete_dispatch_schedules(self, session: AsyncSession, project_id: UUID) -> None:
@@ -113,3 +115,8 @@ class ProjectRepository:
             .values(last_check=report)
         )
         return result.rowcount == 1  # type: ignore[attr-defined]
+
+
+def _dispatch_interval(project: Project) -> int:
+    value = (project.automation or {}).get("dispatch_interval_seconds", DEFAULT_DISPATCH_INTERVAL_SECONDS)
+    return value if isinstance(value, int) and 30 <= value <= 3600 else DEFAULT_DISPATCH_INTERVAL_SECONDS

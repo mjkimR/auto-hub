@@ -67,7 +67,13 @@ class GitHubWebhookUseCase:
 
             if run is not None:
                 await self.lifecycle.manual_advance(run.id, self.lifecycle.observer)
-            elif has_trigger and project is not None and project.enabled and pull_number is not None:
+            elif (
+                has_trigger
+                and project is not None
+                and project.enabled
+                and project.automation.get("auto_enroll_on_trigger", True)
+                and pull_number is not None
+            ):
                 try:
                     new_run = await self.lifecycle.enroll(project.id, EnrollPullRequest(pull_number=pull_number))
                     await self.lifecycle.manual_advance(new_run.id, self.lifecycle.observer)

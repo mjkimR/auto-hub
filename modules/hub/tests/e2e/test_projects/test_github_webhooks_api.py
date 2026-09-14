@@ -216,3 +216,60 @@ async def test_webhook_comment_with_auto_run_advances_existing_active_run():
     lifecycle.enroll.assert_not_awaited()
     lifecycle.manual_advance.assert_awaited_once_with(existing_run.id, lifecycle.observer)
     webhook._finish.assert_awaited_once_with("del-4", "processed")
+
+
+async def test_out_of_order_webhooks_route_each_pull_request_to_its_own_active_run():
+    """A repository can have concurrent runs; delivery order must not cross them."""
+    repo = MagicMock()
+    runs = MagicMock()
+    lifecycle = MagicMock()
+    lifecycle.observer = MagicMock()
+    project = MagicMock(id=uuid4(), enabled=True)
+    first, second = MagicMock(id=uuid4()), MagicMock(id=uuid4())
+    repo.project_for_repository = AsyncMock(return_value=project)
+    runs.get_active_for_pull = AsyncMock(
+        side_effect=lambda _session, _project_id, number: {7: first, 8: second}[number]
+    )
+    lifecycle.manual_advance = AsyncMock()
+
+    webhook = GitHubWebhookUseCase(repo, runs, lifecycle)
+    webhook._finish = AsyncMock()
+    # The later PR's workflow event arrives before the earlier PR's push event.
+    await webhook.process(
+        "workflow-8",
+        {"repository": {"full_name": "owner/app"}, "workflow_run": {"pull_requests": [{"number": 8}]}},
+        event="workflow_run",
+    )
+    await webhook.process(
+        "push-7",
+        {"repository": {"full_name": "owner/app"}, "pull_request": {"number": 7}},
+        event="pull_request",
+    )
+
+    assert lifecycle.manual_advance.await_args_list[0].args == (second.id, lifecycle.observer)
+    assert lifecycle.manual_advance.await_args_list[1].args == (first.id, lifecycle.observer)
+    assert webhook._finish.await_args_list[0].args == ("workflow-8", "processed")
+    assert webhook._finish.await_args_list[1].args == ("push-7", "processed")
+
+
+async def test_failed_webhook_processing_is_acknowledged_for_polling_recovery():
+    """A transient webhook failure must not be retried as a duplicate write."""
+    repo = MagicMock()
+    runs = MagicMock()
+    lifecycle = MagicMock()
+    lifecycle.observer = MagicMock()
+    project = MagicMock(id=uuid4(), enabled=True)
+    run = MagicMock(id=uuid4())
+    repo.project_for_repository = AsyncMock(return_value=project)
+    runs.get_active_for_pull = AsyncMock(return_value=run)
+    lifecycle.manual_advance = AsyncMock(side_effect=RuntimeError("temporary GitHub outage"))
+
+    webhook = GitHubWebhookUseCase(repo, runs, lifecycle)
+    webhook._finish = AsyncMock()
+    await webhook.process(
+        "failed-advance",
+        {"repository": {"full_name": "owner/app"}, "pull_request": {"number": 7}},
+        event="pull_request",
+    )
+
+    webhook._finish.assert_awaited_once_with("failed-advance", "failed", "Webhook processing failed")

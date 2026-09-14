@@ -521,7 +521,27 @@ class TestProjectDispatchScheduleLifecycle:
         assert dispatch_sched["name"] == "Dispatch Renamed App"
         assert dispatch_sched["enabled"] is False
 
-        # 3. Deleting project automatically cleans up the dispatch schedule
+        # 3. A project automation override updates the managed dispatch cadence.
+        automation = {**update_res.json()["github"]["automation"], "dispatch_interval_seconds": 300}
+        update_res = await client.put(
+            f"/api/v1/projects/{project['id']}",
+            json={
+                "name": "Renamed App",
+                "enabled": False,
+                "github": {**update_res.json()["github"], "automation": automation},
+                "expected_revision": update_res.json()["revision"],
+            },
+        )
+        assert_status_code(update_res, 200)
+        schedules = (await client.get("/api/v1/schedule_configs")).json()["items"]
+        dispatch_sched = next(
+            s
+            for s in schedules
+            if s["task_func"] == "pipeline.dispatch_project" and s["payload"].get("project_id") == project["id"]
+        )
+        assert dispatch_sched["interval_seconds"] == 300
+
+        # 4. Deleting project automatically cleans up the dispatch schedule
         del_res = await client.delete(f"/api/v1/projects/{project['id']}")
         assert_status_code(del_res, 204)
 

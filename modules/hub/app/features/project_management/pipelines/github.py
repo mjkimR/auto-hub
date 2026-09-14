@@ -159,7 +159,9 @@ class GitHubActionsReader:
             raise GitHubObservationError("GitHub mention delivery returned an invalid object")
         return value
 
-    async def merge_pull_request(self, repository: str, pull_number: int, head_sha: str) -> dict[str, Any]:
+    async def merge_pull_request(
+        self, repository: str, pull_number: int, head_sha: str, merge_method: str = "squash"
+    ) -> dict[str, Any]:
         """Ask GitHub to merge the exact head verified by Hub.
 
         GitHub remains the authority for branch protection and the actual merge
@@ -167,7 +169,7 @@ class GitHubActionsReader:
         """
         try:
             response = await self.client.put(
-                f"/repos/{repository}/pulls/{pull_number}/merge", json={"sha": head_sha, "merge_method": "squash"}
+                f"/repos/{repository}/pulls/{pull_number}/merge", json={"sha": head_sha, "merge_method": merge_method}
             )
             response.raise_for_status()
         except httpx.HTTPStatusError as exc:

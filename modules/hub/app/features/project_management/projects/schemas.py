@@ -11,6 +11,20 @@ from app_layer_base.base.schemas.mixin import TimestampSchemaMixin, UUIDSchemaMi
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 TemplateId = Literal["python-uv", "node-npm"]
+MergeMethod = Literal["squash", "merge", "rebase"]
+
+
+class GitHubAutomationConfig(BaseModel):
+    """Per-project automation policy. Defaults preserve the original unattended flow."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    auto_merge: bool = True
+    merge_method: MergeMethod = "squash"
+    auto_fix_ci: bool = True
+    auto_fix_conflicts: bool = True
+    auto_enroll_on_trigger: bool = True
+    dispatch_interval_seconds: int = Field(default=60, ge=30, le=3600)
 
 
 class GitHubProjectConnection(BaseModel):
@@ -20,6 +34,7 @@ class GitHubProjectConnection(BaseModel):
     github_connector_id: UUID
     verification: VerificationConfig
     template_id: TemplateId | None = None
+    automation: GitHubAutomationConfig = Field(default_factory=GitHubAutomationConfig)
 
     @field_validator("repository", mode="before")
     @classmethod
@@ -49,12 +64,16 @@ class ProjectWrite(BaseModel):
             verification = result.pop("verification", None)
             template_id = result.pop("template_id", None)
             if connector_id is not None and verification is not None:
-                result["github"] = {
+                github = {
                     "repository": repository,
                     "github_connector_id": connector_id,
                     "verification": verification,
                     "template_id": template_id,
                 }
+                automation = result.pop("automation", None)
+                if automation is not None:
+                    github["automation"] = automation
+                result["github"] = github
         result.pop("linear_project_id", None)
         result.pop("linear_connector_id", None)
         result.pop("linear", None)
@@ -119,6 +138,7 @@ class ProjectRead(UUIDSchemaMixin, TimestampSchemaMixin, ProjectWrite):
                 "github_connector_id": row.github_connector_id,
                 "verification": row.verification,
                 "template_id": row.template_id,
+                "automation": row.automation,
             }
         return {
             "id": row.id,

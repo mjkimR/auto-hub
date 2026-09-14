@@ -58,6 +58,25 @@ class TestProjectWrite:
         assert config.github_connector_id == data.github.github_connector_id
         assert config.verification == data.github.verification
 
+    def test_automation_defaults_preserve_the_existing_unattended_workflow(self):
+        project = ProjectWrite.model_validate(make_write())
+        assert project.github is not None
+        assert project.github.automation.model_dump() == {
+            "auto_merge": True,
+            "merge_method": "squash",
+            "auto_fix_ci": True,
+            "auto_fix_conflicts": True,
+            "auto_enroll_on_trigger": True,
+            "dispatch_interval_seconds": 60,
+        }
+
+    @pytest.mark.parametrize("interval", [29, 3601])
+    def test_dispatch_interval_has_safe_bounds(self, interval):
+        data = make_write()
+        data["github"]["automation"] = {"dispatch_interval_seconds": interval}
+        with pytest.raises(ValidationError):
+            ProjectWrite.model_validate(data)
+
     def test_project_can_be_created_without_any_provider_connection(self):
         project = ProjectWrite.model_validate({"name": "Planning"})
         assert project.github is None

@@ -65,6 +65,12 @@
 	let githubConnectorId = $state('');
 	let githubWorkflow = $state('ci.yml');
 	let githubRequiredJobs = $state('lint, test');
+	let autoMerge = $state(true);
+	let mergeMethod = $state<'squash' | 'merge' | 'rebase'>('squash');
+	let autoFixCi = $state(true);
+	let autoFixConflicts = $state(true);
+	let autoEnrollOnTrigger = $state(true);
+	let dispatchIntervalSeconds = $state('60');
 
 	// Connection Check dialog
 	let isCheckOpen = $state(false);
@@ -166,12 +172,24 @@
 			githubConnectorId = project.github.github_connector_id;
 			githubWorkflow = project.github.verification.workflow;
 			githubRequiredJobs = project.github.verification.required_jobs.join(', ');
+			autoMerge = project.github.automation?.auto_merge ?? true;
+			mergeMethod = project.github.automation?.merge_method ?? 'squash';
+			autoFixCi = project.github.automation?.auto_fix_ci ?? true;
+			autoFixConflicts = project.github.automation?.auto_fix_conflicts ?? true;
+			autoEnrollOnTrigger = project.github.automation?.auto_enroll_on_trigger ?? true;
+			dispatchIntervalSeconds = String(project.github.automation?.dispatch_interval_seconds ?? 60);
 		} else {
 			hasGithub = false;
 			githubRepo = '';
 			githubConnectorId = githubConnectors[0]?.id || '';
 			githubWorkflow = 'ci.yml';
 			githubRequiredJobs = 'lint, test';
+			autoMerge = true;
+			mergeMethod = 'squash';
+			autoFixCi = true;
+			autoFixConflicts = true;
+			autoEnrollOnTrigger = true;
+			dispatchIntervalSeconds = '60';
 		}
 
 		isEditOpen = true;
@@ -200,6 +218,14 @@
 								workflow: githubWorkflow.trim(),
 								required_jobs: jobs,
 								event: 'pull_request'
+							},
+							automation: {
+								auto_merge: autoMerge,
+								merge_method: mergeMethod,
+								auto_fix_ci: autoFixCi,
+								auto_fix_conflicts: autoFixConflicts,
+								auto_enroll_on_trigger: autoEnrollOnTrigger,
+								dispatch_interval_seconds: Number(dispatchIntervalSeconds)
 							}
 						}
 					: null
@@ -698,6 +724,97 @@
 									/>
 								</div>
 							</div>
+
+							<details class="rounded-md border border-border/80 bg-background/50 p-3">
+								<summary class="cursor-pointer text-xs font-semibold text-foreground">
+									Advanced automation
+								</summary>
+								<div class="mt-3 space-y-3">
+									<label class="flex items-center justify-between gap-3 text-sm">
+										<span>
+											<span class="font-medium text-foreground"
+												>Automatically merge after CI passes</span
+											>
+											<span class="mt-0.5 block text-xs text-muted-foreground"
+												>GitHub branch rules remain the final authority.</span
+											>
+										</span>
+										<input
+											type="checkbox"
+											bind:checked={autoMerge}
+											class="size-4 rounded border-border text-primary focus:ring-primary"
+										/>
+									</label>
+
+									<div class="grid grid-cols-2 gap-3">
+										<div class="space-y-1">
+											<label
+												for="mergeMethod"
+												class="text-[11px] font-semibold text-muted-foreground uppercase"
+												>Merge method</label
+											>
+											<select
+												id="mergeMethod"
+												bind:value={mergeMethod}
+												disabled={!autoMerge}
+												class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-xs disabled:cursor-not-allowed disabled:opacity-50"
+											>
+												<option value="squash">Squash</option>
+												<option value="merge">Create merge commit</option>
+												<option value="rebase">Rebase</option>
+											</select>
+										</div>
+										<div class="space-y-1">
+											<label
+												for="dispatchInterval"
+												class="text-[11px] font-semibold text-muted-foreground uppercase"
+												>Dispatch interval (seconds)</label
+											>
+											<Input
+												id="dispatchInterval"
+												type="number"
+												min="30"
+												max="3600"
+												bind:value={dispatchIntervalSeconds}
+											/>
+										</div>
+									</div>
+
+									<label class="flex items-center justify-between gap-3 text-sm">
+										<span class="font-medium text-foreground">Ask Codex to fix failed CI</span>
+										<input
+											type="checkbox"
+											bind:checked={autoFixCi}
+											class="size-4 rounded border-border text-primary focus:ring-primary"
+										/>
+									</label>
+									<label class="flex items-center justify-between gap-3 text-sm">
+										<span class="font-medium text-foreground"
+											>Ask Codex to resolve merge conflicts</span
+										>
+										<input
+											type="checkbox"
+											bind:checked={autoFixConflicts}
+											class="size-4 rounded border-border text-primary focus:ring-primary"
+										/>
+									</label>
+									<label class="flex items-center justify-between gap-3 text-sm">
+										<span>
+											<span class="font-medium text-foreground"
+												>Enroll PRs containing @auto-run</span
+											>
+											<span class="mt-0.5 block text-xs text-muted-foreground"
+												>Turning this off keeps PR enrollment manual.</span
+											>
+										</span>
+										<input
+											type="checkbox"
+											bind:checked={autoEnrollOnTrigger}
+											class="size-4 rounded border-border text-primary focus:ring-primary"
+										/>
+									</label>
+								</div>
+							</details>
 
 							<div class="space-y-2 rounded-md border border-primary/20 bg-primary/5 p-3 text-xs">
 								<div class="font-semibold text-foreground">Codex dispatch checklist</div>

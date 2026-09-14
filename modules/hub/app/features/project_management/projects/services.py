@@ -69,6 +69,7 @@ class ProjectService:
             "github_connector_id": data.github.github_connector_id if data.github else None,
             "verification": data.github.verification.model_dump(mode="json") if data.github else None,
             "template_id": data.github.template_id if data.github else None,
+            "automation": data.github.automation.model_dump(mode="json") if data.github else {},
         }
         saved = await self.repo.save(
             session,
@@ -92,6 +93,7 @@ class ProjectService:
         project.github_connector_id = data.github.github_connector_id if data.github else None
         project.verification = data.github.verification.model_dump(mode="json") if data.github else None
         project.template_id = data.github.template_id if data.github else None
+        project.automation = data.github.automation.model_dump(mode="json") if data.github else {}
         project.template_version = TEMPLATE_VERSION if data.github and data.github.template_id else None
         project.revision += 1
         project.last_check = None

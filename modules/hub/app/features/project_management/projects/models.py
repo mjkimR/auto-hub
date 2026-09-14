@@ -17,6 +17,7 @@ class Project(Base, UUIDMixin, TimestampMixin):
         ForeignKey("connectors.id", ondelete="RESTRICT"), nullable=True
     )
     verification: Mapped[dict | None] = mapped_column(JSON_VARIANT, nullable=True)
+    automation: Mapped[dict] = mapped_column(JSON_VARIANT, nullable=False, default=dict)
     enabled: Mapped[bool] = mapped_column(default=True)
     revision: Mapped[int] = mapped_column(default=1)
     template_id: Mapped[str | None] = mapped_column(String(50))
