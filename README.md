@@ -34,7 +34,7 @@ Currently, a status of `passed` in observation results signifies fulfillment of 
 | [Architecture](docs/architecture.md) | Responsibilities and state ownership across Hub, repositories, and external services |
 | [CI Connection Contract](docs/ci-contract.md) | Required verification, result evaluation, connection and execution examples |
 | [Codex PR Mention Protocol](docs/codex-pr-mention.md) | Prerequisites, comment format, reconciliation, and watchdog for Codex dispatch (design) |
-| [Implementation Plan](docs/implementation-plan.md) | Initial implementation scope and follow-up milestones |
+| [Delivery Status](docs/delivery-status.md) | Delivered capabilities, verification record, and optional follow-ups |
 | [Development & Operations](docs/development.md) | Existing scheduler foundation and local verification |
 | [CI Templates](templates/github-actions/README.md) | Initial setup for Python+uv and Node+npm |
 

@@ -136,9 +136,13 @@ test +paths=default_test_path:
 test-pg +paths=default_test_path:
     @bash ./scripts/run-tests.sh postgres {{ paths }}
 
-# Run frontend tests (not yet configured)
+# Run frontend tests
 test-ui:
-    @echo "⚠ hub-ui tests are not configured yet. Add vitest and run 'npm --prefix modules/hub-ui test'."
+    #!/usr/bin/env bash
+    source ./scripts/_lib.sh
+    path=$(resolve_module_path "hub-ui")
+    activate_frontend_node
+    npm --prefix "$path" test
 
 # Generate OpenAPI client for the frontend UI module from Python backend schema
 gen-ui-api:

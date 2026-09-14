@@ -758,6 +758,72 @@ async def test_post_response_crash_is_reconciled_without_a_duplicate_mention(
     assert deliveries.json()[0]["comment_id"] == str(mention_github[0]["id"])
 
 
+async def test_pre_post_crash_reuses_the_planned_delivery_on_restart(client, project, mention_github, monkeypatch):
+    """A crash before GitHub I/O leaves one durable delivery to retry."""
+    from app.features.project_management.pipeline_runs.usecases.lifecycle import PipelineRunUseCase
+
+    run, attempt = await prepare_run(client, project)
+    root = f"/api/v1/pipeline-runs/{run['id']}"
+    original_guard = PipelineRunUseCase._guard_dispatch
+    guards = 0
+
+    async def crash_before_post(self, *args, **kwargs):
+        nonlocal guards
+        guards += 1
+        if guards == 1:
+            raise RuntimeError("simulated process crash before GitHub POST")
+        return await original_guard(self, *args, **kwargs)
+
+    with monkeypatch.context() as patched:
+        patched.setattr(PipelineRunUseCase, "_guard_dispatch", crash_before_post)
+        with pytest.raises(RuntimeError, match="simulated process crash"):
+            await client.post(f"{root}/advance")
+
+    assert mention_github == []
+    deliveries = await client.get(f"{root}/attempts/{attempt['id']}/deliveries")
+    assert len(deliveries.json()) == 1
+    assert deliveries.json()[0]["comment_id"] is None
+
+    recovered = await client.post(f"{root}/advance")
+    assert_status_code(recovered, 200)
+    assert recovered.json()["state"] == "implementing"
+    assert len(mention_github) == 1
+
+
+async def test_push_transition_crash_is_recovered_from_the_new_head(
+    client, project, github, mention_github, monkeypatch
+):
+    """A restart after a push read repeats the transition without another mention."""
+    from sqlalchemy.ext.asyncio import AsyncSession
+
+    run, attempt = await prepare_run(client, project)
+    root = f"/api/v1/pipeline-runs/{run['id']}"
+    assert (await client.post(f"{root}/advance")).json()["state"] == "implementing"
+    github.pulls[7]["head"]["sha"] = "e" * 40
+    original_flush = AsyncSession.flush
+
+    async def crash_before_persisting_head(self, *args, **kwargs):
+        if any(
+            isinstance(item, PipelineRun) and item.state == PipelineRunState.AWAITING_CI
+            for item in self.identity_map.values()
+        ):
+            raise RuntimeError("simulated process crash after push read")
+        return await original_flush(self, *args, **kwargs)
+
+    with monkeypatch.context() as patched:
+        patched.setattr(AsyncSession, "flush", crash_before_persisting_head)
+        with pytest.raises(RuntimeError, match="simulated process crash"):
+            await client.post(f"{root}/advance")
+
+    assert (await client.get(root)).json()["state"] == "implementing"
+    recovered = await client.post(f"{root}/advance")
+    assert_status_code(recovered, 200)
+    assert recovered.json()["state"] == "awaiting_ci"
+    assert len(mention_github) == 1
+    deliveries = await client.get(f"{root}/attempts/{attempt['id']}/deliveries")
+    assert len(deliveries.json()) == 1
+
+
 @pytest.mark.parametrize("invalid_time", [None, "not-a-timestamp"])
 async def test_invalid_comment_time_is_not_replaced_by_recovery_time(client, project, mention_github, invalid_time):
     from app.features.project_management.pipeline_runs.dispatch import build_codex_mention_comment

@@ -6,7 +6,7 @@ These documents explicitly distinguish between design goals and current function
 1. [Architecture](architecture.md): Responsibility boundaries and the scope of the core engine.
 2. [CI Connection Contract](ci-contract.md): Configuration required when connecting a repository and current observation APIs.
 3. [Codex PR Mention Protocol](codex-pr-mention.md): Design contract for dispatching Codex cloud work through PR comments.
-4. [Implementation Plan](implementation-plan.md): Completion criteria and upcoming implementation milestones.
+4. [Delivery Status](delivery-status.md): Delivered capabilities, verification record, and optional follow-ups.
 5. [Development & Operations](development.md): Commands, testing, and constraints of the existing scheduler foundation.
 
 [CI Template Usage](../templates/github-actions/README.md) covers CI setup in target repositories.

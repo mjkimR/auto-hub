@@ -444,3 +444,56 @@ async def test_pushed_head_wins_over_watchdog_and_quota_replies(monkeypatch, ela
     observer.get_pull_request.assert_awaited_once_with(
         projects.get.return_value.github_connector_id, "owner/repo", run.pull_number
     )
+
+
+@pytest.mark.parametrize(
+    ("elapsed", "expected_state"),
+    [
+        (timedelta(hours=2, minutes=4, seconds=59), PipelineRunState.IMPLEMENTING),
+        (timedelta(hours=2, minutes=5), PipelineRunState.DISPATCHING),
+        (timedelta(hours=2, minutes=5, seconds=1), PipelineRunState.DISPATCHING),
+    ],
+)
+async def test_silent_watchdog_uses_an_exact_fixed_clock(monkeypatch, elapsed, expected_state):
+    """The silent-retry boundary must not depend on wall-clock test timing."""
+    from app.features.project_management.pipeline_runs.usecases import lifecycle
+
+    frozen_now = datetime(2026, 9, 14, 12, tzinfo=UTC)
+
+    class FrozenDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return frozen_now if tz else frozen_now.replace(tzinfo=None)
+
+    run = create_mock_run()
+    repo, projects, observer = MagicMock(), MagicMock(), MagicMock()
+    attempt = MagicMock(spec=ExecutionAttempt)
+    attempt.id = uuid4()
+    attempt.request_snapshot = {"pull_request": run.pull_snapshot}
+    delivery = MagicMock(spec=ExecutionDelivery)
+    delivery.delivery_number = 1
+    delivery.posted_at = frozen_now - elapsed
+    project = MagicMock(enabled=True, revision=1, github_repository="owner/repo", github_connector_id=uuid4())
+    repo.get_leased = AsyncMock(return_value=run)
+    repo.active_attempt = AsyncMock(return_value=attempt)
+    repo.latest_delivery = AsyncMock(return_value=delivery)
+    repo.list_deliveries = AsyncMock(return_value=[])
+    repo.create_delivery = AsyncMock()
+    projects.get = AsyncMock(return_value=project)
+    observer.get_pull_request = AsyncMock(return_value={"state": "open", "head": {"sha": "a" * 40}})
+    observer.list_pull_comments = AsyncMock(return_value=[])
+    tx = MagicMock()
+    tx.__aenter__ = AsyncMock(return_value=AsyncMock())
+    tx.__aexit__ = AsyncMock(return_value=None)
+    monkeypatch.setattr(lifecycle, "datetime", FrozenDateTime)
+    monkeypatch.setattr(lifecycle, "AsyncTransaction", lambda: tx)
+
+    result = await PipelineRunUseCase(repo, projects, observer).advance_run(
+        run.id, owner="worker-1", token=run.lease_token, observer=observer
+    )
+
+    assert result.state == expected_state
+    if expected_state == PipelineRunState.IMPLEMENTING:
+        repo.create_delivery.assert_not_awaited()
+    else:
+        repo.create_delivery.assert_awaited_once()
