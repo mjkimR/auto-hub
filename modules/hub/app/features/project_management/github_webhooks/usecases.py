@@ -48,8 +48,12 @@ class GitHubWebhookUseCase:
                 return
             async with AsyncTransaction() as session:
                 project = await self.repo.project_for_repository(session, repository)
-                run = await self.runs.get_active(session, project.id) if project is not None else None
-            if run is not None and _pull_number(payload) in (None, run.pull_number):
+                run = (
+                    await self.runs.get_active_for_pull(session, project.id, pull_number)
+                    if project is not None and (pull_number := _pull_number(payload)) is not None
+                    else None
+                )
+            if run is not None:
                 await self.lifecycle.manual_advance(run.id, self.lifecycle.observer)
             await self._finish(delivery_id, "processed")
         except Exception:
@@ -75,6 +79,11 @@ def _repository(payload: dict[str, Any]) -> str | None:
 def _pull_number(payload: dict[str, Any]) -> int | None:
     for key in ("pull_request", "issue"):
         number = payload.get(key, {}).get("number")
+        if isinstance(number, int) and number > 0:
+            return number
+    pulls = payload.get("workflow_run", {}).get("pull_requests")
+    if isinstance(pulls, list) and len(pulls) == 1:
+        number = pulls[0].get("number") if isinstance(pulls[0], dict) else None
         if isinstance(number, int) and number > 0:
             return number
     return None

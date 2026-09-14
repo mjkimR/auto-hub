@@ -1,5 +1,7 @@
+import asyncio
 from datetime import UTC, datetime
 
+from app.common.config import get_scheduler_defaults
 from app.features.configuration.connectors.crypto import ConnectorCredentialCipher, get_credential_key_provider
 from app.features.execution.tasks import task
 from app.features.execution.tasks.core.context import get_task_meta
@@ -50,7 +52,7 @@ async def observe_project_task(payload: ProjectObservationPayload) -> None:
 
 @task(name=PROJECT_DISPATCH_TASK)
 async def dispatch_project_task(payload: ProjectDispatchPayload) -> None:
-    """Advance active pipeline run for the project within bounded execution time."""
+    """Advance ready PR runs for one project in a bounded parallel batch."""
     meta = get_task_meta()
     if meta is None:
         raise RuntimeError(f"{PROJECT_DISPATCH_TASK} requires a schedule task context")
@@ -62,37 +64,43 @@ async def dispatch_project_task(payload: ProjectDispatchPayload) -> None:
     run_use_case = PipelineRunUseCase(run_repo, project_service, observer)
 
     async with AsyncTransaction() as session:
-        run = await run_repo.get_active(session, payload.project_id)
-    if run is None:
-        return
-    if run.next_action_at is not None and run.next_action_at > datetime.now(UTC):
+        runs = await run_repo.list_active(
+            session, payload.project_id, limit=get_scheduler_defaults().MAX_CONCURRENT_TASKS
+        )
+    ready = [run for run in runs if run.next_action_at is None or run.next_action_at <= datetime.now(UTC)]
+    if not ready:
         return
 
-    owner = f"job:{meta.run_id}"
+    semaphore = asyncio.Semaphore(get_scheduler_defaults().MAX_CONCURRENT_TASKS)
 
-    if run.state == PipelineRunState.QUEUED:
-        lease = await run_use_case.acquire_lease(run.id, LeaseRequest(owner=owner, ttl_seconds=120))
-        try:
-            await run_use_case.prepare_implementation(
-                run.id,
-                PrepareImplementationAttempt(
-                    owner=owner,
-                    token=lease.token,
-                    expected_run_revision=lease.run_revision,
-                ),
-            )
-        finally:
-            await run_use_case.release_lease(run.id, LeaseMutation(owner=owner, token=lease.token))
-    elif run.state in (
-        PipelineRunState.DISPATCHING,
-        PipelineRunState.IMPLEMENTING,
-        PipelineRunState.AWAITING_CI,
-    ):
-        lease = await run_use_case.acquire_lease(run.id, LeaseRequest(owner=owner, ttl_seconds=120))
-        try:
-            if run.state == PipelineRunState.DISPATCHING:
-                await run_use_case.dispatch_implementation(run.id, owner=owner, token=lease.token)
-            else:
-                await run_use_case.advance_run(run.id, owner=owner, token=lease.token, observer=observer)
-        finally:
-            await run_use_case.release_lease(run.id, LeaseMutation(owner=owner, token=lease.token))
+    async def advance_one(run) -> None:
+        async with semaphore:
+            owner = f"job:{meta.run_id}:{run.id.hex[:8]}"
+            if run.state == PipelineRunState.QUEUED:
+                lease = await run_use_case.acquire_lease(run.id, LeaseRequest(owner=owner, ttl_seconds=120))
+                try:
+                    await run_use_case.prepare_implementation(
+                        run.id,
+                        PrepareImplementationAttempt(
+                            owner=owner,
+                            token=lease.token,
+                            expected_run_revision=lease.run_revision,
+                        ),
+                    )
+                finally:
+                    await run_use_case.release_lease(run.id, LeaseMutation(owner=owner, token=lease.token))
+            elif run.state in (
+                PipelineRunState.DISPATCHING,
+                PipelineRunState.IMPLEMENTING,
+                PipelineRunState.AWAITING_CI,
+            ):
+                lease = await run_use_case.acquire_lease(run.id, LeaseRequest(owner=owner, ttl_seconds=120))
+                try:
+                    if run.state == PipelineRunState.DISPATCHING:
+                        await run_use_case.dispatch_implementation(run.id, owner=owner, token=lease.token)
+                    else:
+                        await run_use_case.advance_run(run.id, owner=owner, token=lease.token, observer=observer)
+                finally:
+                    await run_use_case.release_lease(run.id, LeaseMutation(owner=owner, token=lease.token))
+
+    await asyncio.gather(*(advance_one(run) for run in ready))

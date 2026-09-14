@@ -32,11 +32,11 @@ async def test_dispatch_task_noops_when_no_active_run():
         patch("app.features.execution.tasks.domains.pipeline.task.PipelineRunRepository") as mock_repo_cls,
     ):
         mock_repo = mock_repo_cls.return_value
-        mock_repo.get_active = AsyncMock(return_value=None)
+        mock_repo.list_active = AsyncMock(return_value=[])
 
         await dispatch_project_task(ProjectDispatchPayload(project_id=project_id))
 
-        mock_repo.get_active.assert_awaited_once()
+        mock_repo.list_active.assert_awaited_once()
 
 
 async def test_dispatch_task_acquires_lease_and_prepares_implementation_for_queued_run():
@@ -59,7 +59,7 @@ async def test_dispatch_task_acquires_lease_and_prepares_implementation_for_queu
         patch("app.features.execution.tasks.domains.pipeline.task.PipelineRunUseCase") as mock_use_case_cls,
     ):
         mock_repo = mock_repo_cls.return_value
-        mock_repo.get_active = AsyncMock(return_value=mock_run)
+        mock_repo.list_active = AsyncMock(return_value=[mock_run])
 
         mock_use_case = mock_use_case_cls.return_value
         mock_use_case.acquire_lease = AsyncMock(return_value=grant)
@@ -68,7 +68,7 @@ async def test_dispatch_task_acquires_lease_and_prepares_implementation_for_queu
 
         await dispatch_project_task(ProjectDispatchPayload(project_id=project_id))
 
-        mock_repo.get_active.assert_awaited_once()
+        mock_repo.list_active.assert_awaited_once()
         mock_use_case.acquire_lease.assert_awaited_once()
         mock_use_case.prepare_implementation.assert_awaited_once()
         mock_use_case.release_lease.assert_awaited_once()
@@ -94,7 +94,7 @@ async def test_dispatch_task_acquires_lease_and_delivers_a_prepared_implementati
         patch("app.features.execution.tasks.domains.pipeline.task.PipelineRunUseCase") as mock_use_case_cls,
     ):
         mock_repo = mock_repo_cls.return_value
-        mock_repo.get_active = AsyncMock(return_value=mock_run)
+        mock_repo.list_active = AsyncMock(return_value=[mock_run])
 
         mock_use_case = mock_use_case_cls.return_value
         mock_use_case.acquire_lease = AsyncMock(return_value=grant)
@@ -103,7 +103,39 @@ async def test_dispatch_task_acquires_lease_and_delivers_a_prepared_implementati
 
         await dispatch_project_task(ProjectDispatchPayload(project_id=project_id))
 
-        mock_repo.get_active.assert_awaited_once()
+        mock_repo.list_active.assert_awaited_once()
         mock_use_case.acquire_lease.assert_awaited_once()
         mock_use_case.dispatch_implementation.assert_awaited_once_with(run_id, owner=ANY, token=lease_token)
         mock_use_case.release_lease.assert_awaited_once()
+
+
+async def test_dispatch_task_prepares_multiple_pull_requests_in_parallel_batch():
+    project_id = uuid4()
+    runs = []
+    for _ in range(2):
+        run = MagicMock(spec=PipelineRun)
+        run.id = uuid4()
+        run.state = PipelineRunState.QUEUED
+        run.next_action_at = None
+        runs.append(run)
+    grant = MagicMock(spec=LeaseGrant)
+    grant.token = uuid4()
+    grant.run_revision = 1
+
+    with (
+        task_context(config_id=uuid4(), config_name="test", run_id=uuid4()),
+        patch("app.features.execution.tasks.domains.pipeline.task.PipelineRunRepository") as mock_repo_cls,
+        patch("app.features.execution.tasks.domains.pipeline.task.PipelineRunUseCase") as mock_use_case_cls,
+    ):
+        mock_repo = mock_repo_cls.return_value
+        mock_repo.list_active = AsyncMock(return_value=runs)
+        mock_use_case = mock_use_case_cls.return_value
+        mock_use_case.acquire_lease = AsyncMock(return_value=grant)
+        mock_use_case.prepare_implementation = AsyncMock()
+        mock_use_case.release_lease = AsyncMock()
+
+        await dispatch_project_task(ProjectDispatchPayload(project_id=project_id))
+
+    assert mock_use_case.acquire_lease.await_count == 2
+    assert mock_use_case.prepare_implementation.await_count == 2
+    assert mock_use_case.release_lease.await_count == 2

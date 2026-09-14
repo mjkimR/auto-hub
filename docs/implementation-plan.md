@@ -135,6 +135,19 @@ An LLM review lane (for example `@codex review` or a separate reviewer) is not p
 
 Implementation verification on 2026-09-14: webhook signature validation and delivery deduplication are covered with test HTTP requests. Migration `d0e1f2a3b4c5` was exercised through SQLite upgrade/downgrade/upgrade. GitHub repository configuration and live delivery remain deployment validation.
 
+## 6. Parallel PR Execution
+
+The original one-active-run-per-project restriction is replaced by one-active-run-per-PR. Different PRs in the same repository may progress concurrently; the same PR still has one durable run and one lease holder.
+
+- [x] Drop the active-project uniqueness constraint while retaining the partial active `(project_id, pull_number)` uniqueness constraint.
+- [x] Enroll and dispatch active runs per project in bounded parallel batches, respecting the existing global scheduler concurrency limit.
+- [x] Route webhook events to the active run for the payload's PR instead of an arbitrary run for the repository.
+- [ ] Test simultaneous enrollment and dispatch of separate PRs, duplicate enrollment of one PR, lease contention, and webhook routing.
+
 ## Future Considerations
 
-Automatic planning/WBS generation, dynamic agent selection, concurrent issue execution, multiple internal project mappings, and custom workflow visual builders are excluded from initial completion criteria.
+The following are excluded from the initial completion criteria:
+
+- Automatic planning/WBS generation and dynamic agent selection.
+- Multiple internal project mappings and custom workflow visual builders.
+- Codex quota handling beyond the current bounded retries: expose the latest trusted quota reply and retry history in the UI, add configurable per-account/repository dispatch limits, and offer a user-confirmed resume workflow. Hub must continue to avoid guessing Codex's rolling-window reset time.

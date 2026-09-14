@@ -41,14 +41,26 @@ class PipelineRunRepository:
             )
         ).scalar_one_or_none()
 
-    async def get_active(self, session: AsyncSession, project_id: UUID, *, lock: bool = False) -> PipelineRun | None:
+    async def get_active_for_pull(
+        self, session: AsyncSession, project_id: UUID, pull_number: int, *, lock: bool = False
+    ) -> PipelineRun | None:
         stmt = select(PipelineRun).where(
             PipelineRun.project_id == project_id,
+            PipelineRun.pull_number == pull_number,
             PipelineRun.state.in_(ACTIVE_RUN_STATES),
         )
         if lock:
             stmt = stmt.with_for_update()
         return (await session.execute(stmt)).scalar_one_or_none()
+
+    async def list_active(self, session: AsyncSession, project_id: UUID, *, limit: int) -> list[PipelineRun]:
+        rows = await session.scalars(
+            select(PipelineRun)
+            .where(PipelineRun.project_id == project_id, PipelineRun.state.in_(ACTIVE_RUN_STATES))
+            .order_by(PipelineRun.next_action_at.nullsfirst(), PipelineRun.created_at, PipelineRun.id)
+            .limit(limit)
+        )
+        return list(rows)
 
     async def list(
         self, session: AsyncSession, *, project_id: UUID | None, offset: int, limit: int

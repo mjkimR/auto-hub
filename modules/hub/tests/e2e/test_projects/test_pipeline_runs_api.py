@@ -125,14 +125,20 @@ class TestPullRequestEnrollment:
         listing = await client.get("/api/v1/pipeline-runs", params={"project_id": project["id"]})
         assert listing.json()["items"] == [run]
 
-    async def test_an_active_run_blocks_the_next_enrollment_before_reading_github(self, client, project, github):
+    async def test_different_pull_requests_can_enroll_but_duplicate_pull_is_blocked_before_reading_github(
+        self, client, project, github
+    ):
         assert_status_code(await enroll(client, project), 201)
         reads = len(github.paths)
 
         response = await enroll(client, project, 8)
 
+        assert_status_code(response, 201)
+        reads = len(github.paths)
+        response = await enroll(client, project, 8)
+
         assert_status_code(response, 409)
-        assert response.json()["detail"] == "This project already has an active pipeline run"
+        assert response.json()["detail"] == "This pull request already has an active pipeline run"
         assert len(github.paths) == reads
 
     async def test_a_finished_run_frees_the_project_for_the_next_pull_request(self, client, project, github, session):

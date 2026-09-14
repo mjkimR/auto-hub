@@ -52,13 +52,6 @@ class PipelineRun(Base, UUIDMixin, TimestampMixin):
     __table_args__ = (
         CheckConstraint("revision >= 1", name="ck_pipeline_runs_revision_positive"),
         Index(
-            "uq_pipeline_runs_active_project",
-            "project_id",
-            unique=True,
-            postgresql_where=ACTIVE_RUN_PREDICATE,
-            sqlite_where=ACTIVE_RUN_PREDICATE,
-        ),
-        Index(
             "uq_pipeline_runs_active_pull",
             "project_id",
             "pull_number",

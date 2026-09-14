@@ -53,7 +53,7 @@ from fastapi import Depends
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-ACTIVE_RUN_CONFLICT = "This project already has an active pipeline run"
+ACTIVE_RUN_CONFLICT = "This pull request already has an active pipeline run"
 
 
 class PipelineRunUseCase:
@@ -112,7 +112,7 @@ class PipelineRunUseCase:
                 raise ProjectError(422, "Project is disabled")
             if project.github_repository is None or project.github_connector_id is None:
                 raise ProjectError(422, "Project missing GitHub connection for pipeline run")
-            if await self.repo.get_active(session, project_id) is not None:
+            if await self.repo.get_active_for_pull(session, project_id, request.pull_number) is not None:
                 raise ProjectError(409, ACTIVE_RUN_CONFLICT)
             repository, connector_id, expected_revision = (
                 project.github_repository,
@@ -139,7 +139,7 @@ class PipelineRunUseCase:
                     raise ProjectError(422, "Project is disabled")
                 if project.revision != expected_revision:
                     raise ProjectError(409, "Project changed during pull request enrollment; retry")
-                if await self.repo.get_active(session, project_id, lock=True) is not None:
+                if await self.repo.get_active_for_pull(session, project_id, snapshot.number, lock=True) is not None:
                     raise ProjectError(409, ACTIVE_RUN_CONFLICT)
                 run = await self.repo.create(
                     session,
