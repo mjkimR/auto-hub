@@ -1,27 +1,29 @@
 # Auto Hub
 
-Auto Hub is a personal development automation hub connecting GitHub, Linear, and Codex.
+Auto Hub is a personal development automation hub connecting GitHub and Codex cloud.
 Building on top of the existing Scheduler Manager foundation (schedules, execution history, and connector management),
 it incrementally constructs capabilities to manage work progress across multiple repositories.
 
 ## Direction
 
-- A single connection maps **1 GitHub repository ↔ 1 Linear project**.
-- **Hub** handles task selection, progress tracking, revision requests, retries, pause/resume, and merge policies.
+- A single connection maps to **1 GitHub repository**. There is no external issue tracker; work is specified in pull requests.
+- **Hub** handles PR enrollment, Codex mention dispatch, progress tracking, fix requests, retries, pause/resume, and merge policies.
+- **Codex cloud** implements requests posted as `@codex` PR comments and pushes to the PR branch.
 - **GitHub Actions in the target repository** handles environment setup, testing, linting, and building.
 - Existing CIs can be connected as-is, while repositories without CI are provided with [templates](templates/github-actions/README.md).
 - Differences between repositories are expressed through required verification, review/merge policies, and the repository's own tests.
 
-The target workflow is: `Linear issue → Codex implementation → PR verification → Revision or merge → Linear completion`.
+The target workflow is: `User opens PR → Codex mention implementation → PR verification → Fix or merge`.
 Drawing on operational experience from `g-sandbox`, Godot-specific logic, planning notes, and multi-prototype rules are kept out of the core engine.
 
 ## Implementation Status
 
 The existing scheduler and management UI are preserved. The current implementation scope is **read-only CI observation on saved project connections**.
-A repository and a Linear project are registered as one connection, a connection check confirms CI is readable and verifies one current PR, and scheduled runs persist the latest observation of the required GitHub Actions jobs.
+A repository is registered as a connection, a connection check confirms CI is readable and verifies one current PR, and scheduled runs persist the latest observation of the required GitHub Actions jobs.
 The CI templates serve as starter files to install in target repositories, and existing `pipeline.observe` schedules can be imported onto a project connection.
+Open pull requests can be enrolled explicitly as durable runs, with attempt and lease state and the rendered Codex mention request. Hub does not post the mention yet.
 
-Linear issue selection, Codex dispatch, manual CI execution, automated revision/merge, long-term execution history (`PipelineRun`), and distribution of shared reusable workflows are planned as follow-up work.
+Codex PR mention delivery and reconciliation, manual CI execution, automated fix/merge, and distribution of shared reusable workflows are planned as follow-up work.
 Currently, a status of `passed` in observation results signifies fulfillment of the CI contract, not approval for merge.
 
 ## Documentation
@@ -31,6 +33,7 @@ Currently, a status of `passed` in observation results signifies fulfillment of 
 | [Documentation Guide](docs/README.md) | Reading order and document roles |
 | [Architecture](docs/architecture.md) | Responsibilities and state ownership across Hub, repositories, and external services |
 | [CI Connection Contract](docs/ci-contract.md) | Required verification, result evaluation, connection and execution examples |
+| [Codex PR Mention Protocol](docs/codex-pr-mention.md) | Prerequisites, comment format, reconciliation, and watchdog for Codex dispatch (design) |
 | [Implementation Plan](docs/implementation-plan.md) | Initial implementation scope and follow-up milestones |
 | [Development & Operations](docs/development.md) | Existing scheduler foundation and local verification |
 | [CI Templates](templates/github-actions/README.md) | Initial setup for Python+uv and Node+npm |

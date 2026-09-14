@@ -34,7 +34,7 @@ Verification commands must not modify files in-place. For example, Auto Hub's `j
 - `skipped` or `neutral` outcomes for required jobs are not accepted as passed by Hub. If checks are conditionally omitted based on changed file paths, define an aggregation/gate job that explicitly validates sub-check conditions and designate that gate job as required.
 - Starter templates run exclusively on `pull_request` events. Avoid duplicate triggers on both `push` and `pull_request`.
 - New commits to the same PR cancel previous CI runs. Hub waits for the latest run matching the current head.
-- Workflows must not mutate external issue statuses, mention Codex, or perform automatic merges.
+- Verification workflows must not mutate issue statuses, mention Codex, or perform automatic merges. Codex mentions are posted only by Hub with a user PAT, because mentions from the Actions `GITHUB_TOKEN` get no Codex response.
 
 Template versions are tracked via commits in this repository. Review and pin third-party Action references according to your team policy.
 Repeated setup patterns will later be published as version-pinned reusable workflows.

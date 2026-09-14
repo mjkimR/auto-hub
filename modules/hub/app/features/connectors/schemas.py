@@ -6,7 +6,6 @@ from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
 class ConnectorProvider(StrEnum):
     GITHUB = "github"
-    LINEAR = "linear"
 
 
 class ConnectorBase(BaseModel):

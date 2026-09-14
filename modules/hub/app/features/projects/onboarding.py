@@ -3,7 +3,6 @@ from datetime import UTC, datetime
 from typing import Annotated
 from uuid import UUID
 
-import httpx
 from app.features.pipelines import services as pipeline_services
 from app.features.pipelines.github import GitHubActionsReader, GitHubObservationError
 from app.features.pipelines.services import PipelineConfigurationError, PipelineObservationService
@@ -12,28 +11,6 @@ from app.features.projects.services import ProjectError
 from app.features.projects.usecases import ProjectUseCase
 from app_layer_base.core.database.transaction import AsyncTransaction
 from fastapi import Depends
-
-
-def create_linear_client(token: str) -> httpx.AsyncClient:
-    return httpx.AsyncClient(base_url="https://api.linear.app", headers={"Authorization": token}, timeout=10)
-
-
-async def check_linear_project(token: str, project_id: UUID) -> None:
-    try:
-        async with create_linear_client(token) as client:
-            response = await client.post(
-                "/graphql",
-                json={
-                    "query": "query HubProject($id: String!) { project(id: $id) { id } }",
-                    "variables": {"id": str(project_id)},
-                },
-            )
-            response.raise_for_status()
-            body = response.json()
-            if body.get("errors") or ((body.get("data") or {}).get("project") or {}).get("id") != str(project_id):
-                raise ProjectError(422, "Linear project is not accessible with this connector")
-    except (httpx.HTTPError, ValueError, AttributeError):
-        raise ProjectError(422, "Could not read the Linear project; check the API key and project access") from None
 
 
 class CheckProjectUseCase:
@@ -47,6 +24,7 @@ class CheckProjectUseCase:
         project = await self.projects.get(project_id)
         checks: list[ConnectionCheckItem] = []
         observation = None
+        github_login = None
         try:
             async with asyncio.timeout(75):
                 try:
@@ -80,25 +58,18 @@ class CheckProjectUseCase:
                     )
                 except (GitHubObservationError, PipelineConfigurationError, ProjectError) as exc:
                     checks.append(ConnectionCheckItem(name="GitHub / CI", status="failed", detail=str(exc)))
-                if project.linear_connector_id:
-                    try:
-                        token = await self.observer.get_token(project.linear_connector_id, "linear")
-                        await check_linear_project(token, project.linear_project_id)
-                        checks.append(
-                            ConnectionCheckItem(
-                                name="Linear access", status="passed", detail="Configured project is readable"
-                            )
-                        )
-                    except (PipelineConfigurationError, ProjectError) as exc:
-                        checks.append(ConnectionCheckItem(name="Linear access", status="failed", detail=str(exc)))
-                else:
+                try:
+                    github_login = await self._github_login(project.github_connector_id)
                     checks.append(
                         ConnectionCheckItem(
-                            name="Linear access",
-                            status="skipped",
-                            detail="Select a Linear connector to validate project access",
+                            name="GitHub identity",
+                            status="passed",
+                            detail=f"Codex mentions will be posted as @{github_login}. "
+                            "It must be the GitHub account linked to Codex.",
                         )
                     )
+                except (GitHubObservationError, PipelineConfigurationError, ProjectError) as exc:
+                    checks.append(ConnectionCheckItem(name="GitHub identity", status="failed", detail=str(exc)))
         except TimeoutError:
             checks.append(
                 ConnectionCheckItem(
@@ -111,6 +82,7 @@ class CheckProjectUseCase:
             ready=bool(checks) and all(check.status == "passed" for check in checks),
             checks=checks,
             observation=observation,
+            github_login=github_login,
         )
         async with AsyncTransaction() as session:
             saved = await self.projects.service.repo.save_check(
@@ -119,3 +91,13 @@ class CheckProjectUseCase:
             if not saved:
                 raise ProjectError(409, "Project changed during the connection check; check the new configuration")
         return report
+
+    async def _github_login(self, connector_id: UUID) -> str:
+        """Mentions from bot or app identities get no Codex response, so the token must act as a user."""
+        token = await self.observer.get_token(connector_id, "github")
+        async with pipeline_services.create_github_client(token) as client:
+            user = await GitHubActionsReader(client)._get("/user")
+        login = user.get("login")
+        if not isinstance(login, str) or not login or user.get("type") != "User":
+            raise ProjectError(422, "The GitHub token does not act as a user account; Codex mentions need a user PAT")
+        return login

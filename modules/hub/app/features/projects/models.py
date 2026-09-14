@@ -12,9 +12,7 @@ class ProjectConnection(Base, UUIDMixin, TimestampMixin):
 
     name: Mapped[str] = mapped_column(String(255))
     repository: Mapped[str] = mapped_column(String(255), unique=True)
-    linear_project_id: Mapped[UUID] = mapped_column(unique=True)
     github_connector_id: Mapped[UUID] = mapped_column(ForeignKey("connectors.id", ondelete="RESTRICT"))
-    linear_connector_id: Mapped[UUID | None] = mapped_column(ForeignKey("connectors.id", ondelete="RESTRICT"))
     verification: Mapped[dict] = mapped_column(JSON_VARIANT)
     enabled: Mapped[bool] = mapped_column(default=True)
     revision: Mapped[int] = mapped_column(default=1)

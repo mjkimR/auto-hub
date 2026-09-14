@@ -14,9 +14,7 @@ class ProjectWrite(BaseModel):
 
     name: str = Field(min_length=1, max_length=255)
     repository: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9-]*/[A-Za-z0-9_][A-Za-z0-9_.-]*$", max_length=255)
-    linear_project_id: UUID
     github_connector_id: UUID
-    linear_connector_id: UUID | None = None
     verification: VerificationConfig
     enabled: bool = True
     template_id: TemplateId | None = None
@@ -36,7 +34,6 @@ class ProjectWrite(BaseModel):
     def observation_config(self, pull_numbers: list[int]) -> PipelineObservationConfig:
         return PipelineObservationConfig(
             repository=self.repository,
-            linear_project_id=self.linear_project_id,
             github_connector_id=self.github_connector_id,
             verification=self.verification,
             pull_numbers=pull_numbers,
@@ -55,6 +52,9 @@ class ConnectionCheck(BaseModel):
     ready: bool
     checks: list[ConnectionCheckItem]
     observation: PipelineObservation | None = None
+    github_login: str | None = Field(
+        default=None, description="GitHub account the connector token acts as; Codex mentions are posted by it."
+    )
 
 
 class ProjectRead(UUIDSchemaMixin, TimestampSchemaMixin, ProjectWrite):
@@ -72,32 +72,6 @@ class ProjectUpdate(ProjectWrite):
 class ProjectList(BaseModel):
     items: list[ProjectRead]
     total_count: int
-
-
-class LinearIssueBlocker(BaseModel):
-    id: UUID
-    identifier: str
-    state_type: str
-
-
-class LinearIssue(BaseModel):
-    id: UUID
-    identifier: str
-    title: str
-    description: str | None = None
-    priority: int = Field(ge=0, le=4)
-    state_type: str
-    created_at: datetime
-    updated_at: datetime
-    url: str
-    blockers: list[LinearIssueBlocker] = Field(default_factory=list)
-
-
-class ActionableIssueSelection(BaseModel):
-    selected: LinearIssue | None
-    inspected_count: int = Field(ge=0)
-    actionable_count: int = Field(ge=0)
-    blocked_count: int = Field(ge=0)
 
 
 class CheckRequest(BaseModel):

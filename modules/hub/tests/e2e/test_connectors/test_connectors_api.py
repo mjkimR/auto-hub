@@ -45,16 +45,16 @@ class TestConnectorsAPI:
         create_response = await client.post(
             self._base_url,
             json={
-                "name": "linear-production",
-                "provider": "linear",
-                "config": {"workspace_id": "workspace-1"},
+                "name": "github-secondary",
+                "provider": "github",
+                "config": {"installation_id": 67890},
                 "credentials": {"refresh_token": "old-token"},
             },
         )
         assert_status_code(create_response, 201)
         connector_id = create_response.json()["id"]
 
-        response = await client.get(self._base_url, params={"provider": "linear"})
+        response = await client.get(self._base_url, params={"provider": "github"})
         assert_status_code(response, 200)
         assert_paginated_response(response, min_items=1)
 
@@ -71,6 +71,13 @@ class TestConnectorsAPI:
 
         response = await client.get(f"{self._base_url}/{connector_id}")
         assert_status_code(response, 404)
+
+    async def test_unsupported_provider_is_rejected(self, client: AsyncClient):
+        response = await client.post(
+            self._base_url,
+            json={"name": "gitlab-production", "provider": "gitlab", "credentials": {"token": "secret"}},
+        )
+        assert_status_code(response, 422)
 
     async def test_get_connector_not_found(self, client: AsyncClient):
         response = await client.get(f"{self._base_url}/{uuid.uuid4()}")

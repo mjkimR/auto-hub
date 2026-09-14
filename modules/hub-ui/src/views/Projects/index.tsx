@@ -5,6 +5,7 @@ import { FolderGit2, Plus, RefreshCw } from 'lucide-react';
 import {
   checkProjectApiV1ProjectsProjectIdCheckPost, createProjectApiV1ProjectsPost,
   createScheduleConfigApiV1ScheduleConfigsPost, deleteProjectApiV1ProjectsProjectIdDelete,
+  enrollPullRequestApiV1ProjectsProjectIdRunsPost,
   getConnectorsApiV1ConnectorsGet, getProjectTemplatesApiV1ProjectsTemplatesGet,
   getScheduleConfigsApiV1ScheduleConfigsGet, importProjectScheduleApiV1ProjectsImportSchedulePost,
   listProjectsApiV1ProjectsGet, updateProjectApiV1ProjectsProjectIdPut,
@@ -24,6 +25,8 @@ export function Projects() {
   const [legacyId, setLegacyId] = useState<string>();
   const [scheduling, setScheduling] = useState<ProjectRead | null>(null);
   const [scheduleForm] = Form.useForm<{ pull_numbers: string[]; interval_minutes: number }>();
+  const [enrolling, setEnrolling] = useState<ProjectRead | null>(null);
+  const [enrollPull, setEnrollPull] = useState<number | null>(null);
 
   const projects = useQuery({ queryKey: ['projects', page], queryFn: () => listProjectsApiV1ProjectsGet({ query: { offset: (page - 1) * 20, limit: 20 }, throwOnError: true }) });
   const connectors = useQuery({ queryKey: ['projectConnectors'], queryFn: () => getConnectorsApiV1ConnectorsGet({ query: { limit: 100 }, throwOnError: true }) });
@@ -64,12 +67,17 @@ export function Projects() {
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['scheduleConfigs'] }); setScheduling(null); message.success('Observation schedule created'); },
   });
 
+  const enroll = useMutation({
+    mutationFn: ({ id, pull }: { id: string; pull: number }) => enrollPullRequestApiV1ProjectsProjectIdRunsPost({ path: { project_id: id }, body: { pull_number: pull }, throwOnError: true }),
+    onSuccess: ({ data }) => { setEnrolling(null); message.success(`PR #${data?.pull_number} enrolled as a queued run`); },
+  });
+
   const report = check.data?.data ?? inspecting?.last_check;
   return (
     <Space orientation="vertical" size="large" style={{ width: '100%' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
         <div><Typography.Title level={3} style={{ margin: 0 }}><FolderGit2 size={24} /> Project connections</Typography.Title>
-          <Typography.Paragraph type="secondary">One repository, one Linear project. Connect CI and verify a PR before scheduling observations.</Typography.Paragraph></div>
+          <Typography.Paragraph type="secondary">One connection per repository. Connect CI and verify a PR before scheduling observations or enrolling pull requests.</Typography.Paragraph></div>
         <Space wrap>
           <Button icon={<RefreshCw size={16} />} onClick={() => projects.refetch()}>Refresh</Button>
           <Button onClick={() => { importSchedule.reset(); setLegacyId(undefined); setImporting(true); }}>Import legacy schedule</Button>
@@ -89,7 +97,8 @@ export function Projects() {
               <Button size="small" onClick={() => { save.reset(); setEditor({ project: p }); }}>Edit</Button>
               <Button size="small" onClick={() => { check.reset(); setPullNumber(null); setInspecting(p); }}>Check CI</Button>
               <Button size="small" disabled={!p.enabled} onClick={() => { createSchedule.reset(); scheduleForm.resetFields(); setScheduling(p); }}>Schedule</Button>
-              <Popconfirm title="Delete this project connection?" description="Remove its observation schedules first. Repository and Linear data are kept." onConfirm={() => remove.mutate(p.id)}><Button size="small" danger loading={remove.isPending && remove.variables === p.id}>Delete</Button></Popconfirm>
+              <Button size="small" disabled={!p.enabled} onClick={() => { enroll.reset(); setEnrollPull(null); setEnrolling(p); }}>Enroll PR</Button>
+              <Popconfirm title="Delete this project connection?" description="Remove its observation schedules first. Repository data is kept." onConfirm={() => remove.mutate(p.id)}><Button size="small" danger loading={remove.isPending && remove.variables === p.id}>Delete</Button></Popconfirm>
             </Space> },
           ]} />
       </Card>
@@ -97,7 +106,7 @@ export function Projects() {
         pending={save.isPending} error={save.error} onSave={(data) => save.mutate(data)} onClose={() => setEditor(null)} />}
       <Drawer title={`Check connection · ${inspecting?.name || ''}`} size={650} open={!!inspecting} onClose={() => setInspecting(null)} destroyOnHidden>
         <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
-          <Typography.Paragraph>Choose an open PR in this repository. Hub reads the repository, workflow, required jobs and optional Linear project access.</Typography.Paragraph>
+          <Typography.Paragraph>Choose an open PR in this repository. Hub reads the repository, workflow, required jobs and the GitHub account the token acts as.</Typography.Paragraph>
           <Space><InputNumber aria-label="PR number" min={1} precision={0} placeholder="PR number" value={pullNumber} onChange={setPullNumber} />
             <Button type="primary" loading={check.isPending} disabled={!pullNumber} onClick={() => inspecting && pullNumber && check.mutate({ id: inspecting.id, pull: pullNumber })}>Run connection check</Button></Space>
           {check.error && <Alert type="error" showIcon title={errorText(check.error)} />}
@@ -119,6 +128,16 @@ export function Projects() {
         {(legacy.error || importSchedule.error) && <Alert type="error" title={errorText(legacy.error || importSchedule.error)} />}
         <Select style={{ width: '100%' }} placeholder="Select a legacy observation" loading={legacy.isLoading} value={legacyId} onChange={setLegacyId}
           options={(legacy.data?.data?.items || []).filter((s) => s.task_func === 'pipeline.observe').map((s) => ({ label: s.name, value: s.id }))} />
+      </Modal>
+      <Modal title={`Enroll a pull request · ${enrolling?.name || ''}`} open={!!enrolling} onCancel={() => setEnrolling(null)}
+        confirmLoading={enroll.isPending} okText="Enroll" okButtonProps={{ disabled: !enrollPull }}
+        onOk={() => enrolling && enrollPull && enroll.mutate({ id: enrolling.id, pull: enrollPull })} destroyOnHidden>
+        <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
+          <Typography.Paragraph style={{ margin: 0 }}>Enroll an open pull request from this repository. Its title, description and the issues it closes become the Codex task. Hub only reads GitHub here.</Typography.Paragraph>
+          <Typography.Text type="secondary">Do not write @codex in the pull request or its issues; Hub posts the request itself.</Typography.Text>
+          {enroll.error && <Alert type="error" showIcon title={errorText(enroll.error)} />}
+          <InputNumber aria-label="PR number" min={1} precision={0} placeholder="PR number" value={enrollPull} onChange={setEnrollPull} />
+        </Space>
       </Modal>
       <Modal title={`Schedule observations · ${scheduling?.name || ''}`} open={!!scheduling} onCancel={() => setScheduling(null)}
         confirmLoading={createSchedule.isPending} onOk={() => scheduleForm.submit()} destroyOnHidden>

@@ -43,10 +43,6 @@ class PipelineRunRepository:
             stmt = stmt.with_for_update()
         return (await session.execute(stmt)).scalar_one_or_none()
 
-    async def issue_ids(self, session: AsyncSession, project_id: UUID) -> set[UUID]:
-        rows = await session.scalars(select(PipelineRun.linear_issue_id).where(PipelineRun.project_id == project_id))
-        return set(rows)
-
     async def list(
         self, session: AsyncSession, *, project_id: UUID | None, offset: int, limit: int
     ) -> tuple[list[PipelineRun], int]:

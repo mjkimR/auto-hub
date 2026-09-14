@@ -4,7 +4,7 @@ from app.features.connectors.models import Connector
 from app.features.pipeline_runs.models import PipelineRun
 from app.features.projects.models import ProjectConnection
 from app.features.schedule_configs.models import ScheduleConfig
-from sqlalchemy import func, or_, select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 PROJECT_OBSERVATION_TASK = "pipeline.observe_project"
@@ -24,16 +24,8 @@ class ProjectRepository:
         )
         return list(rows), total or 0
 
-    async def conflicts(
-        self, session: AsyncSession, repository: str, linear_project_id: UUID
-    ) -> list[ProjectConnection]:
-        rows = await session.scalars(
-            select(ProjectConnection).where(
-                or_(
-                    ProjectConnection.repository == repository, ProjectConnection.linear_project_id == linear_project_id
-                )
-            )
-        )
+    async def conflicts(self, session: AsyncSession, repository: str) -> list[ProjectConnection]:
+        rows = await session.scalars(select(ProjectConnection).where(ProjectConnection.repository == repository))
         return list(rows)
 
     async def connector(self, session: AsyncSession, connector_id: UUID) -> Connector | None:

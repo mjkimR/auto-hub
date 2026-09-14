@@ -3,9 +3,34 @@ from typing import Literal
 from uuid import UUID
 
 from app.features.pipeline_runs.models import ExecutionAttemptKind, ExecutionAttemptState, PipelineRunState
-from app.features.projects.schemas import ActionableIssueSelection, LinearIssue
 from app_layer_base.base.schemas.mixin import TimestampSchemaMixin, UUIDSchemaMixin
 from pydantic import BaseModel, ConfigDict, Field
+
+MAX_LINKED_ISSUES = 10
+
+
+class LinkedIssue(BaseModel):
+    number: int = Field(gt=0)
+    title: str
+    body: str | None = None
+    url: str
+
+
+class PullRequestSnapshot(BaseModel):
+    """The task specification: the PR as the user wrote it, plus the issues it closes."""
+
+    number: int = Field(gt=0)
+    url: str
+    title: str
+    body: str | None = None
+    base_ref: str
+    head_ref: str
+    head_sha: str
+    linked_issues: list[LinkedIssue] = Field(default_factory=list, max_length=MAX_LINKED_ISSUES)
+
+
+class EnrollPullRequest(BaseModel):
+    pull_number: int = Field(gt=0)
 
 
 class PipelineRunRead(UUIDSchemaMixin, TimestampSchemaMixin):
@@ -13,14 +38,12 @@ class PipelineRunRead(UUIDSchemaMixin, TimestampSchemaMixin):
 
     project_id: UUID
     project_revision: int
-    linear_issue_id: UUID
-    linear_issue_identifier: str
-    linear_issue_snapshot: LinearIssue
+    pull_number: int
+    pull_url: str
+    pull_snapshot: PullRequestSnapshot
     state: PipelineRunState
     pause_reason: str | None
     branch: str
-    pull_number: int | None
-    pull_url: str | None
     revision: int
     lease_owner: str | None
     lease_expires_at: datetime | None
@@ -55,12 +78,6 @@ class ExecutionAttemptList(BaseModel):
     total_count: int
 
 
-class PipelineRunAcquisition(BaseModel):
-    run: PipelineRunRead | None
-    created: bool
-    selection: ActionableIssueSelection | None = None
-
-
 class LeaseRequest(BaseModel):
     owner: str = Field(min_length=1, max_length=255)
     ttl_seconds: int = Field(default=60, ge=15, le=900)
@@ -84,18 +101,15 @@ class LeaseGrant(BaseModel):
 
 
 class ImplementationRequest(BaseModel):
-    version: Literal[1] = 1
+    version: Literal[2] = 2
     correlation_marker: str
     repository: str
-    base_branch: str
-    head_branch: str
-    issue: LinearIssue
+    pull_request: PullRequestSnapshot
     instructions: str
 
 
 class PrepareImplementationAttempt(LeaseCredential):
     expected_run_revision: int = Field(ge=1)
-    base_branch: str = Field(min_length=1, max_length=255, pattern=r"^[^\s~^:?*\\\[]+$")
 
 
 class PreparedImplementationAttempt(BaseModel):

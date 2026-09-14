@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Alert, App, Button, Divider, Drawer, Form, Input, Modal, Select, Space, Switch, Typography } from 'antd';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { createConnectorApiV1ConnectorsPost } from '../../../generated/api/sdk.gen';
-import type { ConnectorProvider, ConnectorRead, ProjectRead, ProjectWrite, TemplateRead } from '../../../generated/api/types.gen';
+import type { ConnectorRead, ProjectRead, ProjectWrite, TemplateRead } from '../../../generated/api/types.gen';
 import { errorText, projectWrite } from '../helpers';
 
 type EditorProps = {
@@ -17,19 +17,19 @@ type EditorProps = {
 
 export function ProjectEditor({ project, connectors, templates, pending, error, onClose, onSave }: EditorProps) {
   const [form] = Form.useForm<ProjectWrite>();
-  const [connectorForm] = Form.useForm<{ name: string; provider: ConnectorProvider; token: string }>();
+  const [connectorForm] = Form.useForm<{ name: string; token: string }>();
   const [addConnector, setAddConnector] = useState(false);
   const templateId = Form.useWatch('template_id', form);
   const selectedTemplate = templates.find((template) => template.id === templateId);
   const queryClient = useQueryClient();
   const { message } = App.useApp();
   const connectorMutation = useMutation({
-    mutationFn: (values: { name: string; provider: ConnectorProvider; token: string }) => createConnectorApiV1ConnectorsPost({
-      body: { name: values.name, provider: values.provider, credentials: { token: values.token } }, throwOnError: true,
+    mutationFn: (values: { name: string; token: string }) => createConnectorApiV1ConnectorsPost({
+      body: { name: values.name, provider: 'github', credentials: { token: values.token } }, throwOnError: true,
     }),
     onSuccess: ({ data }) => {
       queryClient.invalidateQueries({ queryKey: ['projectConnectors'] });
-      if (data) form.setFieldValue(data.provider === 'github' ? 'github_connector_id' : 'linear_connector_id', data.id);
+      if (data) form.setFieldValue('github_connector_id', data.id);
       connectorForm.resetFields();
       setAddConnector(false);
       message.success('Connector saved');
@@ -53,16 +53,12 @@ export function ProjectEditor({ project, connectors, templates, pending, error, 
         enabled: true, verification: { workflow: 'ci.yml', required_jobs: ['lint', 'test'], event: 'pull_request' },
       }}>
         {error ? <Alert type="error" showIcon title={errorText(error)} style={{ marginBottom: 16 }} /> : null}
-        <Typography.Paragraph type="secondary">Connect one GitHub repository to one Linear project. Run a connection check after saving.</Typography.Paragraph>
+        <Typography.Paragraph type="secondary">Connect one GitHub repository. Run a connection check after saving.</Typography.Paragraph>
         <Form.Item name="name" label="Project name" rules={[{ required: true, whitespace: true }]}><Input placeholder="My application" /></Form.Item>
         <Form.Item name="repository" label="GitHub repository" rules={[{ required: true }, { pattern: /^[\w.-]+\/[\w.-]+$/, message: 'Use owner/repository' }]}><Input placeholder="owner/my-app" /></Form.Item>
-        <Form.Item name="linear_project_id" label="Linear project ID" rules={[{ required: true }, { pattern: /^[0-9a-f-]{36}$/i, message: 'Enter the project UUID' }]}
-          extra="In Linear, open the project and use the command menu → Copy model UUID."><Input placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" /></Form.Item>
-        <Form.Item name="github_connector_id" label="GitHub connector" rules={[{ required: true }]}>
+        <Form.Item name="github_connector_id" label="GitHub connector" rules={[{ required: true }]}
+          extra="Codex mentions are posted as this token's GitHub account, which must be linked to Codex.">
           <Select placeholder="Select a GitHub connector" options={connectors.filter((c) => c.provider === 'github' && c.enabled).map((c) => ({ value: c.id, label: c.name }))} />
-        </Form.Item>
-        <Form.Item name="linear_connector_id" label="Linear connector" extra="Optional for CI observation. Required to verify Linear project access.">
-          <Select allowClear placeholder="Select a Linear connector" options={connectors.filter((c) => c.provider === 'linear' && c.enabled).map((c) => ({ value: c.id, label: c.name }))} />
         </Form.Item>
         <Button onClick={() => { connectorMutation.reset(); setAddConnector(true); }}>Add connector</Button>
         <Divider>CI setup</Divider>
@@ -86,14 +82,13 @@ export function ProjectEditor({ project, connectors, templates, pending, error, 
         </Form.Item>
         <Form.Item name="enabled" label="Scheduled observation enabled" valuePropName="checked"><Switch /></Form.Item>
       </Form>
-      <Modal title="Add connector" open={addConnector} onCancel={() => { setAddConnector(false); connectorForm.resetFields(); }}
+      <Modal title="Add GitHub connector" open={addConnector} onCancel={() => { setAddConnector(false); connectorForm.resetFields(); }}
         confirmLoading={connectorMutation.isPending} onOk={() => connectorForm.submit()} destroyOnHidden>
-        <Form form={connectorForm} layout="vertical" initialValues={{ provider: 'github' }} onFinish={(values) => connectorMutation.mutate(values)}>
+        <Form form={connectorForm} layout="vertical" onFinish={(values) => connectorMutation.mutate(values)}>
           {connectorMutation.error && <Alert type="error" title={errorText(connectorMutation.error)} />}
           <Form.Item name="name" label="Connector name" rules={[{ required: true }]}><Input /></Form.Item>
-          <Form.Item name="provider" label="Service" rules={[{ required: true }]}><Select options={[{ value: 'github', label: 'GitHub' }, { value: 'linear', label: 'Linear' }]} /></Form.Item>
-          <Form.Item name="token" label="Personal access token / API key" rules={[{ required: true }]}
-            extra="GitHub: repository metadata, Actions read and Pull requests read. Linear: a personal API key with project access."><Input.Password autoComplete="new-password" /></Form.Item>
+          <Form.Item name="token" label="Fine-grained personal access token" rules={[{ required: true }]}
+            extra="Use the GitHub account linked to Codex. Repository access: Actions read, Contents read, Issues read, Pull requests read and write."><Input.Password autoComplete="new-password" /></Form.Item>
         </Form>
       </Modal>
     </Drawer>

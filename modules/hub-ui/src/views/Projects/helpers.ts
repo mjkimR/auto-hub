@@ -12,8 +12,7 @@ export function errorText(error: unknown): string {
 
 export function projectWrite(project: ProjectRead): ProjectWrite {
   return {
-    name: project.name, repository: project.repository, linear_project_id: project.linear_project_id,
-    github_connector_id: project.github_connector_id, linear_connector_id: project.linear_connector_id,
+    name: project.name, repository: project.repository, github_connector_id: project.github_connector_id,
     verification: project.verification, enabled: project.enabled, template_id: project.template_id,
   };
 }

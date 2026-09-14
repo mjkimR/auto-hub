@@ -40,8 +40,8 @@ class TestConnectorCredentialCipher:
         cipher = ConnectorCredentialCipher(StaticCredentialKeyProvider(bytes(range(32))))
         connector_id = uuid.uuid4()
 
-        first = await cipher.encrypt(connector_id, "linear", {"token": "same-value"})
-        second = await cipher.encrypt(connector_id, "linear", {"token": "same-value"})
+        first = await cipher.encrypt(connector_id, "github", {"token": "same-value"})
+        second = await cipher.encrypt(connector_id, "github", {"token": "same-value"})
 
         assert first.nonce != second.nonce
         assert first.ciphertext != second.ciphertext

@@ -5,8 +5,9 @@ These documents explicitly distinguish between design goals and current function
 
 1. [Architecture](architecture.md): Responsibility boundaries and the scope of the core engine.
 2. [CI Connection Contract](ci-contract.md): Configuration required when connecting a repository and current observation APIs.
-3. [Implementation Plan](implementation-plan.md): Completion criteria and upcoming implementation milestones.
-4. [Development & Operations](development.md): Commands, testing, and constraints of the existing scheduler foundation.
+3. [Codex PR Mention Protocol](codex-pr-mention.md): Design contract for dispatching Codex cloud work through PR comments.
+4. [Implementation Plan](implementation-plan.md): Completion criteria and upcoming implementation milestones.
+5. [Development & Operations](development.md): Commands, testing, and constraints of the existing scheduler foundation.
 
 [CI Template Usage](../templates/github-actions/README.md) covers CI setup in target repositories.
 The root `justfile` is the single source of truth for commands, and connector credential encryption details are documented in the [Hub module documentation](../modules/hub/README.md#connector-credential-encryption).

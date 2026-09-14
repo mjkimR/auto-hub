@@ -24,12 +24,11 @@ class VerificationConfig(BaseModel):
 
 
 class PipelineObservationConfig(BaseModel):
-    """One repo/project connection and an explicit, bounded set of PRs to observe."""
+    """One repository connection and an explicit, bounded set of PRs to observe."""
 
     model_config = ConfigDict(extra="forbid")
 
     repository: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9-]*/[A-Za-z0-9_][A-Za-z0-9_.-]*$")
-    linear_project_id: UUID = Field(description="Connection metadata; Linear integration is not implemented yet.")
     github_connector_id: UUID
     pull_numbers: list[Annotated[int, Field(gt=0)]] = Field(min_length=1, max_length=10)
     verification: VerificationConfig

@@ -19,7 +19,6 @@ Use the following JSON structure as the request body. Replace UUIDs, repo, and P
 ```json
 {
   "repository": "owner/my-app",
-  "linear_project_id": "11111111-1111-4111-8111-111111111111",
   "github_connector_id": "22222222-2222-4222-8222-222222222222",
   "pull_numbers": [42],
   "verification": {
@@ -32,10 +31,9 @@ Use the following JSON structure as the request body. Replace UUIDs, repo, and P
 
 - `workflow`: The filename under `.github/workflows/`, not the workflow's display name.
 - `required_jobs`: Exact job names as displayed in GitHub Actions. Cannot be empty or contain duplicates.
-- `linear_project_id`: Metadata representing the 1 repo ↔ 1 project connection. Not yet validated against Linear.
 - `github_connector_id`: Must reference an active `github` Connector.
 - The Connector's `credentials` stores `{"token": "<GitHub token>"}`. Never place the token directly into the payload.
-- GitHub fine-grained permissions required for this observation: Actions (read) and Pull requests (read) on the target repo. Permissions for automated write phases will be specified separately in future work.
+- GitHub fine-grained permissions required for this observation: Actions (read) and Pull requests (read) on the target repo. The planned Codex mention dispatch needs a user PAT with more permissions; see [Codex PR Mention Protocol](codex-pr-mention.md#1-prerequisites).
 
 The API uses existing Hub API key authentication. Authorize via `/docs` to issue requests.
 Immediate observation only sends read requests to GitHub and does not persist reports in the database.

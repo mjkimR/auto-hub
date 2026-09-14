@@ -6,7 +6,6 @@ import httpx
 import pytest
 from app.features import tasks
 from app.features.pipelines import services
-from app.features.projects import onboarding
 from app.features.schedule_configs.models import ScheduleConfig
 from app.features.schedule_jobs.models import ScheduleJob
 from app.features.tasks.domains.pipeline import task as pipeline_task
@@ -24,6 +23,7 @@ class GitHubScenario:
     def __init__(self):
         self.repository = {"full_name": "owner/app", "archived": False}
         self.workflow = {"id": 1, "name": "CI", "state": "active", "path": ".github/workflows/ci.yml"}
+        self.user = {"login": "owner", "type": "User"}
         self.pr = {
             "number": 42,
             "state": "open",
@@ -57,6 +57,8 @@ class GitHubScenario:
         path = request.url.path
         if path in self.failures:
             return httpx.Response(self.failures[path], json={"message": "upstream-sensitive-body"})
+        if path == "/user":
+            return httpx.Response(200, json=self.user)
         if path == "/repos/owner/app":
             return httpx.Response(200, json=self.repository)
         if path == "/repos/owner/app/actions/workflows/ci.yml":
@@ -74,19 +76,6 @@ class GitHubScenario:
         raise AssertionError(f"Unexpected GitHub request: {path}")
 
 
-class LinearScenario:
-    def __init__(self):
-        self.project_id: str | None = None
-        self.requests: list[httpx.Request] = []
-        self.error_status: int | None = None
-
-    def respond(self, request: httpx.Request) -> httpx.Response:
-        self.requests.append(request)
-        if self.error_status:
-            return httpx.Response(self.error_status, json={"errors": [{"message": "linear-sensitive-body"}]})
-        return httpx.Response(200, json={"data": {"project": {"id": self.project_id}}})
-
-
 @pytest.fixture
 def github_scenario(monkeypatch, credential_key_provider):
     scenario = GitHubScenario()
@@ -102,41 +91,21 @@ def github_scenario(monkeypatch, credential_key_provider):
 
 
 @pytest.fixture
-def linear_scenario(monkeypatch):
-    scenario = LinearScenario()
-
-    def create_client(token):
-        assert token == "linear-test-token"
-        return httpx.AsyncClient(base_url="https://api.linear.app", transport=httpx.MockTransport(scenario.respond))
-
-    monkeypatch.setattr(onboarding, "create_linear_client", create_client)
-    return scenario
-
-
-async def create_connector(client, provider: str) -> str:
+async def github_connector(client, github_scenario) -> str:
     response = await client.post(
         "/api/v1/connectors",
-        json={"name": f"{provider}-account", "provider": provider, "credentials": {"token": f"{provider}-test-token"}},
+        json={"name": "github-account", "provider": "github", "credentials": {"token": "github-test-token"}},
     )
     assert_status_code(response, 201)
     return response.json()["id"]
 
 
 @pytest.fixture
-async def connectors(client, github_scenario, linear_scenario) -> dict[str, str]:
-    return {provider: await create_connector(client, provider) for provider in ("github", "linear")}
-
-
-@pytest.fixture
-def project_payload(connectors, linear_scenario) -> dict:
-    linear_project_id = str(uuid4())
-    linear_scenario.project_id = linear_project_id
+def project_payload(github_connector) -> dict:
     return {
         "name": "Application",
         "repository": "owner/app",
-        "linear_project_id": linear_project_id,
-        "github_connector_id": connectors["github"],
-        "linear_connector_id": connectors["linear"],
+        "github_connector_id": github_connector,
         "verification": VERIFICATION,
     }
 
@@ -168,27 +137,17 @@ class TestProjectRegistration:
         assert response.json()["last_check"] is None
         assert "github-test-token" not in response.text
 
-    @pytest.mark.parametrize("field", ["repository", "linear_project_id"])
-    async def test_one_repository_maps_to_one_linear_project(self, client, project, project_payload, field):
-        other = {**project_payload, "repository": "owner/other", "linear_project_id": str(uuid4())}
-        other[field] = project[field]
-        response = await client.post("/api/v1/projects", json=other)
+    async def test_one_repository_maps_to_one_project(self, client, project, project_payload):
+        response = await client.post("/api/v1/projects", json={**project_payload, "name": "Duplicate"})
         assert_status_code(response, 409)
+        assert response.json()["detail"] == "Repository is already connected"
 
     async def test_case_only_repository_variants_are_the_same_mapping(self, client, project, project_payload):
-        response = await client.post(
-            "/api/v1/projects", json={**project_payload, "repository": "OWNER/APP", "linear_project_id": str(uuid4())}
-        )
+        response = await client.post("/api/v1/projects", json={**project_payload, "repository": "OWNER/APP"})
         assert_status_code(response, 409)
 
-    async def test_connectors_must_be_enabled_and_of_the_expected_service(self, client, project_payload, connectors):
-        swapped = {**project_payload, "github_connector_id": connectors["linear"]}
-        assert_status_code(await client.post("/api/v1/projects", json=swapped), 422)
-        swapped = {**project_payload, "linear_connector_id": connectors["github"]}
-        assert_status_code(await client.post("/api/v1/projects", json=swapped), 422)
-        assert_status_code(
-            await client.patch(f"/api/v1/connectors/{connectors['github']}", json={"enabled": False}), 200
-        )
+    async def test_the_github_connector_must_be_enabled(self, client, project_payload, github_connector):
+        assert_status_code(await client.patch(f"/api/v1/connectors/{github_connector}", json={"enabled": False}), 200)
         assert_status_code(await client.post("/api/v1/projects", json=project_payload), 422)
 
     async def test_missing_connector_is_rejected_without_creating_a_project(self, client, project_payload):
@@ -247,21 +206,21 @@ class TestProjectDeletion:
 
 
 class TestConnectionCheck:
-    async def test_successful_check_is_stored_and_reports_one_verification_run(
-        self, client, project, github_scenario, linear_scenario
-    ):
+    async def test_successful_check_is_stored_and_reports_one_verification_run(self, client, project, github_scenario):
         response = await client.post(f"/api/v1/projects/{project['id']}/check", json={"pull_number": 42})
         assert_status_code(response, 200)
         report = response.json()
         assert report["ready"] is True
+        assert [check["name"] for check in report["checks"]] == ["GitHub access", "PR verification", "GitHub identity"]
         assert [check["status"] for check in report["checks"]] == ["passed", "passed", "passed"]
+        assert report["github_login"] == "owner"
         assert report["observation"]["pulls"][0]["result"]["status"] == "passed"
         assert report["observation"]["pulls"][0]["run"]["url"].startswith("https://github.com/")
         assert report["project_revision"] == project["revision"]
-        assert linear_scenario.requests
 
         stored = await client.get(f"/api/v1/projects/{project['id']}")
         assert stored.json()["last_check"]["ready"] is True
+        assert stored.json()["last_check"]["github_login"] == "owner"
         assert "github-test-token" not in stored.text
 
     async def test_a_failing_workflow_is_reported_without_failing_the_request(self, client, project, github_scenario):
@@ -309,30 +268,25 @@ class TestConnectionCheck:
         assert response.json()["ready"] is False
         assert "upstream-sensitive-body" not in response.text
 
-    async def test_linear_failure_does_not_hide_a_healthy_ci_connection(
-        self, client, project, github_scenario, linear_scenario
-    ):
-        linear_scenario.error_status = 401
+    async def test_a_non_user_token_cannot_post_codex_mentions(self, client, project, github_scenario):
+        github_scenario.user = {"login": "hub-app[bot]", "type": "Bot"}
         response = await client.post(f"/api/v1/projects/{project['id']}/check", json={"pull_number": 42})
         assert_status_code(response, 200)
         checks = {check["name"]: check["status"] for check in response.json()["checks"]}
         assert checks["GitHub access"] == "passed"
-        assert checks["Linear access"] == "failed"
+        assert checks["GitHub identity"] == "failed"
+        assert response.json()["github_login"] is None
         assert response.json()["ready"] is False
-        assert "linear-sensitive-body" not in response.text
 
-    async def test_linear_check_is_skipped_when_no_connector_is_selected(
-        self, client, project_payload, github_scenario, linear_scenario
-    ):
-        response = await client.post("/api/v1/projects", json={**project_payload, "linear_connector_id": None})
-        assert_status_code(response, 201)
-        response = await client.post(f"/api/v1/projects/{response.json()['id']}/check", json={"pull_number": 42})
+    async def test_identity_failure_does_not_hide_a_healthy_ci_connection(self, client, project, github_scenario):
+        github_scenario.failures["/user"] = 403
+        response = await client.post(f"/api/v1/projects/{project['id']}/check", json={"pull_number": 42})
         assert_status_code(response, 200)
         checks = {check["name"]: check["status"] for check in response.json()["checks"]}
-        assert checks["Linear access"] == "skipped"
-        assert not linear_scenario.requests
-        # A skipped optional check is not a verified connection: only Linear-backed dispatch can confirm it.
+        assert checks["PR verification"] == "passed"
+        assert checks["GitHub identity"] == "failed"
         assert response.json()["ready"] is False
+        assert "upstream-sensitive-body" not in response.text
 
     async def test_editing_a_project_discards_its_previous_check(self, client, project, project_payload):
         assert_status_code(await client.post(f"/api/v1/projects/{project['id']}/check", json={"pull_number": 42}), 200)
@@ -372,9 +326,7 @@ class TestScheduledProjectObservation:
             json={
                 "name": project["name"],
                 "repository": project["repository"],
-                "linear_project_id": project["linear_project_id"],
                 "github_connector_id": project["github_connector_id"],
-                "linear_connector_id": project["linear_connector_id"],
                 "verification": {**VERIFICATION, "required_jobs": ["lint", "test", "build"]},
                 "expected_revision": project["revision"],
             },
@@ -421,12 +373,10 @@ class TestScheduledProjectObservation:
 
 class TestLegacyScheduleImport:
     @pytest.fixture
-    async def legacy_schedule(self, client, connectors, linear_scenario) -> dict:
-        linear_scenario.project_id = str(uuid4())
+    async def legacy_schedule(self, client, github_connector) -> dict:
         payload = {
             "repository": "owner/app",
-            "linear_project_id": linear_scenario.project_id,
-            "github_connector_id": connectors["github"],
+            "github_connector_id": github_connector,
             "pull_numbers": [42, 43],
             "verification": VERIFICATION,
         }
@@ -465,8 +415,7 @@ class TestLegacyScheduleImport:
         assert (await client.get("/api/v1/projects")).json()["total_count"] == 1
 
     async def test_import_reuses_an_identical_existing_project(self, client, legacy_schedule, project_payload):
-        payload = {**project_payload, "linear_project_id": legacy_schedule["payload"]["linear_project_id"]}
-        existing = await client.post("/api/v1/projects", json=payload)
+        existing = await client.post("/api/v1/projects", json=project_payload)
         assert_status_code(existing, 201)
         response = await client.post("/api/v1/projects/import_schedule", json={"schedule_id": legacy_schedule["id"]})
         assert_status_code(response, 200)
@@ -474,11 +423,7 @@ class TestLegacyScheduleImport:
         assert (await client.get("/api/v1/projects")).json()["total_count"] == 1
 
     async def test_conflicting_legacy_configuration_migrates_nothing(self, client, legacy_schedule, project_payload):
-        payload = {
-            **project_payload,
-            "linear_project_id": legacy_schedule["payload"]["linear_project_id"],
-            "verification": {**VERIFICATION, "required_jobs": ["lint"]},
-        }
+        payload = {**project_payload, "verification": {**VERIFICATION, "required_jobs": ["lint"]}}
         assert_status_code(await client.post("/api/v1/projects", json=payload), 201)
         response = await client.post("/api/v1/projects/import_schedule", json={"schedule_id": legacy_schedule["id"]})
         assert_status_code(response, 409)

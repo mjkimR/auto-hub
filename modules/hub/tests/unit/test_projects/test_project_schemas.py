@@ -14,7 +14,6 @@ def make_write(**overrides) -> dict:
     return {
         "name": "My application",
         "repository": "Owner/App",
-        "linear_project_id": str(uuid4()),
         "github_connector_id": str(uuid4()),
         "verification": VERIFICATION,
         **overrides,
@@ -48,7 +47,6 @@ class TestProjectWrite:
         config = data.observation_config([7, 9])
         assert (config.repository, config.pull_numbers) == ("owner/app", [7, 9])
         assert config.github_connector_id == data.github_connector_id
-        assert config.linear_project_id == data.linear_project_id
         assert config.verification == data.verification
 
     def test_updates_require_the_revision_the_editor_started_from(self):

@@ -21,11 +21,11 @@ class TestCreateConnector:
             CreateConnectorUseCase,
             overrides={get_credential_key_provider: credential_key_provider},
         )
-        credentials: dict[str, JsonValue] = {"token": "linear-secret-token"}
+        credentials: dict[str, JsonValue] = {"token": "github-secret-token"}
         connector_in = ConnectorCreate(
-            name="linear-production",
-            provider=ConnectorProvider.LINEAR,
-            config={"workspace_id": "workspace-1"},
+            name="github-production",
+            provider=ConnectorProvider.GITHUB,
+            config={"installation_id": 12345},
             credentials=credentials,
         )
 
@@ -34,7 +34,7 @@ class TestCreateConnector:
 
         stored = await session.get(Connector, created.id)
         assert stored is not None
-        assert b"linear-secret-token" not in stored.credentials_ciphertext
+        assert b"github-secret-token" not in stored.credentials_ciphertext
         assert len(stored.credentials_nonce) == 12
         assert stored.credential_key_version == "test-v1"
         assert await use_case.service.get_credentials(session, stored) == credentials

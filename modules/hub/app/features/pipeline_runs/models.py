@@ -54,19 +54,27 @@ class PipelineRun(Base, UUIDMixin, TimestampMixin):
             postgresql_where=ACTIVE_RUN_PREDICATE,
             sqlite_where=ACTIVE_RUN_PREDICATE,
         ),
+        Index(
+            "uq_pipeline_runs_active_pull",
+            "project_id",
+            "pull_number",
+            unique=True,
+            postgresql_where=ACTIVE_RUN_PREDICATE,
+            sqlite_where=ACTIVE_RUN_PREDICATE,
+        ),
         Index("ix_pipeline_runs_project_created", "project_id", "created_at"),
     )
 
     project_id: Mapped[UUID] = mapped_column(ForeignKey("project_connections.id", ondelete="RESTRICT"), nullable=False)
     project_revision: Mapped[int] = mapped_column(Integer, nullable=False)
-    linear_issue_id: Mapped[UUID] = mapped_column(nullable=False, unique=True)
-    linear_issue_identifier: Mapped[str] = mapped_column(String(100), nullable=False)
-    linear_issue_snapshot: Mapped[dict] = mapped_column(JSON_VARIANT, nullable=False)
+    pull_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    pull_url: Mapped[str] = mapped_column(String(2048), nullable=False)
+    pull_snapshot: Mapped[dict] = mapped_column(
+        JSON_VARIANT, nullable=False, comment="Immutable pull request task specification captured at enrollment"
+    )
     state: Mapped[str] = mapped_column(String(30), nullable=False, index=True)
     pause_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     branch: Mapped[str] = mapped_column(String(255), nullable=False)
-    pull_number: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    pull_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
     revision: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     lease_owner: Mapped[str | None] = mapped_column(String(255), nullable=True)
     lease_token: Mapped[UUID | None] = mapped_column(nullable=True)

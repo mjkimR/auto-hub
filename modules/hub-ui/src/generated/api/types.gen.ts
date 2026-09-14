@@ -5,25 +5,6 @@ export type ClientOptions = {
 };
 
 /**
- * ActionableIssueSelection
- */
-export type ActionableIssueSelection = {
-    selected: LinearIssue | null;
-    /**
-     * Inspected Count
-     */
-    inspected_count: number;
-    /**
-     * Actionable Count
-     */
-    actionable_count: number;
-    /**
-     * Blocked Count
-     */
-    blocked_count: number;
-};
-
-/**
  * CheckRequest
  */
 export type CheckRequest = {
@@ -54,6 +35,12 @@ export type ConnectionCheck = {
      */
     checks: Array<ConnectionCheckItem>;
     observation?: PipelineObservation | null;
+    /**
+     * Github Login
+     *
+     * GitHub account the connector token acts as; Codex mentions are posted by it.
+     */
+    github_login?: string | null;
 };
 
 /**
@@ -130,7 +117,7 @@ export type ConnectorPatch = {
 /**
  * ConnectorProvider
  */
-export type ConnectorProvider = 'github' | 'linear';
+export type ConnectorProvider = 'github';
 
 /**
  * ConnectorPut
@@ -238,6 +225,16 @@ export type DispatchResponse = {
      * Dispatched
      */
     dispatched: number;
+};
+
+/**
+ * EnrollPullRequest
+ */
+export type EnrollPullRequest = {
+    /**
+     * Pull Number
+     */
+    pull_number: number;
 };
 
 /**
@@ -351,7 +348,7 @@ export type ImplementationRequest = {
     /**
      * Version
      */
-    version?: 1;
+    version?: 2;
     /**
      * Correlation Marker
      */
@@ -360,15 +357,7 @@ export type ImplementationRequest = {
      * Repository
      */
     repository: string;
-    /**
-     * Base Branch
-     */
-    base_branch: string;
-    /**
-     * Head Branch
-     */
-    head_branch: string;
-    issue: LinearIssue;
+    pull_request: PullRequestSnapshot;
     /**
      * Instructions
      */
@@ -468,67 +457,25 @@ export type LeaseRequest = {
 };
 
 /**
- * LinearIssue
+ * LinkedIssue
  */
-export type LinearIssue = {
+export type LinkedIssue = {
     /**
-     * Id
+     * Number
      */
-    id: string;
-    /**
-     * Identifier
-     */
-    identifier: string;
+    number: number;
     /**
      * Title
      */
     title: string;
     /**
-     * Description
+     * Body
      */
-    description?: string | null;
-    /**
-     * Priority
-     */
-    priority: number;
-    /**
-     * State Type
-     */
-    state_type: string;
-    /**
-     * Created At
-     */
-    created_at: string;
-    /**
-     * Updated At
-     */
-    updated_at: string;
+    body?: string | null;
     /**
      * Url
      */
     url: string;
-    /**
-     * Blockers
-     */
-    blockers?: Array<LinearIssueBlocker>;
-};
-
-/**
- * LinearIssueBlocker
- */
-export type LinearIssueBlocker = {
-    /**
-     * Id
-     */
-    id: string;
-    /**
-     * Identifier
-     */
-    identifier: string;
-    /**
-     * State Type
-     */
-    state_type: string;
 };
 
 /**
@@ -681,19 +628,13 @@ export type PipelineObservation = {
 /**
  * PipelineObservationConfig
  *
- * One repo/project connection and an explicit, bounded set of PRs to observe.
+ * One repository connection and an explicit, bounded set of PRs to observe.
  */
 export type PipelineObservationConfig = {
     /**
      * Repository
      */
     repository: string;
-    /**
-     * Linear Project Id
-     *
-     * Connection metadata; Linear integration is not implemented yet.
-     */
-    linear_project_id: string;
     /**
      * Github Connector Id
      */
@@ -703,18 +644,6 @@ export type PipelineObservationConfig = {
      */
     pull_numbers: Array<number>;
     verification: VerificationConfig;
-};
-
-/**
- * PipelineRunAcquisition
- */
-export type PipelineRunAcquisition = {
-    run: PipelineRunRead | null;
-    /**
-     * Created
-     */
-    created: boolean;
-    selection?: ActionableIssueSelection | null;
 };
 
 /**
@@ -756,14 +685,14 @@ export type PipelineRunRead = {
      */
     project_revision: number;
     /**
-     * Linear Issue Id
+     * Pull Number
      */
-    linear_issue_id: string;
+    pull_number: number;
     /**
-     * Linear Issue Identifier
+     * Pull Url
      */
-    linear_issue_identifier: string;
-    linear_issue_snapshot: LinearIssue;
+    pull_url: string;
+    pull_snapshot: PullRequestSnapshot;
     state: PipelineRunState;
     /**
      * Pause Reason
@@ -773,14 +702,6 @@ export type PipelineRunRead = {
      * Branch
      */
     branch: string;
-    /**
-     * Pull Number
-     */
-    pull_number: number | null;
-    /**
-     * Pull Url
-     */
-    pull_url: string | null;
     /**
      * Revision
      */
@@ -816,10 +737,6 @@ export type PrepareImplementationAttempt = {
      * Expected Run Revision
      */
     expected_run_revision: number;
-    /**
-     * Base Branch
-     */
-    base_branch: string;
 };
 
 /**
@@ -865,17 +782,9 @@ export type ProjectRead = {
      */
     repository: string;
     /**
-     * Linear Project Id
-     */
-    linear_project_id: string;
-    /**
      * Github Connector Id
      */
     github_connector_id: string;
-    /**
-     * Linear Connector Id
-     */
-    linear_connector_id?: string | null;
     verification: VerificationConfig;
     /**
      * Enabled
@@ -921,17 +830,9 @@ export type ProjectUpdate = {
      */
     repository: string;
     /**
-     * Linear Project Id
-     */
-    linear_project_id: string;
-    /**
      * Github Connector Id
      */
     github_connector_id: string;
-    /**
-     * Linear Connector Id
-     */
-    linear_connector_id?: string | null;
     verification: VerificationConfig;
     /**
      * Enabled
@@ -962,17 +863,9 @@ export type ProjectWrite = {
      */
     repository: string;
     /**
-     * Linear Project Id
-     */
-    linear_project_id: string;
-    /**
      * Github Connector Id
      */
     github_connector_id: string;
-    /**
-     * Linear Connector Id
-     */
-    linear_connector_id?: string | null;
     verification: VerificationConfig;
     /**
      * Enabled
@@ -1006,6 +899,46 @@ export type PullObservation = {
     url: string;
     result: VerificationResult;
     run?: RunSnapshot | null;
+};
+
+/**
+ * PullRequestSnapshot
+ *
+ * The task specification: the PR as the user wrote it, plus the issues it closes.
+ */
+export type PullRequestSnapshot = {
+    /**
+     * Number
+     */
+    number: number;
+    /**
+     * Url
+     */
+    url: string;
+    /**
+     * Title
+     */
+    title: string;
+    /**
+     * Body
+     */
+    body?: string | null;
+    /**
+     * Base Ref
+     */
+    base_ref: string;
+    /**
+     * Head Ref
+     */
+    head_ref: string;
+    /**
+     * Head Sha
+     */
+    head_sha: string;
+    /**
+     * Linked Issues
+     */
+    linked_issues?: Array<LinkedIssue>;
 };
 
 /**
@@ -2615,8 +2548,8 @@ export type UpdateProjectApiV1ProjectsProjectIdPutResponses = {
 
 export type UpdateProjectApiV1ProjectsProjectIdPutResponse = UpdateProjectApiV1ProjectsProjectIdPutResponses[keyof UpdateProjectApiV1ProjectsProjectIdPutResponses];
 
-export type GetActionableIssueApiV1ProjectsProjectIdIssuesActionableGetData = {
-    body?: never;
+export type EnrollPullRequestApiV1ProjectsProjectIdRunsPostData = {
+    body: EnrollPullRequest;
     path: {
         /**
          * Project Id
@@ -2624,56 +2557,26 @@ export type GetActionableIssueApiV1ProjectsProjectIdIssuesActionableGetData = {
         project_id: string;
     };
     query?: never;
-    url: '/api/v1/projects/{project_id}/issues/actionable';
+    url: '/api/v1/projects/{project_id}/runs';
 };
 
-export type GetActionableIssueApiV1ProjectsProjectIdIssuesActionableGetErrors = {
+export type EnrollPullRequestApiV1ProjectsProjectIdRunsPostErrors = {
     /**
      * Validation Error
      */
     422: HttpValidationError;
 };
 
-export type GetActionableIssueApiV1ProjectsProjectIdIssuesActionableGetError = GetActionableIssueApiV1ProjectsProjectIdIssuesActionableGetErrors[keyof GetActionableIssueApiV1ProjectsProjectIdIssuesActionableGetErrors];
+export type EnrollPullRequestApiV1ProjectsProjectIdRunsPostError = EnrollPullRequestApiV1ProjectsProjectIdRunsPostErrors[keyof EnrollPullRequestApiV1ProjectsProjectIdRunsPostErrors];
 
-export type GetActionableIssueApiV1ProjectsProjectIdIssuesActionableGetResponses = {
+export type EnrollPullRequestApiV1ProjectsProjectIdRunsPostResponses = {
     /**
      * Successful Response
      */
-    200: ActionableIssueSelection;
+    201: PipelineRunRead;
 };
 
-export type GetActionableIssueApiV1ProjectsProjectIdIssuesActionableGetResponse = GetActionableIssueApiV1ProjectsProjectIdIssuesActionableGetResponses[keyof GetActionableIssueApiV1ProjectsProjectIdIssuesActionableGetResponses];
-
-export type AcquirePipelineRunApiV1ProjectsProjectIdRunsAcquirePostData = {
-    body?: never;
-    path: {
-        /**
-         * Project Id
-         */
-        project_id: string;
-    };
-    query?: never;
-    url: '/api/v1/projects/{project_id}/runs/acquire';
-};
-
-export type AcquirePipelineRunApiV1ProjectsProjectIdRunsAcquirePostErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type AcquirePipelineRunApiV1ProjectsProjectIdRunsAcquirePostError = AcquirePipelineRunApiV1ProjectsProjectIdRunsAcquirePostErrors[keyof AcquirePipelineRunApiV1ProjectsProjectIdRunsAcquirePostErrors];
-
-export type AcquirePipelineRunApiV1ProjectsProjectIdRunsAcquirePostResponses = {
-    /**
-     * Successful Response
-     */
-    200: PipelineRunAcquisition;
-};
-
-export type AcquirePipelineRunApiV1ProjectsProjectIdRunsAcquirePostResponse = AcquirePipelineRunApiV1ProjectsProjectIdRunsAcquirePostResponses[keyof AcquirePipelineRunApiV1ProjectsProjectIdRunsAcquirePostResponses];
+export type EnrollPullRequestApiV1ProjectsProjectIdRunsPostResponse = EnrollPullRequestApiV1ProjectsProjectIdRunsPostResponses[keyof EnrollPullRequestApiV1ProjectsProjectIdRunsPostResponses];
 
 export type CheckProjectApiV1ProjectsProjectIdCheckPostData = {
     body: CheckRequest;

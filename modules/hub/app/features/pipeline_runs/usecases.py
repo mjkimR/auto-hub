@@ -1,9 +1,11 @@
+import asyncio
 import json
 from datetime import UTC, datetime, timedelta
 from hashlib import sha256
 from typing import Annotated, Never
 from uuid import UUID, uuid4
 
+from app.features.pipeline_runs.github import read_pull_request
 from app.features.pipeline_runs.models import (
     ExecutionAttempt,
     ExecutionAttemptKind,
@@ -13,25 +15,29 @@ from app.features.pipeline_runs.models import (
 )
 from app.features.pipeline_runs.repos import PipelineRunRepository
 from app.features.pipeline_runs.schemas import (
+    EnrollPullRequest,
     ExecutionAttemptList,
     ExecutionAttemptRead,
     ImplementationRequest,
     LeaseGrant,
     LeaseMutation,
     LeaseRequest,
-    PipelineRunAcquisition,
     PipelineRunList,
     PipelineRunRead,
     PreparedImplementationAttempt,
     PrepareImplementationAttempt,
+    PullRequestSnapshot,
 )
-from app.features.projects.linear import SelectActionableIssueUseCase
-from app.features.projects.schemas import LinearIssue
+from app.features.pipelines import services as pipeline_services
+from app.features.pipelines.github import GitHubActionsReader
+from app.features.pipelines.services import PipelineConfigurationError, PipelineObservationService
 from app.features.projects.services import ProjectError, ProjectService
 from app_layer_base.core.database.transaction import AsyncTransaction
 from fastapi import Depends
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
+
+ACTIVE_RUN_CONFLICT = "This project already has an active pipeline run"
 
 
 class PipelineRunUseCase:
@@ -39,11 +45,11 @@ class PipelineRunUseCase:
         self,
         repo: Annotated[PipelineRunRepository, Depends()],
         projects: Annotated[ProjectService, Depends()],
-        selector: Annotated[SelectActionableIssueUseCase, Depends()],
+        observer: Annotated[PipelineObservationService, Depends()],
     ):
         self.repo = repo
         self.projects = projects
-        self.selector = selector
+        self.observer = observer
 
     async def list(self, project_id: UUID | None, offset: int, limit: int) -> PipelineRunList:
         async with AsyncTransaction() as session:
@@ -66,56 +72,56 @@ class PipelineRunUseCase:
                 items=[ExecutionAttemptRead.model_validate(row) for row in rows], total_count=len(rows)
             )
 
-    async def acquire(self, project_id: UUID) -> PipelineRunAcquisition:
+    async def enroll(self, project_id: UUID, request: EnrollPullRequest) -> PipelineRunRead:
         async with AsyncTransaction() as session:
             project = await self.projects.get(session, project_id)
             if not project.enabled:
                 raise ProjectError(422, "Project connection is disabled")
-            expected_project_revision = project.revision
-            existing = await self.repo.get_active(session, project_id)
-            if existing is not None:
-                return PipelineRunAcquisition(run=PipelineRunRead.model_validate(existing), created=False)
-            handled_issue_ids = await self.repo.issue_ids(session, project_id)
+            if await self.repo.get_active(session, project_id) is not None:
+                raise ProjectError(409, ACTIVE_RUN_CONFLICT)
+            repository, connector_id, expected_revision = (
+                project.repository,
+                project.github_connector_id,
+                project.revision,
+            )
 
-        selection = await self.selector.execute(project_id, excluded_issue_ids=handled_issue_ids)
-        issue = selection.selected
-        if issue is None:
-            return PipelineRunAcquisition(run=None, created=False, selection=selection)
+        # Keep GitHub reads outside database transactions.
+        try:
+            token = await self.observer.get_token(connector_id, "github")
+        except PipelineConfigurationError as exc:
+            raise ProjectError(422, str(exc)) from None
+        try:
+            async with asyncio.timeout(30):
+                async with pipeline_services.create_github_client(token) as client:
+                    snapshot = await read_pull_request(GitHubActionsReader(client), repository, request.pull_number)
+        except TimeoutError:
+            raise ProjectError(504, "Pull request read exceeded its time budget") from None
 
         try:
             async with AsyncTransaction() as session:
                 project = await self.projects.get(session, project_id, lock=True)
                 if not project.enabled:
                     raise ProjectError(422, "Project connection is disabled")
-                if project.revision != expected_project_revision:
-                    raise ProjectError(409, "Project changed during pipeline run acquisition; retry")
-                existing = await self.repo.get_active(session, project_id, lock=True)
-                if existing is not None:
-                    return PipelineRunAcquisition(run=PipelineRunRead.model_validate(existing), created=False)
-                if issue.id in await self.repo.issue_ids(session, project_id):
-                    raise ProjectError(409, "Selected Linear issue already has a pipeline run; retry selection")
+                if project.revision != expected_revision:
+                    raise ProjectError(409, "Project changed during pull request enrollment; retry")
+                if await self.repo.get_active(session, project_id, lock=True) is not None:
+                    raise ProjectError(409, ACTIVE_RUN_CONFLICT)
                 run = await self.repo.create(
                     session,
                     PipelineRun(
                         project_id=project_id,
                         project_revision=project.revision,
-                        linear_issue_id=issue.id,
-                        linear_issue_identifier=issue.identifier,
-                        linear_issue_snapshot=issue.model_dump(mode="json"),
+                        pull_number=snapshot.number,
+                        pull_url=snapshot.url,
+                        pull_snapshot=snapshot.model_dump(mode="json"),
                         state=PipelineRunState.QUEUED,
-                        branch=f"codex/{issue.identifier.lower()}",
+                        branch=snapshot.head_ref,
                         revision=1,
                     ),
                 )
-                return PipelineRunAcquisition(
-                    run=PipelineRunRead.model_validate(run), created=True, selection=selection
-                )
+                return PipelineRunRead.model_validate(run)
         except IntegrityError:
-            async with AsyncTransaction() as session:
-                existing = await self.repo.get_active(session, project_id)
-                if existing is not None:
-                    return PipelineRunAcquisition(run=PipelineRunRead.model_validate(existing), created=False)
-            raise ProjectError(409, "Pipeline run acquisition conflicted; retry") from None
+            raise ProjectError(409, ACTIVE_RUN_CONFLICT) from None
 
     async def acquire_lease(self, run_id: UUID, request: LeaseRequest) -> LeaseGrant:
         now = datetime.now(UTC)
@@ -195,14 +201,11 @@ class PipelineRunUseCase:
                 await self._raise_lease_conflict(session, run_id, "prepare attempt")
             project = await self.projects.get(session, run.project_id)
             if not project.enabled or project.revision != run.project_revision:
-                raise ProjectError(409, "Project changed after this pipeline run was acquired")
+                raise ProjectError(409, "Project changed after this pipeline run was enrolled")
             existing = await self.repo.active_attempt(session, run_id)
             if existing is not None:
-                implementation_request, request_digest, _ = self._build_implementation_request(
-                    run,
-                    project.repository,
-                    request.base_branch,
-                    idempotency_key=existing.idempotency_key,
+                _, request_digest, _ = self._build_implementation_request(
+                    run, project.repository, idempotency_key=existing.idempotency_key
                 )
                 if existing.request_digest != request_digest:
                     raise ProjectError(409, "The active attempt was prepared with a different request")
@@ -217,7 +220,7 @@ class PipelineRunUseCase:
             if run.state != PipelineRunState.QUEUED:
                 raise ProjectError(409, "Pipeline run is not ready for an implementation attempt")
             implementation_request, request_digest, idempotency_key = self._build_implementation_request(
-                run, project.repository, request.base_branch
+                run, project.repository
             )
             attempt = await self.repo.create_attempt(
                 session,
@@ -245,24 +248,19 @@ class PipelineRunUseCase:
     def _build_implementation_request(
         run: PipelineRun,
         repository: str,
-        base_branch: str,
         *,
         idempotency_key: UUID | None = None,
     ) -> tuple[ImplementationRequest, str, UUID]:
         idempotency_key = idempotency_key or uuid4()
-        marker = f"hub-attempt:{idempotency_key}"
-        issue = LinearIssue.model_validate(run.linear_issue_snapshot)
+        pull = PullRequestSnapshot.model_validate(run.pull_snapshot)
         instructions = (
-            f"Implement {issue.identifier} in {repository}. "
-            f"Start from {base_branch}, use branch {run.branch}, follow the repository instructions, "
-            "run the required checks, push the branch, and report the resulting commit and pull request."
+            f"Implement pull request #{pull.number} in {repository} on its branch {pull.head_ref}. "
+            "Follow the repository instructions, run the required checks, and push the result to that branch."
         )
         snapshot = ImplementationRequest(
-            correlation_marker=marker,
+            correlation_marker=f"hub-attempt:{idempotency_key}",
             repository=repository,
-            base_branch=base_branch,
-            head_branch=run.branch,
-            issue=issue,
+            pull_request=pull,
             instructions=instructions,
         )
         canonical = json.dumps(snapshot.model_dump(mode="json"), sort_keys=True, separators=(",", ":"))

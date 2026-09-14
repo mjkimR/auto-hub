@@ -1,1 +1,1 @@
-"""Durable Linear issue-to-PR pipeline execution state."""
+"""Durable pull-request pipeline execution state."""

@@ -37,81 +37,94 @@ Verification on 2026-09-10: All 260 backend tests passing (including 53 new proj
 Migration upgrade and downgrade were applied against a scratch SQLite database with a seeded project and adopted schedule; the downgrade restored the inline legacy payload before dropping the table.
 Live GitHub and Linear API calls were not performed; both boundaries are covered with test HTTP transports.
 
-Deferred: the connection check reports `ready` only when every check passed, so a project with no Linear connector stays `skipped` and therefore not ready.
-Extracting repeated template steps into reusable workflows also remains follow-up work.
+Extracting repeated template steps into reusable workflows remains follow-up work.
 
-## 3. Linear Issue → Codex Implementation Dispatch
+The Linear mapping, connector, and access check delivered in this phase were removed by §3.0. That also resolved the earlier deferral: the connection check no longer has an optional `skipped` item, so a healthy project reports `ready`.
 
-The first version advances at most one Linear issue per repository. It uses periodic tasks that acquire a short lease, perform one bounded action, persist the result, and exit. A paused run continues to occupy the repository slot until a user resumes or cancels it.
+## 3. User PR → Codex Mention Implementation
 
-### 3.0 Execution Provider Feasibility Gate
+The user opens a PR that carries the task specification and enrolls it in Hub. Hub posts a self-contained `@codex` mention on that PR, Codex cloud pushes the implementation to the PR branch, and Hub moves the run to `awaiting_ci` once the head changes. The protocol is specified in [Codex PR Mention Protocol](codex-pr-mention.md).
 
-- [ ] Against a dedicated Linear project and test repository, confirm that Codex for Linear delegation creates a Codex cloud chat, selects the intended repository/environment, follows the issue instructions, and produces a correlatable branch or draft PR.
-- [ ] Decide whether Hub delegates by assigning the issue to Codex or by posting one marked `@Codex` comment. Record the required ChatGPT workspace, Codex cloud, Linear, GitHub, and repository permissions and authentication ownership.
-- [ ] Identify which Linear activity, comment, chat link, branch, and PR identifiers are observable after delegation. Verify how Hub can distinguish queued, running, completed, failed, and user-blocked work without a public Codex cloud task-status API.
-- [ ] Confirm that a process restart can reconcile an uncertain Linear mutation and existing Codex cloud work without delegating the issue twice.
-- [ ] Keep the local Codex SDK as a separate adapter option. Adopting it would require an explicit architecture change because the current Hub boundary does not allow checking out target repositories to execute work.
+The first version advances at most one PR per repository. It uses periodic tasks that acquire a short lease, perform one bounded action, persist the result, and exit. A paused run continues to occupy the repository slot until a user resumes or cancels it.
 
-Workspace Agents API is not a Codex cloud task API and is excluded from this path. Do not begin production external writes until this gate passes. If Codex for Linear cannot provide enough correlation and recovery signals, revise the adapter choice while preserving the run, attempt, lease, and idempotency contracts below.
+### 3.0 Direction Change: Remove Linear
 
-### 3.1 Actionable Linear Issue Selection
+Decided on 2026-09-14. Hub has its own UI and durable run state, so an external tracker would only add a second source of truth to synchronize. The earlier Codex for Linear path also could not meet the phase goal: it does not create pull requests automatically, and repository, environment, and branch choice stay with Codex rather than Hub. The PR mention path was already proven end to end in `g-sandbox` (D-013, D-017).
 
-- [x] Add a read-only Linear client that returns issue identity, project, state type, priority, timestamps, title, description (including any acceptance criteria), and blocking relations without persisting credentials or response bodies in logs.
-- [x] Treat issues in completed or canceled state types as terminal. An issue is actionable when it belongs to the configured Linear project, is non-terminal, and every blocking issue is terminal.
-- [x] Resume the repository's existing non-terminal `PipelineRun` before selecting new work; this depends on the durable model in 3.2.
-- [x] If no run exists, choose deterministically by normalized Linear priority (urgent first and no priority last), then creation time, then issue ID.
-- [x] Limit the first version to one active or paused run per `ProjectConnection`; concurrent issue execution remains a future consideration.
-- [x] Cover pagination, missing descriptions, renamed workflow states, unresolved dependencies, duplicate issue results, rate limits, and disabled/edited project connections with test HTTP transports.
+Removed with this change: actionable Linear issue selection (formerly §3.1, implemented 2026-09-11), the Codex for Linear comment builder, and the Codex for Linear feasibility runbook. Kept: the run, attempt, lease, idempotency, and request-digest contracts from §3.2.
 
-The selection rule uses Linear state types rather than workspace-specific state names. A canceled blocker is considered resolved for scheduling; the selected issue's own canceled state remains terminal.
+- [x] Remove `linear_project_id` and `linear_connector_id` from `ProjectConnection`, its schemas, the observation config, and the project UI.
+- [x] Remove the `linear` connector provider. The migration deletes existing Linear connectors.
+- [x] Remove the Linear client, the actionable-issue and run-acquisition endpoints, the Linear connection-check item, and their tests.
+- [x] Replace the Linear-keyed columns on `pipeline_runs` (§3.2) with a forward migration that deletes the Linear-based runs and their attempts. They came from development databases only because no external dispatch was ever enabled.
+- [x] Strip the removed mapping field from legacy `pipeline.observe` payloads and stored observation reports.
+- [x] Regenerate the UI API client and update the README, CI contract, and templates guide.
+
+Implemented on 2026-09-14 together with §3.1, the PR re-keying in §3.2, and request rendering in §3.3. All 289 backend tests passed on SQLite, along with Python type checks, frontend lint, and the frontend build. Migration `e6f7a8b9c0d1` was exercised on a scratch SQLite database seeded with a Linear connector, a mapped project, a legacy schedule, a stored report, and a run with an attempt, through an upgrade/downgrade/upgrade cycle. The upgrade removed the Linear connector, run, attempt, and every stored mapping field while keeping CHECK constraints and both partial unique indexes; the downgrade restored the previous schema with placeholder mapping IDs. PostgreSQL migration and test runs were not performed.
+
+### 3.1 PR Enrollment
+
+- [x] Add `POST /api/v1/projects/{project_id}/runs` and an Enroll PR action in the project UI that register an open PR of the project's repository as a `queued` run. Hub never selects work on its own.
+- [x] Reject closed PRs, fork PRs, `@codex` in the PR title, PR body, or a linked issue, missing linked issues, and projects that already have an active run (before any GitHub read).
+- [x] Record the connector's authenticated GitHub login as `github_login` in the connection check, and fail the identity item when the token does not act as a user account.
+- [ ] Show the onboarding checklist from the protocol (§1): Codex environment, agent internet access, environment `GH_TOKEN`, and connector permissions. The connector form currently states only the token permissions and the Codex-linked account.
+- [x] Cover open, closed, fork, mention, missing-issue, duplicate, disabled, and edited-project enrollment with test HTTP transports.
 
 ### 3.2 Durable Run, Attempt, and Lease State
 
-- [x] Add `PipelineRun` as the long-lived issue-to-PR record with `project_id`, Linear issue identity/snapshot, state, pause reason, branch, pull request identity, and optimistic revision.
+- [x] Add `PipelineRun` as the long-lived record with `project_id`, work item identity/snapshot, state, pause reason, branch, pull request identity, and optimistic revision.
 - [x] Use run states `queued`, `dispatching`, `implementing`, `awaiting_ci`, `paused`, `completed`, `failed`, and `canceled`. Phase 3 stops at `awaiting_ci`; Phase 4 owns revision, merge, and completion transitions.
 - [x] Add append-only `ExecutionAttempt` records with attempt number, kind (`implementation` or `revision`), request payload digest, globally unique Hub idempotency key, external correlation IDs/status when available, conversation URL, timestamps, and sanitized failure details.
-- [x] Enforce one non-terminal run per project and one run per Linear issue in the database. Enforce unique `(pipeline_run_id, attempt_number)`, idempotency key, and any non-null external correlation ID constraints.
+- [x] Enforce one non-terminal run per project in the database. Enforce unique `(pipeline_run_id, attempt_number)`, idempotency key, and any non-null external correlation ID constraints.
 - [x] Store lease owner, token, and expiration in the database. Acquire and renew leases atomically, reject stale lease tokens on writes, and reclaim expired leases without creating a new attempt.
 - [x] Validate migrations and repository behavior on PostgreSQL and keep the default SQLite tests semantically equivalent.
+- [x] Key runs by pull request: make `pull_number` and `pull_url` required, store the PR snapshot (URL, title, body, base ref, head ref, head SHA at enrollment, linked issues), and enforce one non-terminal run per `(project_id, pull_number)`.
+- [x] Use the PR head ref as `branch` instead of a Hub-generated `codex/<issue>` name.
+- [ ] Add delivery records under an attempt: delivery number, cause (`initial`, `silent`, `quota`, `resume`), comment ID, posted time. Enforce unique `(attempt_id, delivery_number)` and a unique non-null comment ID.
 
 `ScheduleJob` remains the record for a scheduler tick. It may reference a `PipelineRun`, but it must not replace the durable run or attempt history.
 
-Implemented on 2026-09-11: run acquisition first resumes an active or paused run, otherwise selects and records one unhandled Linear issue. Lease tokens are returned only by lease operations, and conditional database updates make acquire, renew, release, and expired-lease reclamation atomic. The migration was exercised through an SQLite upgrade/downgrade/upgrade cycle, and selection, acquisition, and lease behavior passed on both SQLite and PostgreSQL.
+Implemented on 2026-09-11 against Linear issues: run acquisition first resumed an active or paused run, otherwise selected and recorded one unhandled Linear issue. Lease tokens are returned only by lease operations, and conditional database updates make acquire, renew, release, and expired-lease reclamation atomic. The migration was exercised through an SQLite upgrade/downgrade/upgrade cycle, and acquisition and lease behavior passed on both SQLite and PostgreSQL. The Linear-specific parts were removed by §3.0.
 
-### 3.3 Codex Cloud Dispatch Contract
+### 3.3 Codex PR Mention Dispatch
 
-- [ ] Add per-project Codex cloud routing configuration for the expected repository/environment and the delegation method proven by the feasibility gate. Treat the Codex for Linear installation and ChatGPT workspace access as onboarding prerequisites rather than storing ChatGPT credentials in Hub.
-- [ ] Persist a stable Hub correlation marker and the intended Linear mutation before delegation. Reconcile the issue's assignee, activity, and comments before retrying an uncertain mutation; reuse the same marker and never create a second delegation event for the same attempt.
-- [x] Build a self-contained implementation request from an immutable Linear issue snapshot, repository, base branch, deterministic head branch, acceptance criteria, and target-repository instructions. Store its digest and redacted metadata, not connector secrets.
-- [ ] Reconcile progress on later scheduler ticks through the observable Linear activity/comments and GitHub branch/PR state established by the feasibility gate. Do not keep an HTTP request open while Codex cloud runs.
-- [ ] Treat GitHub as the source of implementation artifacts. Discover the correlated branch and ensure exactly one draft PR exists before moving the run to `awaiting_ci`; a Linear or Codex completion message alone is insufficient.
-- [ ] Add an explicit, user-initiated execution connection check using a canary Linear issue in the test project. Never perform this external write from the existing read-only project connection check.
+- [x] Persist and commit an immutable request snapshot, canonical digest, and idempotency key under the run lease before any external call.
+- [x] Build the request (version 2) from the PR snapshot, and render the mention comment in the protocol format: leading `@codex`, self-contained task with linked issues, push block for the PR head ref, trailing `hub-attempt` marker. HTML comments in the task text are removed so hidden text cannot forge a marker.
+- [ ] Post mentions only with the project's GitHub user PAT. Never post Hub comments that contain `@codex` outside task requests.
+- [ ] Reconcile before every post by listing PR comments for a marker with the same attempt ID and delivery number authored by the connector's login. Adopt a found comment instead of posting again.
+- [ ] Move `dispatching` → `implementing` once the delivery comment is confirmed, and `implementing` → `awaiting_ci` once the PR head differs from the delivery marker's `head`. A Codex reply alone never completes the attempt.
+- [ ] Record Codex connector replies after a delivery, and classify usage-limit replies in one matcher.
+- [ ] Implement the watchdog: one silent retry after 2 h without a head change, quota retries after 2 h and 4 h, then pause with `codex-unresponsive` or `codex-quota-persistent`. Apply a five-minute tolerance.
+- [ ] Keep the adapter boundary so `openai/codex-action` can replace mention delivery without changing runs, attempts, or deliveries.
 
-The dispatch adapter boundary must keep a later local Codex SDK or another execution provider possible. Linear- and Codex-specific activity details stay inside that adapter.
+### 3.4 Canary, Crash Recovery, and Integration Tests
 
-The provider-neutral dispatch port and deterministic Codex for Linear comment builder are implemented without sending external mutations. The live gate runbook is recorded in [`docs/codex-linear-feasibility.md`](codex-linear-feasibility.md). The comment path is the candidate because it can carry a Hub marker and explicitly name the repository; it is not enabled until the runbook proves reconciliation and environment behavior.
+- [ ] Add a user-initiated execution canary for a dedicated test repository and PR, following the protocol (§8). Never perform this write from the read-only connection check.
+- [ ] Test crashes before posting, after posting but before the local response is saved, and after the push. Each restart must converge on one attempt, one delivery, and `awaiting_ci` on the pushed head.
+- [ ] Test marker spoofing by other authors, a PR closed or force-pushed during execution, a user push during `implementing`, lease expiry, two competing dispatchers, stale project revisions, GitHub authorization failures, and sanitized external failures.
+- [ ] Test watchdog boundaries with a controllable clock, including tolerance edges and resume.
 
-### 3.4 Crash Recovery and Integration Tests
+Completion criteria: Given an enabled project whose Codex environment meets the prerequisites, the user enrolls one open PR and Hub records one durable run and attempt, posts one mention, and reaches `awaiting_ci` on the head Codex pushed. Restarting Hub at every external-call boundary must converge without duplicate mentions. An unresponsive or quota-limited Codex ends in a paused run after bounded retries. Phase 3 does not request fixes or merge.
 
-- [x] Persist and commit the run, attempt, request snapshot, and idempotency key before the first external dispatch call.
-- [ ] Retry an uncertain dispatch with the same Hub idempotency key and correlation marker. Reconcile Linear activity and all stored external IDs before sending another request, and never increment the attempt number solely because a process restarted.
-- [ ] Locate existing work by the Linear issue and activity, Codex chat link when exposed, deterministic branch, and Hub metadata in the PR. Reuse matching resources and pause on ambiguous or conflicting matches.
-- [ ] Test crashes before dispatch, after remote acceptance but before the local response is saved, after branch creation, and after PR creation. Each restart must converge on one attempt, one provider run, and one draft PR.
-- [ ] Test lease expiry, two competing dispatchers, stale project revisions, Linear issue cancellation during execution, Linear/GitHub authorization failures, and sanitized external failures.
+External dependency: [Codex GitHub integration](https://learn.chatgpt.com/docs/third-party/github) documents non-review `@codex` PR comments as starting a cloud chat with the PR as context. The user-PAT identity requirement, self-push through the environment `GH_TOKEN`, and the connector reply account are observed in `g-sandbox`, not documented, and the canary must re-confirm them.
 
-Completion criteria: Given an enabled project with GitHub and Linear connectors plus a configured Codex for Linear integration, Hub deterministically selects or resumes one actionable Linear issue, records one durable run and attempt, delegates it once, and reaches one correlated draft PR in `awaiting_ci`. Restarting Hub at every external-call boundary must converge without duplicate Codex cloud chats, delegation events, or PRs. Phase 3 does not revise, merge, close, or mark Linear issues complete.
+## 4. CI Results → Fix, Merge, & Completion
 
-External dependency: The initial remote path relies on [Codex for Linear](https://learn.chatgpt.com/docs/third-party/linear), which creates Codex cloud chats through issue assignment or an `@Codex` mention. The feasibility gate must establish observable recovery signals because the official [Codex cloud](https://learn.chatgpt.com/docs/cloud) documentation does not expose a general server-side task API.
+- [ ] On red CI for the current head, post a `ci-fix` mention with failing job names and bounded log excerpts. Cap at 2 attempts per epoch, then pause.
+- [ ] On base conflicts, post a `conflict-fix` mention that merges the base branch. Cap at 1 attempt per epoch, then pause.
+- [ ] Watch every fix request with the Phase 3 watchdog.
+- [ ] Resume from the Hub UI starts a new epoch: fix-loop counters reset, while enrollment and implementation history persist.
+- [ ] Distinguish environment errors from code failures where the verification result allows it, and pause instead of requesting a code fix for environment errors.
+- [ ] Merge only when the latest head and base, required checks, and branch rules are re-verified immediately before merging. Mark the run `completed` from GitHub's actual merge state; closing keywords in the PR close referenced issues.
+- [ ] Mark a run `canceled` when its PR is closed without merging.
 
-## 4. CI Results → Revision, Merge, & Completion
-
-Implement failure log relay, revision attempt limits, distinction between environment errors and code failures, pause/resume mechanisms, merge policies, and Linear completion synchronization.
+Invalidate prior evaluations when head or base revisions change.
 Add `workflow_dispatch` support where necessary without duplicating automatic CI runs.
-Invalidate prior evaluations when head or base revisions change, and re-validate GitHub criteria immediately before merging.
+An LLM review lane (for example `@codex review` or a separate reviewer) is not part of the initial gate and would be added as a bounded review → fix → re-verify loop.
 
 ## 5. Events & Multi-Repository Operations
 
-Add GitHub and Linear webhooks, routing them into the shared observation pipeline.
+Add GitHub webhooks (`pull_request`, `issue_comment`, `workflow_run`), routing them into the shared observation pipeline.
 Handle event deduplication, out-of-order delivery, and missed events, keeping periodic polling as a recovery path.
 When onboarding a second repository, evaluate whether repository-specific branching is needed in Hub.
 

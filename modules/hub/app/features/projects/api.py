@@ -1,12 +1,10 @@
 from typing import Annotated
 from uuid import UUID
 
-from app.features.pipeline_runs.schemas import PipelineRunAcquisition
+from app.features.pipeline_runs.schemas import EnrollPullRequest, PipelineRunRead
 from app.features.pipeline_runs.usecases import PipelineRunUseCase
-from app.features.projects.linear import SelectActionableIssueUseCase
 from app.features.projects.onboarding import CheckProjectUseCase
 from app.features.projects.schemas import (
-    ActionableIssueSelection,
     CheckRequest,
     ConnectionCheck,
     ImportScheduleRequest,
@@ -52,16 +50,12 @@ async def get_project(project_id: UUID, use_case: Annotated[ProjectUseCase, Depe
     return await use_case.get(project_id)
 
 
-@router.get("/{project_id}/issues/actionable", response_model=ActionableIssueSelection)
-async def get_actionable_issue(project_id: UUID, use_case: Annotated[SelectActionableIssueUseCase, Depends()]):
-    """Select one actionable Linear issue without changing Linear or GitHub state."""
-    return await use_case.execute(project_id)
-
-
-@router.post("/{project_id}/runs/acquire", response_model=PipelineRunAcquisition)
-async def acquire_pipeline_run(project_id: UUID, use_case: Annotated[PipelineRunUseCase, Depends()]):
-    """Resume the active run or atomically acquire one actionable Linear issue."""
-    return await use_case.acquire(project_id)
+@router.post("/{project_id}/runs", response_model=PipelineRunRead, status_code=201)
+async def enroll_pull_request(
+    project_id: UUID, data: EnrollPullRequest, use_case: Annotated[PipelineRunUseCase, Depends()]
+):
+    """Register one open pull request as a queued pipeline run. Reads GitHub only; posts nothing."""
+    return await use_case.enroll(project_id, data)
 
 
 @router.put("/{project_id}", response_model=ProjectRead)
@@ -77,5 +71,5 @@ async def delete_project(project_id: UUID, use_case: Annotated[ProjectUseCase, D
 
 @router.post("/{project_id}/check", response_model=ConnectionCheck)
 async def check_project(project_id: UUID, data: CheckRequest, use_case: Annotated[CheckProjectUseCase, Depends()]):
-    """Read GitHub/Linear and verify one current PR run. Does not install CI or dispatch external work."""
+    """Read GitHub, verify one current PR run, and identify the token's account. Never writes to GitHub."""
     return await use_case.execute(project_id, data.pull_number)

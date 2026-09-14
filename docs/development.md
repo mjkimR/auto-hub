@@ -42,7 +42,7 @@ CI status and failure rationales are inspected via the observation report.
 
 The production database is PostgreSQL, and migrations are managed with Alembic.
 Refer to the `justfile` for `just db-upgrade` and `just db-revision` arguments.
-GitHub and Linear credentials are stored encrypted in Connectors.
+GitHub credentials are stored encrypted in Connectors.
 For encryption key configuration, follow the [Hub module documentation](../modules/hub/README.md#connector-credential-encryption).
 API authentication relies on the existing API key mechanism.
 

@@ -18,6 +18,10 @@ from app.features.pipelines.schemas import (
 class GitHubObservationError(RuntimeError):
     """Sanitized upstream failure: no response body, credentials, or request headers."""
 
+    def __init__(self, message: str, status_code: int | None = None):
+        super().__init__(message)
+        self.status_code = status_code
+
 
 def create_github_client(token: str) -> httpx.AsyncClient:
     return httpx.AsyncClient(
@@ -41,7 +45,8 @@ class GitHubActionsReader:
             response = await self.client.get(path, params=params)
             response.raise_for_status()
         except httpx.HTTPStatusError as exc:
-            raise GitHubObservationError(f"GitHub observation returned HTTP {exc.response.status_code}") from None
+            status = exc.response.status_code
+            raise GitHubObservationError(f"GitHub observation returned HTTP {status}", status) from None
         except httpx.RequestError:
             raise GitHubObservationError("GitHub observation request failed") from None
         try:

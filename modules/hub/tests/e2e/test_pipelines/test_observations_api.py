@@ -1,6 +1,6 @@
 from copy import deepcopy
 from datetime import UTC, datetime, timedelta
-from uuid import UUID, uuid4
+from uuid import UUID
 
 import httpx
 import pytest
@@ -104,7 +104,6 @@ async def observation_payload(client, github_scenario):
     assert_status_code(response, 201)
     return {
         "repository": "owner/app",
-        "linear_project_id": str(uuid4()),
         "github_connector_id": response.json()["id"],
         "pull_numbers": [42],
         "verification": {"workflow": "ci.yml", "required_jobs": ["lint", "test"]},

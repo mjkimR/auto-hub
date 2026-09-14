@@ -29,16 +29,11 @@ class ProjectService:
         return project
 
     async def validate(self, session: AsyncSession, data: ProjectWrite, project_id: UUID | None = None) -> None:
-        for connector_id, provider in ((data.github_connector_id, "github"), (data.linear_connector_id, "linear")):
-            if connector_id is None:
-                continue
-            connector = await self.repo.connector(session, connector_id)
-            if connector is None or connector.provider != provider or not connector.enabled:
-                raise ProjectError(422, f"Select an enabled {provider} connector")
-        if any(
-            row.id != project_id for row in await self.repo.conflicts(session, data.repository, data.linear_project_id)
-        ):
-            raise ProjectError(409, "Repository or Linear project is already connected")
+        connector = await self.repo.connector(session, data.github_connector_id)
+        if connector is None or connector.provider != "github" or not connector.enabled:
+            raise ProjectError(422, "Select an enabled github connector")
+        if any(row.id != project_id for row in await self.repo.conflicts(session, data.repository)):
+            raise ProjectError(409, "Repository is already connected")
 
     async def create(self, session: AsyncSession, data: ProjectWrite) -> ProjectConnection:
         await self.validate(session, data)
@@ -89,11 +84,10 @@ class ProjectService:
         data = ProjectWrite(
             name=schedule.name,
             repository=old.repository,
-            linear_project_id=old.linear_project_id,
             github_connector_id=old.github_connector_id,
             verification=old.verification,
         )
-        matches = await self.repo.conflicts(session, data.repository, data.linear_project_id)
+        matches = await self.repo.conflicts(session, data.repository)
         if matches:
             if len(matches) != 1:
                 raise ProjectError(409, "Legacy mapping conflicts with existing project connections")
@@ -101,7 +95,6 @@ class ProjectService:
             existing = ProjectRead.model_validate(project)
             if (
                 existing.repository != data.repository
-                or existing.linear_project_id != data.linear_project_id
                 or existing.github_connector_id != data.github_connector_id
                 or existing.verification != data.verification
             ):
