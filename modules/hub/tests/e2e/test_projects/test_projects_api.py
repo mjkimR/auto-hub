@@ -40,7 +40,7 @@ class GitHubScenario:
                 "event": "pull_request",
                 "path": ".github/workflows/ci.yml",
                 "head_repository": {"full_name": "owner/app"},
-                "pull_requests": [{"number": 42, "head": {"sha": HEAD}}],
+                "pull_requests": [{"number": 42, "head": {"sha": HEAD}, "base": {"sha": "b" * 40}}],
                 "status": "completed",
                 "conclusion": "success",
                 "html_url": "https://github.com/owner/app/actions/runs/10",

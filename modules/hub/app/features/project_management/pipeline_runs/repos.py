@@ -17,8 +17,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 
 class PipelineRunRepository:
-    async def get(self, session: AsyncSession, run_id: UUID) -> PipelineRun | None:
-        return await session.get(PipelineRun, run_id)
+    async def get(self, session: AsyncSession, run_id: UUID, *, lock: bool = False) -> PipelineRun | None:
+        return await session.get(PipelineRun, run_id, with_for_update=True if lock else None)
 
     async def get_leased(
         self,
@@ -232,6 +232,7 @@ class PipelineRunRepository:
             )
             .values(lease_expires_at=expires_at)
             .returning(PipelineRun)
+            .execution_options(synchronize_session="fetch", populate_existing=True)
         )
         return result.scalar_one_or_none()
 

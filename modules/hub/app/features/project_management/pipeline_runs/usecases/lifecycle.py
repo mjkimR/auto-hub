@@ -54,6 +54,8 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 ACTIVE_RUN_CONFLICT = "This pull request already has an active pipeline run"
+DISPATCH_IO_SECONDS = 30
+DISPATCH_LEASE_SECONDS = 90
 
 
 def _utc(value: datetime) -> datetime:
@@ -337,6 +339,7 @@ class PipelineRunUseCase:
                     project.github_connector_id, project.github_repository, run.pull_number
                 )
                 quota_reply = False
+                quota_reply_at = None
                 if posted_at is not None:
                     for comment in comments:
                         author = comment.get("user", {}).get("login")
@@ -352,6 +355,8 @@ class PipelineRunUseCase:
                             continue
                         quota = is_codex_quota_reply(author, comment.get("body"))
                         quota_reply = quota_reply or quota
+                        if quota and (quota_reply_at is None or replied_at > quota_reply_at):
+                            quota_reply_at = replied_at
                         if comment_id is None:
                             continue
                         if not await self.repo.has_reply_comment(session, str(comment_id)):
@@ -384,7 +389,7 @@ class PipelineRunUseCase:
                             ),
                         )
                         run.state = PipelineRunState.DISPATCHING
-                        run.next_action_at = now + timedelta(hours=5, minutes=10)
+                        run.next_action_at = (quota_reply_at or now) + timedelta(hours=5, minutes=10)
                     run.revision += 1
                     await session.flush()
                     return PipelineRunRead.model_validate(run)
@@ -631,28 +636,39 @@ class PipelineRunUseCase:
                 project.github_repository,
                 run.pull_number,
             )
+            expected_revision = run.revision
 
         # Do all GitHub I/O outside the transaction. An uncertain post leaves the planned delivery
         # intact so the next tick reconciles the marker before attempting another write.
         try:
-            auth_token = await self.observer.get_token(connector_id, "github")
-            async with pipeline_services.create_github_client(auth_token) as client:
-                reader = GitHubActionsReader(client)
-                login = await reader.current_login()
-                marker = f"{request.correlation_marker} kind={request.kind} delivery={delivery.delivery_number}"
-                comment = await reader.reconcile_issue_comment(repository, pull_number, marker, login)
-                if comment is None:
-                    comment = await reader.post_issue_comment(
-                        repository,
-                        pull_number,
-                        build_codex_mention_comment(request, delivery=delivery.delivery_number),
-                    )
+            await self._guard_dispatch(run_id, owner, token, expected_revision)
+            async with asyncio.timeout(DISPATCH_IO_SECONDS):
+                auth_token = await self.observer.get_token(connector_id, "github")
+                async with pipeline_services.create_github_client(auth_token) as client:
+                    reader = GitHubActionsReader(client)
+                    login = await reader.current_login()
+                    marker = f"{request.correlation_marker} kind={request.kind} delivery={delivery.delivery_number}"
+                    comment = await reader.reconcile_issue_comment(repository, pull_number, marker, login)
+                    if comment is None:
+                        # A delayed read must not authorize a write after another worker took over.
+                        await self._guard_dispatch(run_id, owner, token, expected_revision)
+                        comment = await reader.post_issue_comment(
+                            repository,
+                            pull_number,
+                            build_codex_mention_comment(request, delivery=delivery.delivery_number),
+                        )
+        except TimeoutError:
+            raise ProjectError(504, "Mention delivery exceeded its time budget; reconcile on the next tick") from None
         except PipelineConfigurationError as exc:
             raise ProjectError(422, str(exc)) from None
 
         comment_id = comment.get("id")
         if comment_id is None:
             raise ProjectError(502, "GitHub mention delivery returned an incomplete comment")
+        try:
+            posted_at = _utc(datetime.fromisoformat(comment["created_at"].replace("Z", "+00:00")))
+        except (KeyError, AttributeError, TypeError, ValueError):
+            raise ProjectError(502, "GitHub mention delivery returned an invalid creation time") from None
         async with AsyncTransaction() as session:
             run = await self.repo.get_leased(session, run_id, owner=owner, token=token, now=datetime.now(UTC))
             if run is None:
@@ -664,17 +680,41 @@ class PipelineRunUseCase:
             if recorded is None or recorded.id != delivery.id:
                 raise ProjectError(409, "Pipeline delivery changed during mention delivery")
             recorded.comment_id = str(comment_id)
-            recorded.posted_at = now
+            recorded.posted_at = posted_at
             attempt.state = ExecutionAttemptState.RUNNING
             attempt.external_correlation_id = str(comment_id)
             attempt.external_status = "delivered"
             attempt.conversation_url = str(comment.get("html_url")) if comment.get("html_url") else None
-            attempt.started_at = now
+            attempt.started_at = attempt.started_at or posted_at
             run.state = PipelineRunState.IMPLEMENTING
             run.next_action_at = None
             run.revision += 1
             await session.flush()
             return PipelineRunRead.model_validate(run)
+
+    async def _guard_dispatch(self, run_id: UUID, owner: str, token: UUID, expected_revision: int) -> None:
+        """Reserve a lease longer than the bounded I/O and recheck authorization before posting."""
+        now = datetime.now(UTC)
+        async with AsyncTransaction() as session:
+            run = await self.repo.get_leased(session, run_id, owner=owner, token=token, now=now)
+            if run is None:
+                await self._raise_lease_conflict(session, run_id, "authorize mention delivery")
+            if run.state != PipelineRunState.DISPATCHING or run.revision != expected_revision:
+                raise ProjectError(409, "Pipeline run changed before mention delivery")
+            project = await self.projects.get(session, run.project_id)
+            if not project.enabled or project.revision != run.project_revision:
+                raise ProjectError(409, "Project changed before mention delivery")
+            now = datetime.now(UTC)
+            renewed = await self.repo.renew_lease(
+                session,
+                run_id,
+                owner=owner,
+                token=token,
+                now=now,
+                expires_at=now + timedelta(seconds=DISPATCH_LEASE_SECONDS),
+            )
+            if renewed is None:
+                await self._raise_lease_conflict(session, run_id, "reserve mention delivery time")
 
     async def manual_advance(self, run_id: UUID, observer: PipelineObservationService) -> PipelineRunRead:
         owner = f"manual:{uuid4().hex[:8]}"
@@ -705,44 +745,93 @@ class PipelineRunUseCase:
 
     async def resume_run(self, run_id: UUID) -> PipelineRunRead:
         async with AsyncTransaction() as session:
-            run = await self.repo.get(session, run_id)
+            run = await self.repo.get(session, run_id, lock=True)
             if run is None:
                 raise ProjectError(404, "Pipeline run not found")
             if run.state not in (PipelineRunState.PAUSED, PipelineRunState.BLOCKED):
                 raise ProjectError(
                     422, f"Cannot resume a run that is not paused or blocked (current state: {run.state})"
                 )
-            # Preserve failed attempts; a resumed delivery gets a fresh attempt
-            # when there is no active request left to deliver.
+            attempts = await self.repo.list_attempts(session, run.id)
+            expected_revision = run.revision
+            project = await self.projects.get(session, run.project_id)
+            if not project.enabled or project.revision != run.project_revision:
+                raise ProjectError(409, "Project changed after this pipeline run was enrolled")
+            if project.github_connector_id is None or project.github_repository is None:
+                raise ProjectError(422, "Project missing GitHub connection for pipeline run")
+            connector_id, repository, pull_number = (
+                project.github_connector_id,
+                project.github_repository,
+                run.pull_number,
+            )
+            if attempts:
+                previous = attempts[-1]
+                prior = ImplementationRequest.model_validate(previous.request_snapshot)
+                kind = previous.kind
+            else:
+                prior, _, _ = self._build_implementation_request(run, repository)
+                kind = ExecutionAttemptKind.IMPLEMENTATION
+
+        try:
+            async with asyncio.timeout(DISPATCH_IO_SECONDS):
+                pr = await self.observer.get_pull_request(connector_id, repository, pull_number)
+            if pr.get("state") not in ("open", "closed"):
+                raise ValueError("Missing pull request state")
+            pull = prior.pull_request.model_copy(
+                update={"head_sha": pr["head"]["sha"], "head_ref": pr["head"]["ref"], "base_ref": pr["base"]["ref"]}
+            )
+            if not pull.head_sha or not pull.head_ref or not pull.base_ref:
+                raise ValueError("Missing pull request revision")
+        except TimeoutError:
+            raise ProjectError(504, "Pull request read exceeded its time budget") from None
+        except (GitHubObservationError, PipelineConfigurationError):
+            raise ProjectError(502, "Could not read the pull request before resuming") from None
+        except (KeyError, TypeError, ValueError):
+            raise ProjectError(502, "GitHub returned incomplete pull request data") from None
+
+        async with AsyncTransaction() as session:
+            run = await self.repo.get(session, run_id, lock=True)
+            if run is None or run.revision != expected_revision:
+                raise ProjectError(409, "Pipeline run changed while resuming; reload and retry")
+            project = await self.projects.get(session, run.project_id)
+            if not project.enabled or project.revision != run.project_revision:
+                raise ProjectError(409, "Project changed while resuming; reload and retry")
+            now = datetime.now(UTC)
+            if pr["state"] == "closed":
+                await self._finish_closed_pull(session, run, pr, now)
+                return PipelineRunRead.model_validate(run)
+            if pull.head_ref != run.branch:
+                raise ProjectError(409, "Pull request branch changed; enroll it again")
+            active = await self.repo.active_attempt(session, run.id)
+            if active is not None:
+                active.state = ExecutionAttemptState.FAILED
+                active.finished_at = now
+                active.failure_code = "USER_RESUMED"
+                active.failure_detail = "Superseded by a user-initiated resume"
+            run.epoch += 1
+            key = uuid4()
+            implementation = prior.model_copy(update={"correlation_marker": f"hub-attempt:{key}", "pull_request": pull})
+            snapshot = implementation.model_dump(mode="json")
+            canonical = json.dumps(snapshot, sort_keys=True, separators=(",", ":"))
+            attempt = await self.repo.create_attempt(
+                session,
+                ExecutionAttempt(
+                    pipeline_run_id=run.id,
+                    attempt_number=await self.repo.next_attempt_number(session, run.id),
+                    epoch=run.epoch,
+                    kind=kind,
+                    state=ExecutionAttemptState.PLANNED,
+                    request_snapshot=snapshot,
+                    request_digest=sha256(canonical.encode()).hexdigest(),
+                    idempotency_key=key,
+                ),
+            )
+            await self.repo.create_delivery(
+                session, ExecutionDelivery(execution_attempt_id=attempt.id, delivery_number=1, cause="resume")
+            )
             run.state = PipelineRunState.DISPATCHING
             run.next_action_at = None
             run.pause_reason = None
-            run.epoch += 1
-            if await self.repo.active_attempt(session, run.id) is None:
-                attempts = await self.repo.list_attempts(session, run.id)
-                if not attempts:
-                    run.state = PipelineRunState.QUEUED
-                else:
-                    previous = attempts[-1]
-                    key = uuid4()
-                    implementation = ImplementationRequest.model_validate(previous.request_snapshot).model_copy(
-                        update={"correlation_marker": f"hub-attempt:{key}"}
-                    )
-                    snapshot = implementation.model_dump(mode="json")
-                    canonical = json.dumps(snapshot, sort_keys=True, separators=(",", ":"))
-                    await self.repo.create_attempt(
-                        session,
-                        ExecutionAttempt(
-                            pipeline_run_id=run.id,
-                            attempt_number=await self.repo.next_attempt_number(session, run.id),
-                            epoch=run.epoch,
-                            kind=previous.kind,
-                            state=ExecutionAttemptState.PLANNED,
-                            request_snapshot=snapshot,
-                            request_digest=sha256(canonical.encode()).hexdigest(),
-                            idempotency_key=key,
-                        ),
-                    )
             run.revision += 1
             await session.flush()
             return PipelineRunRead.model_validate(run)

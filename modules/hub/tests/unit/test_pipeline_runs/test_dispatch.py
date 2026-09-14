@@ -1,6 +1,4 @@
 import json
-from io import BytesIO
-from zipfile import ZIP_DEFLATED, ZipFile
 
 import httpx
 import pytest
@@ -186,16 +184,22 @@ class TestGitHubMentionDelivery:
         assert result["merged"] is True
 
     async def test_failed_job_log_is_bounded_and_redacted(self):
-        archive = BytesIO()
-        with ZipFile(archive, "w", ZIP_DEFLATED) as logs:
-            logs.writestr("job.txt", "line\n" + "tail\n" * 1_000 + "Authorization: Bearer secret-token\n")
+        log = "line\n" + "tail\n" * 1_000 + "Authorization: Bearer secret-token\n"
 
         def respond(request: httpx.Request) -> httpx.Response:
-            assert request.url.path == "/repos/owner/repository/actions/jobs/8/logs"
-            return httpx.Response(200, content=archive.getvalue())
+            if request.url.host == "api.github.com":
+                assert request.url.path == "/repos/owner/repository/actions/jobs/8/logs"
+                assert request.headers["authorization"] == "Bearer github-test-token"
+                return httpx.Response(302, headers={"location": "https://logs.githubusercontent.com/job.txt"})
+            assert request.url.host == "logs.githubusercontent.com"
+            assert "authorization" not in request.headers
+            assert "cookie" not in request.headers
+            return httpx.Response(200, text=log)
 
         async with httpx.AsyncClient(
-            base_url="https://api.github.com", transport=httpx.MockTransport(respond)
+            base_url="https://api.github.com",
+            headers={"authorization": "Bearer github-test-token", "cookie": "session=test"},
+            transport=httpx.MockTransport(respond),
         ) as client:
             excerpt = await GitHubActionsReader(client).job_log_excerpt("owner/repository", 8, max_chars=100)
 
@@ -203,3 +207,50 @@ class TestGitHubMentionDelivery:
         assert "secret-token" not in excerpt
         assert "[REDACTED]" in excerpt
         assert len(excerpt) <= 100
+
+
+@pytest.mark.parametrize("status", [200, 302])
+async def test_plain_text_job_logs_support_direct_and_redirected_responses(status):
+    def respond(request):
+        if request.url.host == "api.github.com" and status == 302:
+            return httpx.Response(302, headers={"location": "https://logs.githubusercontent.com/job.txt"})
+        return httpx.Response(200, text="AssertionError: expected 200, got 500")
+
+    async with httpx.AsyncClient(base_url="https://api.github.com", transport=httpx.MockTransport(respond)) as client:
+        excerpt = await GitHubActionsReader(client).job_log_excerpt("owner/app", 1)
+    assert excerpt == "AssertionError: expected 200, got 500"
+
+
+@pytest.mark.parametrize(
+    "location", ["", "http://logs.githubusercontent.com/job.txt", "https://user:password@example.com/log"]
+)
+async def test_job_log_redirect_rejects_unsafe_urls(location):
+    requests = []
+
+    def respond(request):
+        requests.append(request)
+        return httpx.Response(302, headers={"location": location})
+
+    async with httpx.AsyncClient(base_url="https://api.github.com", transport=httpx.MockTransport(respond)) as client:
+        with pytest.raises(GitHubObservationError, match="invalid download URL"):
+            await GitHubActionsReader(client).job_log_excerpt("owner/app", 1)
+    assert len(requests) == 1
+
+
+async def test_job_log_stream_stops_at_the_size_limit():
+    class LogStream(httpx.AsyncByteStream):
+        chunks_read = 0
+
+        async def __aiter__(self):
+            for _ in range(10):
+                self.chunks_read += 1
+                yield b"x" * 1_000_000
+
+    stream = LogStream()
+    async with httpx.AsyncClient(
+        base_url="https://api.github.com",
+        transport=httpx.MockTransport(lambda request: httpx.Response(200, stream=stream)),
+    ) as client:
+        with pytest.raises(GitHubObservationError, match="size limit"):
+            await GitHubActionsReader(client).job_log_excerpt("owner/app", 1)
+    assert stream.chunks_read == 3

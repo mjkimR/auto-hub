@@ -173,8 +173,19 @@ async def test_resume_run_transitions_paused_run_back_to_active():
     use_case = PipelineRunUseCase(repo, projects, selector)
 
     mock_run = create_mock_run(state=PipelineRunState.PAUSED, pull_number=42)
+    mock_run.branch = "feature"
     repo.get = AsyncMock(return_value=mock_run)
-    repo.active_attempt = AsyncMock(return_value=MagicMock(spec=ExecutionAttempt))
+    repo.active_attempt = AsyncMock(return_value=None)
+    repo.list_attempts = AsyncMock(return_value=[])
+    repo.next_attempt_number = AsyncMock(return_value=1)
+    repo.create_attempt = AsyncMock(return_value=MagicMock(id=uuid4()))
+    repo.create_delivery = AsyncMock()
+    projects.get = AsyncMock(
+        return_value=MagicMock(enabled=True, revision=1, github_repository="owner/repo", github_connector_id=uuid4())
+    )
+    selector.get_pull_request = AsyncMock(
+        return_value={"state": "open", "head": {"sha": "b" * 40, "ref": "feature"}, "base": {"ref": "main"}}
+    )
 
     with MagicMock() as mock_tx:
         mock_session = AsyncMock()

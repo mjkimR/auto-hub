@@ -36,7 +36,7 @@ class GitHubScenario:
                 "event": "pull_request",
                 "path": ".github/workflows/ci.yml",
                 "head_repository": {"full_name": "owner/app"},
-                "pull_requests": [{"number": 42, "head": {"sha": HEAD}}],
+                "pull_requests": [{"number": 42, "head": {"sha": HEAD}, "base": {"sha": "b" * 40}}],
                 "status": "completed",
                 "conclusion": "success",
                 "html_url": "https://github.com/owner/app/actions/runs/10",
@@ -267,3 +267,27 @@ class TestPipelineObservationAPI:
         response = await client.get("/api/v1/tasks/specs?name=pipeline.observe")
         assert_status_code(response, 200)
         assert response.json()[0]["payload_schema"]["title"] == "PipelineObservationConfig"
+
+
+@pytest.mark.parametrize("verified_base", [None, "c" * 40])
+async def test_missing_or_stale_ci_base_cannot_pass(client, observation_payload, github_scenario, verified_base):
+    github_scenario.runs[0]["pull_requests"][0]["base"] = {"sha": verified_base}
+
+    response = await client.post("/api/v1/pipelines/inspect", json=observation_payload)
+
+    assert_status_code(response, 200)
+    result = response.json()["pulls"][0]["result"]
+    assert result["status"] == "waiting"
+    assert "current PR base" in result["reason"]
+    assert not any(request.url.path.endswith("/jobs") for request in github_scenario.requests)
+
+
+async def test_base_change_before_observation_invalidates_old_success(client, observation_payload, github_scenario):
+    assert (await client.post("/api/v1/pipelines/inspect", json=observation_payload)).json()["pulls"][0]["result"][
+        "status"
+    ] == "passed"
+    github_scenario.pr["base"]["sha"] = "c" * 40
+
+    response = await client.post("/api/v1/pipelines/inspect", json=observation_payload)
+
+    assert response.json()["pulls"][0]["result"]["status"] == "waiting"

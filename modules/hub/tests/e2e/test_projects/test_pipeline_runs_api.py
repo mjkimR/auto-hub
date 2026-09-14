@@ -424,24 +424,18 @@ async def prepare_run(client, project):
 
 
 class TestRunRecovery:
-    async def test_resume_before_attempt_preparation_can_prepare_again(self, client, project):
+    async def test_resume_before_attempt_preparation_uses_current_head(self, client, project, github):
         run = (await enroll(client, project)).json()
         root = f"/api/v1/pipeline-runs/{run['id']}"
         assert_status_code(await client.post(f"{root}/pause"), 200)
+        github.pulls[7]["head"]["sha"] = "e" * 40
         resumed = await client.post(f"{root}/resume")
         assert_status_code(resumed, 200)
-        assert resumed.json()["state"] == "queued"
-        lease = (await client.post(f"{root}/lease", json={"owner": "resumed-worker"})).json()
-        prepared = await client.post(
-            f"{root}/attempts/implementation",
-            json={
-                "owner": lease["owner"],
-                "token": lease["token"],
-                "expected_run_revision": resumed.json()["revision"],
-            },
-        )
-        assert_status_code(prepared, 200)
-        assert prepared.json()["attempt"]["epoch"] == 2
+        assert resumed.json()["state"] == "dispatching"
+        attempts = (await client.get(f"{root}/attempts")).json()["items"]
+        assert len(attempts) == 1
+        assert attempts[0]["epoch"] == 2
+        assert attempts[0]["request_snapshot"]["pull_request"]["head_sha"] == "e" * 40
 
     async def test_resume_after_environment_failure_delivers_new_attempt(
         self, client, project, github, session, monkeypatch
@@ -459,11 +453,19 @@ class TestRunRecovery:
         comments = []
 
         def respond(request):
+            if request.url.path == "/repos/owner/app/pulls/7":
+                return httpx.Response(200, json=github.pulls[7])
             if request.url.path == "/user":
                 return httpx.Response(200, json={"login": "connector-user", "type": "User"})
             if request.url.path.endswith("/comments"):
                 if request.method == "POST":
-                    comments.append({"id": 123, "body": json.loads(request.content)["body"]})
+                    comments.append(
+                        {
+                            "id": 123,
+                            "body": json.loads(request.content)["body"],
+                            "created_at": datetime.now(UTC).isoformat(),
+                        }
+                    )
                     return httpx.Response(201, json=comments[-1])
                 return httpx.Response(200, json=comments)
             raise AssertionError(f"Unexpected request: {request.method} {request.url.path}")
@@ -549,3 +551,188 @@ async def test_ready_batch_filters_before_limit(client, project, github, session
     ready = await PipelineRunRepository().list_active(session, UUID(project["id"]), limit=1, ready_at=now)
 
     assert [str(run.id) for run in ready] == [second["id"]]
+
+
+@pytest.fixture
+def mention_github(github, monkeypatch):
+    original = github.respond
+    comments = []
+
+    def respond(request):
+        if request.url.path == "/user":
+            return httpx.Response(200, json={"login": "connector-user", "type": "User"})
+        if request.url.path.endswith("/comments"):
+            if request.method == "POST":
+                comments.append(
+                    {
+                        "id": len(comments) + 100,
+                        "body": json.loads(request.content)["body"],
+                        "created_at": datetime.now(UTC).isoformat(),
+                        "user": {"login": "connector-user"},
+                    }
+                )
+                return httpx.Response(201, json=comments[-1])
+            return httpx.Response(200, json=comments)
+        return original(request)
+
+    monkeypatch.setattr(github, "respond", respond)
+    return comments
+
+
+async def test_resume_requires_a_new_push_and_preserves_previous_request(client, project, github, mention_github):
+    run, original = await prepare_run(client, project)
+    root = f"/api/v1/pipeline-runs/{run['id']}"
+    assert_status_code(await client.post(f"{root}/advance"), 200)
+    github.pulls[7]["head"]["sha"] = "e" * 40
+    assert (await client.post(f"{root}/advance")).json()["state"] == "awaiting_ci"
+    assert_status_code(await client.post(f"{root}/pause"), 200)
+
+    resumed = await client.post(f"{root}/resume")
+    assert_status_code(resumed, 200)
+    assert resumed.json()["state"] == "dispatching"
+    assert (await client.post(f"{root}/advance")).json()["state"] == "implementing"
+    assert (await client.post(f"{root}/advance")).json()["state"] == "implementing"
+    attempts = (await client.get(f"{root}/attempts")).json()["items"]
+    assert len(attempts) == 2
+    assert attempts[0]["request_snapshot"] == original["request_snapshot"]
+    assert attempts[0]["state"] == "failed"
+    assert attempts[1]["request_snapshot"]["pull_request"]["head_sha"] == "e" * 40
+    assert attempts[1]["idempotency_key"] != original["idempotency_key"]
+    canonical = json.dumps(attempts[1]["request_snapshot"], sort_keys=True, separators=(",", ":"))
+    assert attempts[1]["request_digest"] == sha256(canonical.encode()).hexdigest()
+    deliveries = (await client.get(f"{root}/attempts/{attempts[1]['id']}/deliveries")).json()
+    assert deliveries[0]["cause"] == "resume"
+    assert f"head={'e' * 40}" in mention_github[-1]["body"]
+
+    github.pulls[7]["head"]["sha"] = "f" * 40
+    assert (await client.post(f"{root}/advance")).json()["state"] == "awaiting_ci"
+
+
+async def test_reconciled_delivery_preserves_time_and_processes_existing_quota_reply(client, project, mention_github):
+    from app.features.project_management.pipeline_runs.dispatch import build_codex_mention_comment
+    from app.features.project_management.pipeline_runs.schemas import ImplementationRequest
+
+    run, attempt = await prepare_run(client, project)
+    root = f"/api/v1/pipeline-runs/{run['id']}"
+    posted_at = datetime.now(UTC) - timedelta(hours=5)
+    replied_at = posted_at + timedelta(minutes=1)
+    mention_github.extend(
+        [
+            {
+                "id": 77,
+                "body": build_codex_mention_comment(ImplementationRequest.model_validate(attempt["request_snapshot"])),
+                "created_at": posted_at.isoformat(),
+                "user": {"login": "connector-user"},
+            },
+            {
+                "id": 78,
+                "body": "You reached a Codex usage limit.",
+                "created_at": replied_at.isoformat(),
+                "user": {"login": "chatgpt-codex-connector"},
+            },
+        ]
+    )
+    assert_status_code(await client.post(f"{root}/advance"), 200)
+    deliveries = (await client.get(f"{root}/attempts/{attempt['id']}/deliveries")).json()
+    stored_time = datetime.fromisoformat(deliveries[0]["posted_at"].replace("Z", "+00:00")).replace(tzinfo=UTC)
+    assert stored_time == posted_at
+    assert deliveries[0]["comment_id"] == "77"
+
+    response = await client.post(f"{root}/advance")
+    assert_status_code(response, 200)
+    assert response.json()["state"] == "dispatching"
+    due = datetime.fromisoformat(response.json()["next_action_at"].replace("Z", "+00:00")).replace(tzinfo=UTC)
+    assert due == replied_at + timedelta(hours=5, minutes=10)
+    replies = (await client.get(f"{root}/attempts/{attempt['id']}/replies")).json()
+    assert len(replies) == 1 and replies[0]["is_quota_limit"] is True
+    assert len(mention_github) == 2
+
+
+async def test_expired_dispatcher_cannot_post_after_another_worker_takes_over(
+    client, project, mention_github, session, monkeypatch
+):
+    import asyncio
+
+    from app.features.project_management.pipelines.github import GitHubActionsReader
+
+    run, attempt = await prepare_run(client, project)
+    root = f"/api/v1/pipeline-runs/{run['id']}"
+    original = GitHubActionsReader.reconcile_issue_comment
+    observed_absent, allow_old_response = asyncio.Event(), asyncio.Event()
+    reads = 0
+
+    async def delayed_reconcile(reader, *args):
+        nonlocal reads
+        reads += 1
+        result = await original(reader, *args)
+        if reads == 1:
+            observed_absent.set()
+            await allow_old_response.wait()
+        return result
+
+    monkeypatch.setattr(GitHubActionsReader, "reconcile_issue_comment", delayed_reconcile)
+    first = asyncio.create_task(client.post(f"{root}/advance"))
+    try:
+        await asyncio.wait_for(observed_absent.wait(), timeout=5)
+        await session.execute(
+            update(PipelineRun)
+            .where(PipelineRun.id == UUID(run["id"]))
+            .values(lease_expires_at=datetime.now(UTC) - timedelta(seconds=1))
+        )
+        await session.commit()
+        second = await client.post(f"{root}/advance")
+        assert_status_code(second, 200)
+        assert second.json()["state"] == "implementing"
+    finally:
+        allow_old_response.set()
+    rejected = await first
+    assert_status_code(rejected, 409)
+    assert len(mention_github) == 1
+    deliveries = (await client.get(f"{root}/attempts/{attempt['id']}/deliveries")).json()
+    assert len(deliveries) == 1
+    assert deliveries[0]["comment_id"] == str(mention_github[0]["id"])
+
+
+async def test_delivery_timeout_leaves_one_reconcilable_delivery(client, project, mention_github, monkeypatch):
+    import asyncio
+
+    from app.features.project_management.pipelines.github import GitHubActionsReader
+
+    run, attempt = await prepare_run(client, project)
+    root = f"/api/v1/pipeline-runs/{run['id']}"
+
+    async def stall(*args):
+        await asyncio.Event().wait()
+
+    with monkeypatch.context() as patched:
+        patched.setattr(run_usecases, "DISPATCH_IO_SECONDS", 0.05)
+        patched.setattr(GitHubActionsReader, "reconcile_issue_comment", stall)
+        response = await client.post(f"{root}/advance")
+    assert_status_code(response, 504)
+    assert mention_github == []
+    assert_status_code(await client.post(f"{root}/advance"), 200)
+    deliveries = (await client.get(f"{root}/attempts/{attempt['id']}/deliveries")).json()
+    assert len(deliveries) == 1
+    assert len(mention_github) == 1
+
+
+@pytest.mark.parametrize("invalid_time", [None, "not-a-timestamp"])
+async def test_invalid_comment_time_is_not_replaced_by_recovery_time(client, project, mention_github, invalid_time):
+    from app.features.project_management.pipeline_runs.dispatch import build_codex_mention_comment
+    from app.features.project_management.pipeline_runs.schemas import ImplementationRequest
+
+    run, attempt = await prepare_run(client, project)
+    root = f"/api/v1/pipeline-runs/{run['id']}"
+    mention_github.append(
+        {
+            "id": 77,
+            "body": build_codex_mention_comment(ImplementationRequest.model_validate(attempt["request_snapshot"])),
+            "created_at": invalid_time,
+            "user": {"login": "connector-user"},
+        }
+    )
+    for _ in range(2):
+        assert_status_code(await client.post(f"{root}/advance"), 502)
+    assert len(mention_github) == 1
+    deliveries = (await client.get(f"{root}/attempts/{attempt['id']}/deliveries")).json()
+    assert deliveries[0]["posted_at"] is None

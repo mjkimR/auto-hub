@@ -1,8 +1,6 @@
 """GitHub Actions adapter. It never checks out or executes repository code."""
 
-import io
 import re
-import zipfile
 from typing import Any
 from urllib.parse import quote
 
@@ -77,31 +75,39 @@ class GitHubActionsReader:
         return value
 
     async def job_log_excerpt(self, repository: str, job_id: int, *, max_chars: int = 2_000) -> str | None:
-        """Return a bounded, redacted tail of one failed job log.
-
-        GitHub returns a zip archive.  Both archive input and extracted output
-        are capped so an upstream response cannot exhaust worker memory.
-        """
-        if job_id <= 0:
+        """Read the bounded plain-text log behind GitHub's short-lived redirect."""
+        if job_id <= 0 or max_chars <= 0:
             return None
+        response = None
         try:
-            response = await self.client.get(f"/repos/{repository}/actions/jobs/{job_id}/logs")
+            request = self.client.build_request("GET", f"/repos/{repository}/actions/jobs/{job_id}/logs")
+            response = await self.client.send(request, stream=True, follow_redirects=False)
+            if response.status_code == 302:
+                location = httpx.URL(response.headers.get("location", ""))
+                if location.scheme != "https" or not location.host or location.username or location.password:
+                    raise GitHubObservationError("GitHub job log returned an invalid download URL")
+                await response.aclose()
+                request = self.client.build_request("GET", location)
+                # The signed URL carries its own authorization; never forward the PAT or cookies.
+                request.headers.pop("authorization", None)
+                request.headers.pop("cookie", None)
+                response = await self.client.send(request, stream=True, follow_redirects=False, auth=None)
             response.raise_for_status()
+            content = bytearray()
+            async for chunk in response.aiter_bytes():
+                if len(content) + len(chunk) > 2_000_000:
+                    raise GitHubObservationError("GitHub job log exceeded its size limit")
+                content.extend(chunk)
+            return _redact_log(content.decode("utf-8", errors="replace"))[-max_chars:] or None
         except httpx.HTTPStatusError as exc:
             raise GitHubObservationError(f"GitHub job log returned HTTP {exc.response.status_code}") from None
         except httpx.RequestError:
             raise GitHubObservationError("GitHub job log request failed") from None
-        if len(response.content) > 2_000_000:
-            raise GitHubObservationError("GitHub job log archive exceeded its size limit")
-        try:
-            with zipfile.ZipFile(io.BytesIO(response.content)) as archive:
-                files = [item for item in archive.infolist() if not item.is_dir()]
-                if not files or sum(item.file_size for item in files) > 200_000:
-                    raise GitHubObservationError("GitHub job log archive exceeded its extraction limit")
-                text = b"".join(archive.read(item) for item in files).decode("utf-8", errors="replace")
-        except zipfile.BadZipFile:
-            raise GitHubObservationError("GitHub job log returned an invalid archive") from None
-        return _redact_log(text[-max_chars:]) or None
+        except httpx.InvalidURL:
+            raise GitHubObservationError("GitHub job log returned an invalid download URL") from None
+        finally:
+            if response is not None:
+                await response.aclose()
 
     async def current_login(self) -> str:
         user = await self._get("/user")
@@ -248,6 +254,13 @@ class GitHubActionsReader:
         if candidates:
             # Select the latest execution, never an older successful run while its replacement is pending.
             run = max(candidates, key=lambda item: (item["run_number"], item["id"]))
+            verified_pull = next(pull for pull in run["pull_requests"] if pull["number"] == number)
+            if (verified_pull.get("base") or {}).get("sha") != observation.base_sha:
+                observation.result = VerificationResult(
+                    status=VerificationStatus.WAITING,
+                    reason="No workflow verification for the current PR base; run CI against the latest base",
+                )
+                return observation
             jobs = await self._list(f"{root}/actions/runs/{run['id']}/jobs", "jobs", {"filter": "latest"})
             observation.run = RunSnapshot(
                 id=run["id"],
