@@ -230,7 +230,7 @@ gcloud scheduler jobs create http auto-hub-dispatcher-tick \
    - `${SERVICE_URL}/docs` 에서 API 문서가 정상 응답하는지 확인합니다.
 3. **GitHub 저장소 Webhook 등록 (Phase 5 연동)**
    - 대상 GitHub 저장소의 `Settings → Webhooks → Add webhook` 이동
-   - **Payload URL**: `${SERVICE_URL}/api/v1/webhooks/github`
+   - **Payload URL**: `${SERVICE_URL}/api/github/webhooks`
    - **Content type**: `application/json`
    - **Secret**: `auto-hub-webhook-secret` 값 입력
    - **Events**: `Let me select individual events` 선택 후:

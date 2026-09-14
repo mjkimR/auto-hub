@@ -478,3 +478,60 @@ class TestTemplates:
         templates = (await client.get("/api/v1/projects/templates")).json()
         version = next(template["version"] for template in templates if template["id"] == "python-uv")
         assert response.json()["template_version"] == version
+
+
+class TestProjectDispatchScheduleLifecycle:
+    async def test_project_automatically_creates_syncs_and_deletes_dispatch_schedule(self, client, project_payload):
+        # 1. Project creation automatically creates a dispatch schedule
+        res = await client.post("/api/v1/projects", json=project_payload)
+        assert_status_code(res, 201)
+        project = res.json()
+
+        schedules = (await client.get("/api/v1/schedule_configs")).json()["items"]
+        dispatch_sched = next(
+            (
+                s
+                for s in schedules
+                if s["task_func"] == "pipeline.dispatch_project" and s["payload"].get("project_id") == project["id"]
+            ),
+            None,
+        )
+        assert dispatch_sched is not None
+        assert dispatch_sched["name"] == f"Dispatch {project['name']}"
+        assert dispatch_sched["enabled"] is True
+        assert dispatch_sched["interval_seconds"] == 60
+
+        # 2. Updating project name/enabled syncs the dispatch schedule
+        update_res = await client.put(
+            f"/api/v1/projects/{project['id']}",
+            json={**project_payload, "name": "Renamed App", "enabled": False, "expected_revision": project["revision"]},
+        )
+        assert_status_code(update_res, 200)
+
+        schedules = (await client.get("/api/v1/schedule_configs")).json()["items"]
+        dispatch_sched = next(
+            (
+                s
+                for s in schedules
+                if s["task_func"] == "pipeline.dispatch_project" and s["payload"].get("project_id") == project["id"]
+            ),
+            None,
+        )
+        assert dispatch_sched is not None
+        assert dispatch_sched["name"] == "Dispatch Renamed App"
+        assert dispatch_sched["enabled"] is False
+
+        # 3. Deleting project automatically cleans up the dispatch schedule
+        del_res = await client.delete(f"/api/v1/projects/{project['id']}")
+        assert_status_code(del_res, 204)
+
+        schedules = (await client.get("/api/v1/schedule_configs")).json()["items"]
+        dispatch_sched = next(
+            (
+                s
+                for s in schedules
+                if s["task_func"] == "pipeline.dispatch_project" and s["payload"].get("project_id") == project["id"]
+            ),
+            None,
+        )
+        assert dispatch_sched is None

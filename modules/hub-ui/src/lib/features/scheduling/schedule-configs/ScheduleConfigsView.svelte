@@ -29,7 +29,10 @@
 		PauseCircle,
 		Play,
 		Plus,
-		Clock
+		Clock,
+		Pencil,
+		Trash2,
+		AlertTriangle
 	} from '@lucide/svelte';
 
 	type ScheduleConfig = components['schemas']['ScheduleConfigRead'];
@@ -52,7 +55,26 @@
 	let intervalSeconds = $state(300);
 	let payloadObject = $state<Record<string, unknown>>({});
 
+	// Edit dialog state
+	let isEditDialogOpen = $state(false);
+	let isEditSubmitting = $state(false);
+	let editingConfigId = $state<string | null>(null);
+	let editName = $state('');
+	let editDesc = $state('');
+	let editTaskFunc = $state('');
+	let editScheduleType = $state<'cron' | 'interval'>('interval');
+	let editCronExpr = $state('0 9 * * 1-5');
+	let editIntervalSeconds = $state(60);
+	let editPayloadObject = $state<Record<string, unknown>>({});
+	let editEnabled = $state(true);
+
+	// Delete dialog state
+	let isDeleteDialogOpen = $state(false);
+	let isDeleting = $state(false);
+	let deletingConfig = $state<ScheduleConfig | null>(null);
+
 	let selectedTaskSpec = $derived(taskSpecs.find((s) => s.name === formTaskFunc));
+	let editSelectedTaskSpec = $derived(taskSpecs.find((s) => s.name === editTaskFunc));
 
 	let filteredConfigs = $derived(
 		configs.filter(
@@ -61,6 +83,13 @@
 				c.task_func.toLowerCase().includes(searchQuery.toLowerCase())
 		)
 	);
+
+	function isProjectManaged(config: ScheduleConfig): boolean {
+		return (
+			config.task_func === 'pipeline.dispatch_project' ||
+			config.task_func === 'pipeline.observe_project'
+		);
+	}
 
 	async function loadConfigs() {
 		loading = true;
@@ -155,6 +184,84 @@
 		}
 	}
 
+	function openEdit(config: ScheduleConfig) {
+		editingConfigId = config.id;
+		editName = config.name;
+		editDesc = config.description ?? '';
+		editTaskFunc = config.task_func;
+		editScheduleType = config.cron_expression ? 'cron' : 'interval';
+		editCronExpr = config.cron_expression ?? '0 9 * * 1-5';
+		editIntervalSeconds = config.interval_seconds ?? 60;
+		editPayloadObject = config.payload ? JSON.parse(JSON.stringify(config.payload)) : {};
+		editEnabled = config.enabled;
+		isEditDialogOpen = true;
+	}
+
+	async function handleUpdateSchedule(e: SubmitEvent) {
+		e.preventDefault();
+		if (!editingConfigId || !editName.trim()) {
+			toast.error('Schedule name is required');
+			return;
+		}
+
+		isEditSubmitting = true;
+		try {
+			const res = await api.PUT('/api/v1/schedule_configs/{schedule_config_id}', {
+				params: { path: { schedule_config_id: editingConfigId } },
+				body: {
+					name: editName.trim(),
+					description: editDesc.trim() || null,
+					task_func: editTaskFunc,
+					cron_expression: editScheduleType === 'cron' ? editCronExpr : null,
+					interval_seconds: editScheduleType === 'interval' ? Number(editIntervalSeconds) : null,
+					payload: editPayloadObject,
+					enabled: editEnabled
+				}
+			});
+
+			if (res.error) {
+				toast.error('Failed to update schedule');
+			} else {
+				toast.success(`Schedule ${editName} updated!`);
+				isEditDialogOpen = false;
+				loadConfigs();
+			}
+		} catch {
+			toast.error('Error updating schedule configuration');
+		} finally {
+			isEditSubmitting = false;
+		}
+	}
+
+	function openDelete(config: ScheduleConfig) {
+		deletingConfig = config;
+		isDeleteDialogOpen = true;
+	}
+
+	async function confirmDelete() {
+		if (!deletingConfig) return;
+
+		isDeleting = true;
+		try {
+			const res = await api.DELETE('/api/v1/schedule_configs/{schedule_config_id}', {
+				params: { path: { schedule_config_id: deletingConfig.id } }
+			});
+
+			if (res.error) {
+				toast.error('Failed to delete schedule');
+			} else {
+				toast.success(`Schedule ${deletingConfig.name} deleted`);
+				isDeleteDialogOpen = false;
+				deletingConfig = null;
+				loadConfigs();
+			}
+		} catch {
+			toast.error('Error deleting schedule');
+		} finally {
+			isDeleting = false;
+		}
+	}
+
 	onMount(() => {
 		loadConfigs();
 	});
@@ -169,7 +276,7 @@
 				Automated cron triggers and execution cadence rules
 			</p>
 		</div>
-		<div class="flex items-center gap-3">
+		<div class="flex items-center gap-2">
 			<Button variant="outline" size="sm" onclick={loadConfigs} disabled={loading} class="gap-2">
 				<RefreshCw class="size-4 {loading ? 'animate-spin' : ''}" />
 				Refresh
@@ -181,7 +288,7 @@
 				disabled={isTriggering}
 				class="gap-2"
 			>
-				<Play class="size-3.5 {isTriggering ? 'animate-spin' : ''}" />
+				<Play class="size-3.5" />
 				Trigger Dispatcher
 			</Button>
 			<Button size="sm" onclick={() => (isDialogOpen = true)} class="gap-2">
@@ -191,38 +298,39 @@
 		</div>
 	</div>
 
-	<!-- Controls & Search -->
-	<div class="flex items-center gap-3">
+	<!-- Search & Filter Bar -->
+	<div class="flex items-center gap-2">
 		<div class="relative max-w-sm flex-1">
 			<Search class="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
 			<Input
 				placeholder="Search by schedule or task func..."
 				bind:value={searchQuery}
-				class="h-10 pl-9"
+				class="h-9 pl-9 text-xs"
 			/>
 		</div>
 	</div>
 
-	<!-- Table Container -->
-	<div
-		class="overflow-hidden rounded-xl border border-border/80 bg-card/60 shadow-sm backdrop-blur-sm"
-	>
+	<!-- Configurations Table -->
+	<div class="rounded-md border bg-card">
 		<Table>
 			<TableHeader>
 				<TableRow>
-					<TableHead class="w-[220px]">Schedule Name</TableHead>
+					<TableHead>Schedule Name</TableHead>
 					<TableHead>Target Task</TableHead>
-					<TableHead class="w-[160px]">Trigger Cadence</TableHead>
-					<TableHead class="w-[120px]">Status</TableHead>
-					<TableHead class="w-[180px]">Next Run</TableHead>
-					<TableHead class="w-[100px] text-right">Actions</TableHead>
+					<TableHead>Trigger Cadence</TableHead>
+					<TableHead>Status</TableHead>
+					<TableHead>Next Run</TableHead>
+					<TableHead class="text-right">Actions</TableHead>
 				</TableRow>
 			</TableHeader>
 			<TableBody>
-				{#if loading}
+				{#if loading && configs.length === 0}
 					<TableRow>
 						<TableCell colspan={6} class="h-32 text-center text-muted-foreground">
-							Loading schedules...
+							<div class="flex items-center justify-center gap-2">
+								<RefreshCw class="size-4 animate-spin" />
+								<span>Loading configurations...</span>
+							</div>
 						</TableCell>
 					</TableRow>
 				{:else if filteredConfigs.length === 0}
@@ -238,7 +346,17 @@
 					{#each filteredConfigs as config (config.id)}
 						<TableRow class="transition-colors hover:bg-muted/40">
 							<TableCell>
-								<div class="font-semibold text-foreground">{config.name}</div>
+								<div class="flex items-center gap-2">
+									<span class="font-semibold text-foreground">{config.name}</span>
+									{#if isProjectManaged(config)}
+										<Badge
+											variant="outline"
+											class="border-blue-500/30 bg-blue-500/10 text-[10px] text-blue-600 dark:text-blue-400"
+										>
+											Project Managed
+										</Badge>
+									{/if}
+								</div>
 								{#if config.description}
 									<div class="line-clamp-1 text-xs text-muted-foreground">{config.description}</div>
 								{/if}
@@ -279,14 +397,34 @@
 								{config.next_run_at ? new Date(config.next_run_at).toLocaleString() : '—'}
 							</TableCell>
 							<TableCell class="text-right">
-								<Button
-									variant="outline"
-									size="sm"
-									onclick={() => toggleEnable(config)}
-									class="h-8 text-xs"
-								>
-									{config.enabled ? 'Pause' : 'Resume'}
-								</Button>
+								<div class="flex items-center justify-end gap-1.5">
+									<Button
+										variant="outline"
+										size="sm"
+										onclick={() => toggleEnable(config)}
+										class="h-8 text-xs"
+									>
+										{config.enabled ? 'Pause' : 'Resume'}
+									</Button>
+									<Button
+										variant="outline"
+										size="icon"
+										class="size-8 text-muted-foreground hover:text-foreground"
+										onclick={() => openEdit(config)}
+										title="Edit Schedule"
+									>
+										<Pencil class="size-3.5" />
+									</Button>
+									<Button
+										variant="outline"
+										size="icon"
+										class="size-8 text-muted-foreground hover:border-destructive/30 hover:bg-destructive/10 hover:text-destructive"
+										onclick={() => openDelete(config)}
+										title="Delete Schedule"
+									>
+										<Trash2 class="size-3.5" />
+									</Button>
+								</div>
 							</TableCell>
 						</TableRow>
 					{/each}
@@ -325,25 +463,29 @@
 				<!-- Task Target Selection -->
 				<div class="space-y-2">
 					<label for="scTask" class="text-xs font-semibold text-muted-foreground uppercase"
-						>Target Worker Task</label
+						>Target Task</label
 					>
 					<select
 						id="scTask"
-						class="h-10 w-full rounded-md border border-input bg-background px-3 text-xs focus:border-primary focus:outline-none"
+						class="w-full rounded-md border border-input bg-background px-3 py-2 text-xs shadow-xs focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
 						bind:value={formTaskFunc}
 						required
 					>
-						<option value="" disabled>Select worker task...</option>
+						<option value="" disabled selected>Select a task function to execute...</option>
 						{#each taskSpecs as spec (spec.name)}
-							<option value={spec.name}>{spec.name} — {spec.description || 'No description'}</option
-							>
+							<option value={spec.name}>{spec.name}</option>
 						{/each}
 					</select>
+					{#if selectedTaskSpec?.description}
+						<p class="text-[11px] text-muted-foreground italic">{selectedTaskSpec.description}</p>
+					{/if}
 				</div>
 
-				<!-- Trigger Type Selector -->
+				<!-- Schedule Cadence Type Selection -->
 				<div class="space-y-2">
-					<span class="text-xs font-semibold text-muted-foreground uppercase">Schedule Type</span>
+					<span class="text-xs font-semibold text-muted-foreground uppercase"
+						>Execution Cadence</span
+					>
 					<div class="flex gap-2">
 						<Button
 							type="button"
@@ -415,6 +557,191 @@
 					</Button>
 				</DialogFooter>
 			</form>
+		</DialogContent>
+	</Dialog>
+
+	<!-- Edit Schedule Dialog -->
+	<Dialog bind:open={isEditDialogOpen}>
+		<DialogContent class="max-h-[90vh] overflow-y-auto sm:max-w-[560px]">
+			<DialogHeader>
+				<DialogTitle>Edit Schedule Configuration</DialogTitle>
+			</DialogHeader>
+
+			<form onsubmit={handleUpdateSchedule} class="space-y-4 py-2">
+				<!-- Name & Description -->
+				<div class="space-y-2">
+					<label for="editScName" class="text-xs font-semibold text-muted-foreground uppercase"
+						>Schedule Name</label
+					>
+					<Input id="editScName" placeholder="Schedule name" bind:value={editName} required />
+				</div>
+
+				<div class="space-y-2">
+					<label for="editScDesc" class="text-xs font-semibold text-muted-foreground uppercase"
+						>Description</label
+					>
+					<Input
+						id="editScDesc"
+						placeholder="Brief summary of what this schedule runs"
+						bind:value={editDesc}
+					/>
+				</div>
+
+				<!-- Target Task (Read-only) -->
+				<div class="space-y-2">
+					<label for="editScTask" class="text-xs font-semibold text-muted-foreground uppercase"
+						>Target Task</label
+					>
+					<Input id="editScTask" value={editTaskFunc} disabled class="bg-muted font-mono text-xs" />
+				</div>
+
+				<!-- Schedule Cadence Type Selection -->
+				<div class="space-y-2">
+					<span class="text-xs font-semibold text-muted-foreground uppercase"
+						>Execution Cadence</span
+					>
+					<div class="flex gap-2">
+						<Button
+							type="button"
+							size="sm"
+							variant={editScheduleType === 'cron' ? 'default' : 'outline'}
+							onclick={() => (editScheduleType = 'cron')}
+							class="flex-1 gap-1.5"
+						>
+							<CalendarClock class="size-3.5" />
+							Cron Expression
+						</Button>
+						<Button
+							type="button"
+							size="sm"
+							variant={editScheduleType === 'interval' ? 'default' : 'outline'}
+							onclick={() => (editScheduleType = 'interval')}
+							class="flex-1 gap-1.5"
+						>
+							<Clock class="size-3.5" />
+							Interval Seconds
+						</Button>
+					</div>
+				</div>
+
+				{#if editScheduleType === 'cron'}
+					<div class="space-y-1.5">
+						<label for="editScCron" class="text-xs font-semibold text-muted-foreground uppercase"
+							>Cron Expression</label
+						>
+						<Input
+							id="editScCron"
+							placeholder="* * * * * (e.g. 0 9 * * 1-5)"
+							bind:value={editCronExpr}
+							class="font-mono text-xs"
+							required
+						/>
+						<p class="text-[11px] text-muted-foreground">Standard 5-field cron syntax</p>
+					</div>
+				{:else}
+					<div class="space-y-1.5">
+						<label
+							for="editScInterval"
+							class="text-xs font-semibold text-muted-foreground uppercase"
+							>Interval (Seconds)</label
+						>
+						<Input
+							id="editScInterval"
+							type="number"
+							min="1"
+							bind:value={editIntervalSeconds}
+							class="font-mono text-xs"
+							required
+						/>
+						<p class="text-[11px] text-muted-foreground">Repeats every N seconds (e.g. 60, 300)</p>
+					</div>
+				{/if}
+
+				<!-- Dynamic JSON Schema Form or Payload editor -->
+				{#if editSelectedTaskSpec?.payload_schema}
+					<div class="pt-2">
+						<JsonSchemaForm
+							schema={editSelectedTaskSpec.payload_schema}
+							bind:value={editPayloadObject}
+						/>
+					</div>
+				{/if}
+
+				<!-- Enabled Toggle -->
+				<div class="flex items-center justify-between rounded-lg border p-3">
+					<div class="space-y-0.5">
+						<div class="text-sm font-medium">Active Schedule</div>
+						<div class="text-xs text-muted-foreground">
+							Whether the dispatcher should execute this schedule
+						</div>
+					</div>
+					<input
+						type="checkbox"
+						bind:checked={editEnabled}
+						class="size-4 rounded border-gray-300 text-primary focus:ring-primary"
+					/>
+				</div>
+
+				<DialogFooter class="pt-4">
+					<Button
+						type="button"
+						variant="outline"
+						onclick={() => (isEditDialogOpen = false)}
+						disabled={isEditSubmitting}
+					>
+						Cancel
+					</Button>
+					<Button type="submit" disabled={isEditSubmitting}>
+						{isEditSubmitting ? 'Saving...' : 'Save Changes'}
+					</Button>
+				</DialogFooter>
+			</form>
+		</DialogContent>
+	</Dialog>
+
+	<!-- Delete Schedule Confirmation Dialog -->
+	<Dialog bind:open={isDeleteDialogOpen}>
+		<DialogContent class="sm:max-w-[440px]">
+			<DialogHeader>
+				<DialogTitle class="flex items-center gap-2 text-destructive">
+					<AlertTriangle class="size-5" />
+					Delete Schedule Configuration
+				</DialogTitle>
+			</DialogHeader>
+
+			<div class="space-y-3 py-2">
+				<p class="text-sm text-foreground">
+					Are you sure you want to delete <span class="font-semibold text-foreground"
+						>"{deletingConfig?.name}"</span
+					>?
+				</p>
+				{#if deletingConfig && isProjectManaged(deletingConfig)}
+					<div
+						class="rounded-md border border-amber-500/20 bg-amber-500/10 p-3 text-xs text-amber-600 dark:text-amber-400"
+					>
+						<strong>Warning:</strong> This schedule is automatically managed for a project. Deleting it
+						will stop automated background dispatching for this project.
+					</div>
+				{/if}
+				<p class="text-xs text-muted-foreground">
+					This action cannot be undone. Past execution history under Schedule Jobs will be
+					preserved.
+				</p>
+			</div>
+
+			<DialogFooter>
+				<Button
+					type="button"
+					variant="outline"
+					onclick={() => (isDeleteDialogOpen = false)}
+					disabled={isDeleting}
+				>
+					Cancel
+				</Button>
+				<Button type="button" variant="destructive" onclick={confirmDelete} disabled={isDeleting}>
+					{isDeleting ? 'Deleting...' : 'Delete Schedule'}
+				</Button>
+			</DialogFooter>
 		</DialogContent>
 	</Dialog>
 </div>

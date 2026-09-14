@@ -70,13 +70,16 @@ class ProjectService:
             "verification": data.github.verification.model_dump(mode="json") if data.github else None,
             "template_id": data.github.template_id if data.github else None,
         }
-        return await self.repo.save(
+        saved = await self.repo.save(
             session,
             Project(
                 **values,
                 template_version=TEMPLATE_VERSION if data.github and data.github.template_id else None,
             ),
         )
+        if saved.github_repository and saved.github_connector_id:
+            await self.repo.create_dispatch_schedule(session, saved)
+        return saved
 
     async def update(self, session: AsyncSession, project_id: UUID, data: ProjectUpdate) -> Project:
         project = await self.get(session, project_id, lock=True)
@@ -92,7 +95,9 @@ class ProjectService:
         project.template_version = TEMPLATE_VERSION if data.github and data.github.template_id else None
         project.revision += 1
         project.last_check = None
-        return await self.repo.save(session, project)
+        saved = await self.repo.save(session, project)
+        await self.repo.sync_dispatch_schedules(session, saved)
+        return saved
 
     async def delete(self, session: AsyncSession, project_id: UUID) -> None:
         project = await self.get(session, project_id, lock=True)
@@ -100,6 +105,7 @@ class ProjectService:
             raise ProjectError(409, "Remove the project's observation schedules before deleting it")
         if await self.repo.has_pipeline_runs(session, project_id):
             raise ProjectError(409, "Pipeline run history prevents deleting this project")
+        await self.repo.delete_dispatch_schedules(session, project_id)
         await self.repo.delete(session, project)
 
     async def import_schedule(self, session: AsyncSession, schedule_id: UUID) -> Project:

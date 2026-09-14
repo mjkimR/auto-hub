@@ -42,6 +42,45 @@ class ProjectRepository:
         await session.delete(project)
         await session.flush()
 
+    async def create_dispatch_schedule(self, session: AsyncSession, project: Project) -> ScheduleConfig:
+        from datetime import UTC, datetime, timedelta
+
+        schedule = ScheduleConfig(
+            name=f"Dispatch {project.name}",
+            description=f"Automated run dispatcher for {project.name}",
+            task_func=PROJECT_DISPATCH_TASK,
+            interval_seconds=60,
+            payload={"project_id": str(project.id)},
+            enabled=project.enabled,
+            next_run_at=datetime.now(UTC) + timedelta(seconds=60),
+        )
+        session.add(schedule)
+        await session.flush()
+        return schedule
+
+    async def sync_dispatch_schedules(self, session: AsyncSession, project: Project) -> None:
+        schedules = await session.scalars(
+            select(ScheduleConfig).where(
+                ScheduleConfig.task_func == PROJECT_DISPATCH_TASK,
+                ScheduleConfig.payload["project_id"].as_string() == str(project.id),
+            )
+        )
+        for s in schedules:
+            s.name = f"Dispatch {project.name}"
+            s.enabled = project.enabled
+        await session.flush()
+
+    async def delete_dispatch_schedules(self, session: AsyncSession, project_id: UUID) -> None:
+        schedules = await session.scalars(
+            select(ScheduleConfig).where(
+                ScheduleConfig.task_func == PROJECT_DISPATCH_TASK,
+                ScheduleConfig.payload["project_id"].as_string() == str(project_id),
+            )
+        )
+        for s in schedules:
+            await session.delete(s)
+        await session.flush()
+
     async def has_schedules(self, session: AsyncSession, project_id: UUID) -> bool:
         return (
             await session.scalar(
