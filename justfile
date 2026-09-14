@@ -152,3 +152,7 @@ setup-secrets +args="":
 deploy-cloud-run +args="":
     @bash ./docker/helper/deploy_cloud_run.sh {{ args }}
 
+# Register or update GitHub Webhook for a repository via gh CLI
+register-webhook repo:
+    @bash ./scripts/register-webhook.sh {{ repo }}
+

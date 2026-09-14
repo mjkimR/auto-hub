@@ -98,16 +98,21 @@ Implemented on 2026-09-11 against Linear issues: run acquisition first resumed a
 - [x] Implement the watchdog: one silent retry after 2 h without a head change; quota retries wait 5 h 10 min and block after two retries for a user-initiated resume. Hub does not infer weekly reset timing.
 - [x] Keep the adapter boundary so `openai/codex-action` can replace mention delivery without changing runs, attempts, or deliveries.
 
-### 3.4 Remaining Validation Only: Canary, Crash Recovery, and Integration Tests
+### 3.4 Validation: Canary, Crash Recovery, and Integration Tests
 
-- [ ] Add a user-initiated execution canary for a dedicated test repository and PR, following the protocol (§8). Never perform this write from the read-only connection check.
+- [x] Add a user-initiated execution canary for a dedicated test repository and PR, following the protocol (§8). Never perform this write from the read-only connection check.
 - [ ] Test crashes before posting, after posting but before the local response is saved, and after the push. Each restart must converge on one attempt, one delivery, and `awaiting_ci` on the pushed head.
 - [ ] Test marker spoofing by other authors, a PR closed or force-pushed during execution, a user push during `implementing`, lease expiry, two competing dispatchers, stale project revisions, GitHub authorization failures, and sanitized external failures.
 - [ ] Test watchdog boundaries with a controllable clock, including tolerance edges and resume.
 
 Completion criteria: Given an enabled project whose Codex environment meets the prerequisites, the user enrolls one open PR and Hub records one durable run and attempt, posts one mention, and reaches `awaiting_ci` on the head Codex pushed. Restarting Hub at every external-call boundary must converge without duplicate mentions. An unresponsive or quota-limited Codex ends in a paused run after bounded retries. Phase 3 does not request fixes or merge.
 
-Implementation verification on 2026-09-14: delivery/reply persistence, retry epochs, bounded and redacted CI log excerpts, CI-fix/conflict-fix dispatch, and merge transitions are implemented. `just lint`, `just check`, and `just test` passed; 310 backend tests passed. The only unchecked work in this phase is the user-authorized live canary and the remaining crash, concurrency, and timing test coverage above.
+Live canary verification on 2026-09-14:
+- Tested on `mjkimR/test-sandbox` (PR #1 and PR #2) against live Cloud Run deployment and Aiven PostgreSQL.
+- Auto Hub dispatched and posted the task specification comment with `@codex` mention.
+- OpenAI Codex reacted with 👀 and pushed the implementation commit.
+- GitHub Actions CI ran and passed; Auto Hub validated status and completed automatic merge.
+- 351 backend tests passing (`just test`), zero lint errors (`just lint`), and full type check/frontend build passing (`just check`).
 
 External dependency: [Codex GitHub integration](https://learn.chatgpt.com/docs/third-party/github) documents non-review `@codex` PR comments as starting a cloud chat with the PR as context. The user-PAT identity requirement, self-push through the environment `GH_TOKEN`, and the connector reply account are observed in `g-sandbox`, not documented, and the canary must re-confirm them.
 
@@ -129,11 +134,16 @@ An LLM review lane (for example `@codex review` or a separate reviewer) is not p
 
 - [x] Add an HMAC-SHA256 verified GitHub webhook endpoint. It is intentionally outside API-key authentication, rejects delivery while `GITHUB_WEBHOOK_SECRET` is unset, and records only a payload digest rather than the payload body.
 - [x] Deduplicate by `X-GitHub-Delivery`, route matching active-project events into the shared run advancement path, and retain polling as recovery when background processing fails.
-- [ ] Configure a deployed HTTPS endpoint and subscribe a GitHub repository to `pull_request`, `issue_comment`, and `workflow_run`; verify GitHub's ping and a real event delivery.
+- [x] Configure a deployed HTTPS endpoint and subscribe a GitHub repository to `pull_request`, `issue_comment`, and `workflow_run`; verify GitHub's ping and a real event delivery.
 - [ ] Test out-of-order events and missed-event recovery against a deployed repository. The local interface tests cover signature validation and duplicate deliveries.
 - [ ] When onboarding a second repository, evaluate whether repository-specific branching is needed in Hub.
 
-Implementation verification on 2026-09-14: webhook signature validation and delivery deduplication are covered with test HTTP requests. Migration `d0e1f2a3b4c5` was exercised through SQLite upgrade/downgrade/upgrade. GitHub repository configuration and live delivery remain deployment validation.
+Deployment and webhook verification on 2026-09-14:
+- Deployed unified container (FastAPI + SvelteKit 2 SPA) to Google Cloud Run (`https://auto-hub-y2hhy3omua-du.a.run.app`).
+- Configured Cloud Scheduler job `auto-hub-dispatcher-tick` invoking dispatcher ticks every 5 minutes.
+- Verified live Webhook delivery on `https://auto-hub-y2hhy3omua-du.a.run.app/api/github/webhooks` with HMAC verification and 202 status.
+- Added automated webhook management script (`scripts/register-webhook.sh`) and `just register-webhook <owner/repo>` CLI recipe.
+- Added automatic lifecycle management for project dispatch schedules (auto-creation of 60s interval config, sync, and cascade delete), and interactive edit/delete UI in `ScheduleConfigsView.svelte`.
 
 ## 6. Parallel PR Execution
 

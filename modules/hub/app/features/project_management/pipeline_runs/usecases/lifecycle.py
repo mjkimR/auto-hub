@@ -721,6 +721,16 @@ class PipelineRunUseCase:
         grant = await self.acquire_lease(run_id, LeaseRequest(owner=owner, ttl_seconds=60))
         try:
             run = await self.get(run_id)
+            if run.state == PipelineRunState.QUEUED:
+                await self.prepare_implementation(
+                    run_id,
+                    PrepareImplementationAttempt(
+                        owner=owner,
+                        token=grant.token,
+                        expected_run_revision=grant.run_revision,
+                    ),
+                )
+                run = await self.get(run_id)
             if run.state == PipelineRunState.DISPATCHING:
                 return await self.dispatch_implementation(run_id, owner=owner, token=grant.token)
             return await self.advance_run(run_id, owner=owner, token=grant.token, observer=observer)

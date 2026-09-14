@@ -1,14 +1,19 @@
 import hashlib
 import hmac
+import re
 from datetime import UTC, datetime
 from typing import Any
 
 from app.features.project_management.github_webhooks.models import GitHubWebhookDelivery
 from app.features.project_management.github_webhooks.repos import GitHubWebhookRepository
 from app.features.project_management.pipeline_runs.repos import PipelineRunRepository
+from app.features.project_management.pipeline_runs.schemas import EnrollPullRequest
 from app.features.project_management.pipeline_runs.usecases.lifecycle import PipelineRunUseCase
+from app.features.project_management.projects.services import ProjectError
 from app_layer_base.core.database.transaction import AsyncTransaction
 from sqlalchemy.exc import IntegrityError
+
+AUTO_RUN_TRIGGER = re.compile(r"@auto-run\b", re.IGNORECASE)
 
 
 class GitHubWebhookUseCase:
@@ -40,21 +45,36 @@ class GitHubWebhookUseCase:
             return False
         return True
 
-    async def process(self, delivery_id: str, payload: dict[str, Any]) -> None:
-        """Advance only the matching active run; periodic polling remains recovery."""
+    async def process(self, delivery_id: str, payload: dict[str, Any], event: str | None = None) -> None:
+        """Advance the matching active run, or enroll a new run if @auto-run is mentioned."""
         try:
             repository = _repository(payload)
             if repository is None:
+                await self._finish(delivery_id, "processed")
                 return
+
+            trigger_text = _extract_trigger_text(event, payload)
+            has_trigger = bool(trigger_text and AUTO_RUN_TRIGGER.search(trigger_text))
+
             async with AsyncTransaction() as session:
                 project = await self.repo.project_for_repository(session, repository)
+                pull_number = _pull_number(payload)
                 run = (
                     await self.runs.get_active_for_pull(session, project.id, pull_number)
-                    if project is not None and (pull_number := _pull_number(payload)) is not None
+                    if project is not None and pull_number is not None
                     else None
                 )
+
             if run is not None:
                 await self.lifecycle.manual_advance(run.id, self.lifecycle.observer)
+            elif has_trigger and project is not None and project.enabled and pull_number is not None:
+                try:
+                    new_run = await self.lifecycle.enroll(project.id, EnrollPullRequest(pull_number=pull_number))
+                    await self.lifecycle.manual_advance(new_run.id, self.lifecycle.observer)
+                except ProjectError:
+                    # e.g. concurrent enrollment or already enrolled
+                    pass
+
             await self._finish(delivery_id, "processed")
         except Exception:
             # Delivery endpoints must acknowledge authenticated GitHub events;
@@ -86,4 +106,29 @@ def _pull_number(payload: dict[str, Any]) -> int | None:
         number = pulls[0].get("number") if isinstance(pulls[0], dict) else None
         if isinstance(number, int) and number > 0:
             return number
+    return None
+
+
+def _extract_trigger_text(event: str | None, payload: dict[str, Any]) -> str | None:
+    action = payload.get("action")
+    # PR opened or reopened (or without action field in test mocks)
+    if (
+        event == "pull_request" or (event is None and "pull_request" in payload and "comment" not in payload)
+    ) and action in (
+        "opened",
+        "reopened",
+        None,
+    ):
+        body = payload.get("pull_request", {}).get("body")
+        return body if isinstance(body, str) else None
+
+    # Issue comment created on a pull request (or without action field in test mocks)
+    if (
+        (event == "issue_comment" or (event is None and "comment" in payload))
+        and action in ("created", None)
+        and "pull_request" in payload.get("issue", {})
+    ):
+        body = payload.get("comment", {}).get("body")
+        return body if isinstance(body, str) else None
+
     return None

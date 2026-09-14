@@ -37,5 +37,5 @@ async def receive_github_webhook(
         raise HTTPException(status_code=400, detail="Invalid GitHub webhook payload")
     if not await use_case.receive(x_github_delivery, x_github_event, raw_body, payload):
         return {"status": "duplicate"}
-    background_tasks.add_task(use_case.process, x_github_delivery, payload)
+    background_tasks.add_task(use_case.process, x_github_delivery, payload, x_github_event)
     return {"status": "accepted"}

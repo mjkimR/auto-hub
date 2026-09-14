@@ -139,6 +139,41 @@ async def test_manual_advance_dispatches_a_prepared_implementation():
     assert release_request.owner == use_case.dispatch_implementation.await_args.kwargs["owner"]
 
 
+async def test_manual_advance_prepares_and_dispatches_a_queued_run():
+    repo = MagicMock()
+    projects = MagicMock()
+    observer = MagicMock()
+    use_case = PipelineRunUseCase(repo, projects, observer)
+    queued_run = create_mock_run(state=PipelineRunState.QUEUED)
+    dispatching_run = create_mock_run(state=PipelineRunState.DISPATCHING)
+    grant = LeaseGrant(
+        run_id=queued_run.id,
+        owner="manual:test",
+        token=uuid4(),
+        expires_at=datetime.now(UTC),
+        run_revision=queued_run.revision,
+    )
+    expected = MagicMock()
+
+    use_case.acquire_lease = AsyncMock(return_value=grant)
+    use_case.get = AsyncMock(side_effect=[queued_run, dispatching_run])
+    use_case.prepare_implementation = AsyncMock()
+    use_case.dispatch_implementation = AsyncMock(return_value=expected)
+    use_case.release_lease = AsyncMock()
+
+    result = await use_case.manual_advance(queued_run.id, observer)
+
+    assert result is expected
+    assert use_case.prepare_implementation.await_count == 1
+    assert use_case.prepare_implementation.await_args is not None
+    prep_run_id, prep_req = use_case.prepare_implementation.await_args.args
+    assert prep_run_id == queued_run.id
+    assert prep_req.token == grant.token
+    assert prep_req.expected_run_revision == grant.run_revision
+    use_case.dispatch_implementation.assert_awaited_once_with(queued_run.id, owner=ANY, token=grant.token)
+    use_case.release_lease.assert_awaited_once()
+
+
 async def test_pause_run_transitions_state_and_clears_lease():
     repo = MagicMock()
     projects = MagicMock()
