@@ -21,6 +21,7 @@ init module="all":
     if should_run "$target" "hub-ui"; then
         path=$(resolve_module_path "hub-ui")
         echo "Initializing Svelte frontend ($path)..."
+        activate_frontend_node
         npm --prefix "$path" install
     fi
 
@@ -40,6 +41,7 @@ lint module="all":
     if should_run "$target" "hub-ui"; then
         path=$(resolve_module_path "hub-ui")
         echo "Linting Svelte frontend ($path)..."
+        activate_frontend_node
         npm --prefix "$path" run lint
     fi
 
@@ -58,6 +60,7 @@ check module="all":
     if should_run "$target" "hub-ui"; then
         path=$(resolve_module_path "hub-ui")
         echo "Checking and compiling Svelte frontend ($path)..."
+        activate_frontend_node
         npm --prefix "$path" run check
         npm --prefix "$path" run build
     fi
@@ -94,6 +97,7 @@ build-ui:
     #!/usr/bin/env bash
     source ./scripts/_lib.sh
     path=$(resolve_module_path "hub-ui")
+    activate_frontend_node
     npm --prefix "$path" run build
 
 # Build docker image for a specific module or all modules
@@ -155,4 +159,3 @@ deploy-cloud-run +args="":
 # Register or update GitHub Webhook for a repository via gh CLI
 register-webhook repo:
     @bash ./scripts/register-webhook.sh {{ repo }}
-

@@ -10,6 +10,7 @@ PID_HUB=""
 if should_run "$target" "hub-ui"; then
     path=$(resolve_module_path "hub-ui")
     echo "Starting Svelte frontend ($path)..."
+    activate_frontend_node
     npm --prefix "$path" run dev &
     PID_UI=$!
 fi
@@ -43,4 +44,3 @@ if [ ${#PIDS[@]} -ne 0 ]; then
     wait -n "${PIDS[@]}"
     echo "One of the background components stopped. Shutting down remaining servers..."
 fi
-
