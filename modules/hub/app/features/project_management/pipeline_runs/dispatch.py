@@ -26,6 +26,7 @@ class ExecutionProvider(Protocol):
 
 
 def is_codex_quota_reply(author: str | None, body: str | None) -> bool:
+    """Keep the observed Codex quota wording in one conservative matcher."""
     return author == CODEX_CONNECTOR_LOGIN and bool(CODEX_QUOTA_REPLY.search(body or ""))
 
 
@@ -43,7 +44,7 @@ def build_codex_mention_comment(request: ImplementationRequest, *, delivery: int
         raise ValueError("Delivery numbers start at 1")
     pull = request.pull_request
     sections = [
-        f"@codex Implement the task below on this pull request's branch (`{pull.head_ref}`).",
+        f"@codex {'Fix the CI or merge conflict described below' if request.kind != 'implementation' else 'Implement the task below'} on this pull request's branch (`{pull.head_ref}`).",
         f"## {_task_text(pull.title)}",
         _task_text(pull.body) or "(No description)",
     ]

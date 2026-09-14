@@ -23,6 +23,7 @@ class PipelineRunState(StrEnum):
 class ExecutionAttemptKind(StrEnum):
     IMPLEMENTATION = "implementation"
     CI_FIX = "ci-fix"
+    CONFLICT_FIX = "conflict-fix"
     REVISION = "revision"
 
 
@@ -79,6 +80,7 @@ class PipelineRun(Base, UUIDMixin, TimestampMixin):
     pause_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     branch: Mapped[str] = mapped_column(String(255), nullable=False)
     revision: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    epoch: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     lease_owner: Mapped[str | None] = mapped_column(String(255), nullable=True)
     lease_token: Mapped[UUID | None] = mapped_column(nullable=True)
     lease_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
@@ -96,6 +98,7 @@ class ExecutionAttempt(Base, UUIDMixin, TimestampMixin):
         ForeignKey("pipeline_runs.id", ondelete="CASCADE"), nullable=False, index=True
     )
     attempt_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    epoch: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     kind: Mapped[str] = mapped_column(String(30), nullable=False)
     state: Mapped[str] = mapped_column(String(30), nullable=False)
     request_snapshot: Mapped[dict] = mapped_column(JSON_VARIANT, nullable=False)
@@ -126,3 +129,22 @@ class ExecutionDelivery(Base, UUIDMixin, TimestampMixin):
     cause: Mapped[str] = mapped_column(String(30), nullable=False, default="initial")
     comment_id: Mapped[str | None] = mapped_column(String(255), nullable=True, unique=True)
     posted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class ExecutionReply(Base, UUIDMixin, TimestampMixin):
+    """A trusted Codex reply observed after a mention delivery.
+
+    Replies are evidence, not a completion signal.  Keeping only a bounded,
+    sanitized excerpt avoids retaining arbitrary GitHub comment bodies.
+    """
+
+    __tablename__ = "execution_replies"
+
+    execution_attempt_id: Mapped[UUID] = mapped_column(
+        ForeignKey("execution_attempts.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    comment_id: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
+    author: Mapped[str] = mapped_column(String(255), nullable=False)
+    replied_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    excerpt: Mapped[str | None] = mapped_column(Text, nullable=True)
+    is_quota_limit: Mapped[bool] = mapped_column(nullable=False, default=False)

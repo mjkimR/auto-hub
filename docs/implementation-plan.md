@@ -81,7 +81,7 @@ Implemented on 2026-09-14 together with §3.1, the PR re-keying in §3.2, and re
 - [x] Validate migrations and repository behavior on PostgreSQL and keep the default SQLite tests semantically equivalent.
 - [x] Key runs by pull request: make `pull_number` and `pull_url` required, store the PR snapshot (URL, title, body, base ref, head ref, head SHA at enrollment, linked issues), and enforce one non-terminal run per `(project_id, pull_number)`.
 - [x] Use the PR head ref as `branch` instead of a Hub-generated `codex/<issue>` name.
-- [ ] Add delivery records under an attempt: delivery number, cause (`initial`, `silent`, `quota`, `resume`), comment ID, posted time. Enforce unique `(attempt_id, delivery_number)` and a unique non-null comment ID.
+- [x] Add delivery records under an attempt: delivery number, cause (`initial`, `silent`, `quota`, `resume`), comment ID, posted time. Enforce unique `(attempt_id, delivery_number)` and a unique non-null comment ID.
 
 `ScheduleJob` remains the record for a scheduler tick. It may reference a `PipelineRun`, but it must not replace the durable run or attempt history.
 
@@ -94,9 +94,9 @@ Implemented on 2026-09-11 against Linear issues: run acquisition first resumed a
 - [x] Post initial mentions only with the project's GitHub user PAT. Never post Hub comments that contain `@codex` outside task requests.
 - [x] Reconcile before the initial post by listing bounded PR comments for a marker with the same attempt ID and delivery number authored by the connector's login. Adopt a found comment instead of posting again.
 - [x] Move `dispatching` → `implementing` once the delivery comment is confirmed, and `implementing` → `awaiting_ci` once the PR head differs from the delivery marker's `head`. A Codex reply alone never completes the attempt.
-- [ ] Record Codex connector replies after a delivery, and classify usage-limit replies in one matcher.
-- [ ] Implement the watchdog: one silent retry after 2 h without a head change; quota retries wait 5 h 10 min and block after two retries for a user-initiated resume. Hub does not infer weekly reset timing.
-- [ ] Keep the adapter boundary so `openai/codex-action` can replace mention delivery without changing runs, attempts, or deliveries.
+- [x] Record Codex connector replies after a delivery, and classify usage-limit replies in one matcher.
+- [x] Implement the watchdog: one silent retry after 2 h without a head change; quota retries wait 5 h 10 min and block after two retries for a user-initiated resume. Hub does not infer weekly reset timing.
+- [x] Keep the adapter boundary so `openai/codex-action` can replace mention delivery without changing runs, attempts, or deliveries.
 
 ### 3.4 Canary, Crash Recovery, and Integration Tests
 
@@ -112,12 +112,12 @@ External dependency: [Codex GitHub integration](https://learn.chatgpt.com/docs/t
 ## 4. CI Results → Fix, Merge, & Completion
 
 - [ ] On red CI for the current head, post a `ci-fix` mention with failing job names and bounded log excerpts. Cap at 2 attempts per epoch, then pause.
-- [ ] On base conflicts, post a `conflict-fix` mention that merges the base branch. Cap at 1 attempt per epoch, then pause.
-- [ ] Watch every fix request with the Phase 3 watchdog.
-- [ ] Resume from the Hub UI starts a new epoch: fix-loop counters reset, while enrollment and implementation history persist.
-- [ ] Distinguish environment errors from code failures where the verification result allows it, and pause instead of requesting a code fix for environment errors.
-- [ ] Merge only when the latest head and base, required checks, and branch rules are re-verified immediately before merging. Mark the run `completed` from GitHub's actual merge state; closing keywords in the PR close referenced issues.
-- [ ] Mark a run `canceled` when its PR is closed without merging.
+- [x] On base conflicts, post a `conflict-fix` mention that merges the base branch. Cap at 1 attempt per epoch, then pause.
+- [x] Watch every fix request with the Phase 3 watchdog.
+- [x] Resume from the Hub UI starts a new epoch: fix-loop counters reset, while enrollment and implementation history persist.
+- [x] Distinguish environment errors from code failures where the verification result allows it, and pause instead of requesting a code fix for environment errors.
+- [x] Merge only when the latest head and base, required checks, and branch rules are re-verified immediately before merging. Mark the run `completed` from GitHub's actual merge state; closing keywords in the PR close referenced issues.
+- [x] Mark a run `canceled` when its PR is closed without merging.
 
 Invalidate prior evaluations when head or base revisions change.
 Add `workflow_dispatch` support where necessary without duplicating automatic CI runs.

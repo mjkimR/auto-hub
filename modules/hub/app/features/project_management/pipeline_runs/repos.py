@@ -8,6 +8,7 @@ from app.features.project_management.pipeline_runs.models import (
     ExecutionAttempt,
     ExecutionAttemptState,
     ExecutionDelivery,
+    ExecutionReply,
     PipelineRun,
 )
 from sqlalchemy import func, or_, select, update
@@ -127,6 +128,36 @@ class PipelineRunRepository:
         await session.flush()
         await session.refresh(delivery)
         return delivery
+
+    async def list_deliveries(self, session: AsyncSession, attempt_id: UUID) -> list[ExecutionDelivery]:
+        rows = await session.scalars(
+            select(ExecutionDelivery)
+            .where(ExecutionDelivery.execution_attempt_id == attempt_id)
+            .order_by(ExecutionDelivery.delivery_number)
+        )
+        return list(rows)
+
+    async def create_reply(self, session: AsyncSession, reply: ExecutionReply) -> ExecutionReply:
+        session.add(reply)
+        await session.flush()
+        await session.refresh(reply)
+        return reply
+
+    async def has_reply_comment(self, session: AsyncSession, comment_id: str) -> bool:
+        return (
+            await session.scalar(
+                select(func.count()).select_from(ExecutionReply).where(ExecutionReply.comment_id == comment_id)
+            )
+            or 0
+        ) > 0
+
+    async def list_replies(self, session: AsyncSession, attempt_id: UUID) -> list[ExecutionReply]:
+        rows = await session.scalars(
+            select(ExecutionReply)
+            .where(ExecutionReply.execution_attempt_id == attempt_id)
+            .order_by(ExecutionReply.replied_at, ExecutionReply.id)
+        )
+        return list(rows)
 
     async def acquire_lease(
         self,

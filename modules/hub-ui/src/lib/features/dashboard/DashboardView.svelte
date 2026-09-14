@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
+	import { goto } from '$app/navigation';
 	import { api, type components } from '$lib/api';
-	import { session } from '$lib/stores/session.svelte';
 	import { Card, CardHeader, CardTitle, CardContent } from '$lib/components/ui/card';
 	import { Button } from '$lib/components/ui/button';
 	import { Badge } from '$lib/components/ui/badge';
@@ -342,7 +342,7 @@
 				<Button
 					variant="ghost"
 					size="sm"
-					onclick={() => (session.activeTab = 'pipeline-runs')}
+					onclick={() => goto('/projects/runs')}
 					class="gap-1.5 text-xs text-primary hover:text-primary"
 				>
 					View All Runs
@@ -400,7 +400,7 @@
 		<!-- Projects Metric -->
 		<Card
 			class="cursor-pointer transition-all hover:border-primary/40 hover:shadow-md"
-			onclick={() => (session.activeTab = 'projects')}
+			onclick={() => goto('/projects')}
 		>
 			<CardHeader class="flex flex-row items-center justify-between pb-2">
 				<CardTitle class="text-sm font-medium text-muted-foreground">Managed Projects</CardTitle>
@@ -415,7 +415,7 @@
 		<!-- Connectors Metric -->
 		<Card
 			class="cursor-pointer transition-all hover:border-primary/40 hover:shadow-md"
-			onclick={() => (session.activeTab = 'connectors')}
+			onclick={() => goto('/settings/connectors')}
 		>
 			<CardHeader class="flex flex-row items-center justify-between pb-2">
 				<CardTitle class="text-sm font-medium text-muted-foreground">Integrations</CardTitle>
@@ -432,7 +432,7 @@
 		<!-- Schedules Metric -->
 		<Card
 			class="cursor-pointer transition-all hover:border-primary/40 hover:shadow-md"
-			onclick={() => (session.activeTab = 'configs')}
+			onclick={() => goto('/schedules/configs')}
 		>
 			<CardHeader class="flex flex-row items-center justify-between pb-2">
 				<CardTitle class="text-sm font-medium text-muted-foreground">Schedule Configs</CardTitle>
@@ -447,7 +447,7 @@
 		<!-- Active Runs Metric -->
 		<Card
 			class="cursor-pointer transition-all hover:border-primary/40 hover:shadow-md"
-			onclick={() => (session.activeTab = 'pipeline-runs')}
+			onclick={() => goto('/projects/runs')}
 		>
 			<CardHeader class="flex flex-row items-center justify-between pb-2">
 				<CardTitle class="text-sm font-medium text-muted-foreground">Active Runs</CardTitle>
@@ -472,7 +472,7 @@
 				<Button
 					variant="ghost"
 					size="sm"
-					onclick={() => (session.activeTab = 'pipeline-runs')}
+					onclick={() => goto('/projects/runs')}
 					class="text-xs text-muted-foreground hover:text-foreground"
 				>
 					View All
@@ -537,7 +537,7 @@
 				<Button
 					variant="ghost"
 					size="sm"
-					onclick={() => (session.activeTab = 'jobs')}
+					onclick={() => goto('/schedules/jobs')}
 					class="text-xs text-muted-foreground hover:text-foreground"
 				>
 					View All
@@ -596,23 +596,23 @@
 			Direct shortcuts to frequent orchestrator actions
 		</p>
 		<div class="flex flex-wrap gap-3">
-			<Button onclick={() => (session.activeTab = 'pipeline-runs')} class="gap-2">
+			<Button onclick={() => goto('/projects/runs')} class="gap-2">
 				<Workflow class="size-4" />
 				Pipeline Runs
 			</Button>
-			<Button variant="secondary" onclick={() => (session.activeTab = 'projects')} class="gap-2">
+			<Button variant="secondary" onclick={() => goto('/projects')} class="gap-2">
 				<FolderKanban class="size-4" />
 				Manage Projects
 			</Button>
-			<Button variant="secondary" onclick={() => (session.activeTab = 'connectors')} class="gap-2">
+			<Button variant="secondary" onclick={() => goto('/settings/connectors')} class="gap-2">
 				<KeyRound class="size-4" />
 				Manage Connectors
 			</Button>
-			<Button variant="secondary" onclick={() => (session.activeTab = 'configs')} class="gap-2">
+			<Button variant="secondary" onclick={() => goto('/schedules/configs')} class="gap-2">
 				<CalendarClock class="size-4" />
 				View Schedules
 			</Button>
-			<Button variant="outline" onclick={() => (session.activeTab = 'jobs')} class="gap-2">
+			<Button variant="outline" onclick={() => goto('/schedules/jobs')} class="gap-2">
 				<History class="size-4" />
 				Job History
 			</Button>

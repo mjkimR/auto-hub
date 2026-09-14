@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import asyncio
 import json
 from datetime import UTC, datetime, timedelta
@@ -5,13 +7,18 @@ from hashlib import sha256
 from typing import Annotated, Never
 from uuid import UUID, uuid4
 
-from app.features.project_management.pipeline_runs.dispatch import build_codex_mention_comment, is_codex_quota_reply
+from app.features.project_management.pipeline_runs.dispatch import (
+    CODEX_CONNECTOR_LOGIN,
+    build_codex_mention_comment,
+    is_codex_quota_reply,
+)
 from app.features.project_management.pipeline_runs.github import read_pull_request
 from app.features.project_management.pipeline_runs.models import (
     ExecutionAttempt,
     ExecutionAttemptKind,
     ExecutionAttemptState,
     ExecutionDelivery,
+    ExecutionReply,
     PipelineRun,
     PipelineRunState,
 )
@@ -22,6 +29,8 @@ from app.features.project_management.pipeline_runs.schemas import (
     EnrollPullRequest,
     ExecutionAttemptList,
     ExecutionAttemptRead,
+    ExecutionDeliveryRead,
+    ExecutionReplyRead,
     ImplementationRequest,
     LeaseGrant,
     LeaseMutation,
@@ -34,7 +43,7 @@ from app.features.project_management.pipeline_runs.schemas import (
     PullRequestSnapshot,
 )
 from app.features.project_management.pipelines import services as pipeline_services
-from app.features.project_management.pipelines.github import GitHubActionsReader
+from app.features.project_management.pipelines.github import GitHubActionsReader, GitHubObservationError
 from app.features.project_management.pipelines.schemas import VerificationStatus
 from app.features.project_management.pipelines.services import PipelineConfigurationError, PipelineObservationService
 from app.features.project_management.projects.schemas import ProjectRead
@@ -78,6 +87,23 @@ class PipelineRunUseCase:
             return ExecutionAttemptList(
                 items=[ExecutionAttemptRead.model_validate(row) for row in rows], total_count=len(rows)
             )
+
+    async def list_deliveries(self, run_id: UUID, attempt_id: UUID) -> list[ExecutionDeliveryRead]:
+        async with AsyncTransaction() as session:
+            attempt = await self.repo.get_attempt(session, attempt_id)
+            if attempt is None or attempt.pipeline_run_id != run_id:
+                raise ProjectError(404, "Execution attempt not found for this pipeline run")
+            return [
+                ExecutionDeliveryRead.model_validate(row)
+                for row in await self.repo.list_deliveries(session, attempt_id)
+            ]
+
+    async def list_replies(self, run_id: UUID, attempt_id: UUID) -> list[ExecutionReplyRead]:
+        async with AsyncTransaction() as session:
+            attempt = await self.repo.get_attempt(session, attempt_id)
+            if attempt is None or attempt.pipeline_run_id != run_id:
+                raise ProjectError(404, "Execution attempt not found for this pipeline run")
+            return [ExecutionReplyRead.model_validate(row) for row in await self.repo.list_replies(session, attempt_id)]
 
     async def enroll(self, project_id: UUID, request: EnrollPullRequest) -> PipelineRunRead:
         async with AsyncTransaction() as session:
@@ -236,6 +262,7 @@ class PipelineRunUseCase:
                 ExecutionAttempt(
                     pipeline_run_id=run.id,
                     attempt_number=await self.repo.next_attempt_number(session, run.id),
+                    epoch=run.epoch,
                     kind=ExecutionAttemptKind.IMPLEMENTATION,
                     state=ExecutionAttemptState.PLANNED,
                     request_snapshot=implementation_request.model_dump(mode="json"),
@@ -287,20 +314,51 @@ class PipelineRunUseCase:
                 if attempt is None:
                     raise ProjectError(409, "Pipeline run has no active implementation attempt")
                 delivery = await self.repo.latest_delivery(session, attempt.id)
-                if (
-                    delivery is not None
-                    and delivery.posted_at is not None
-                    and any(
-                        is_codex_quota_reply(comment.get("user", {}).get("login"), comment.get("body"))
-                        and comment.get("created_at", "") >= delivery.posted_at.isoformat()
-                        for comment in comments
+                quota_reply = False
+                if delivery is not None and delivery.posted_at is not None:
+                    for comment in comments:
+                        author = comment.get("user", {}).get("login")
+                        comment_id = comment.get("id")
+                        created_at = comment.get("created_at", "")
+                        if (
+                            author != CODEX_CONNECTOR_LOGIN
+                            or not isinstance(created_at, str)
+                            or created_at < delivery.posted_at.isoformat()
+                        ):
+                            continue
+                        quota = is_codex_quota_reply(author, comment.get("body"))
+                        quota_reply = quota_reply or quota
+                        if comment_id is None:
+                            continue
+                        if not await self.repo.has_reply_comment(session, str(comment_id)):
+                            await self.repo.create_reply(
+                                session,
+                                ExecutionReply(
+                                    execution_attempt_id=attempt.id,
+                                    comment_id=str(comment_id),
+                                    author=author,
+                                    replied_at=datetime.fromisoformat(created_at.replace("Z", "+00:00")),
+                                    excerpt=(str(comment.get("body") or "").strip()[:500] or None),
+                                    is_quota_limit=quota,
+                                ),
+                            )
+                if delivery is not None and delivery.posted_at is not None and quota_reply:
+                    quota_retries = sum(
+                        item.cause == "quota" for item in await self.repo.list_deliveries(session, attempt.id)
                     )
-                ):
-                    if delivery.delivery_number >= 3:
+                    if quota_retries >= 2:
                         run.state = PipelineRunState.BLOCKED
                         run.pause_reason = "Codex usage limit persisted after two retries; resume manually after reset"
                         run.next_action_at = None
                     else:
+                        await self.repo.create_delivery(
+                            session,
+                            ExecutionDelivery(
+                                execution_attempt_id=attempt.id,
+                                delivery_number=delivery.delivery_number + 1,
+                                cause="quota",
+                            ),
+                        )
                         run.state = PipelineRunState.DISPATCHING
                         run.next_action_at = now + timedelta(hours=5, minutes=10)
                     run.revision += 1
@@ -311,7 +369,10 @@ class PipelineRunUseCase:
                     and delivery.posted_at is not None
                     and now - delivery.posted_at >= timedelta(hours=2, minutes=5)
                 ):
-                    if delivery.delivery_number >= 2:
+                    silent_retries = sum(
+                        item.cause == "silent" for item in await self.repo.list_deliveries(session, attempt.id)
+                    )
+                    if silent_retries >= 1:
                         run.state = PipelineRunState.BLOCKED
                         run.pause_reason = "Codex did not push after a silent retry; resume manually"
                     else:
@@ -331,8 +392,8 @@ class PipelineRunUseCase:
                 pr = await observer.find_pull_request(
                     project.github_connector_id, project.github_repository, run.branch
                 )
-                original_head = PullRequestSnapshot.model_validate(run.pull_snapshot).head_sha
-                if pr is not None and pr.get("head", {}).get("sha") != original_head:
+                delivery_head = PullRequestSnapshot.model_validate(attempt.request_snapshot["pull_request"]).head_sha
+                if pr is not None and pr.get("head", {}).get("sha") != delivery_head:
                     run.state = PipelineRunState.AWAITING_CI
                     run.revision += 1
                     active_attempt = await self.repo.active_attempt(session, run.id)
@@ -347,10 +408,26 @@ class PipelineRunUseCase:
                 pull_result = observation.pulls[0].result
                 if pull_result.status == VerificationStatus.FAILED:
                     active_attempt = await self.repo.active_attempt(session, run.id)
+                    # The observer exposes no failed job for a workflow-level
+                    # failure (for example a runner/setup outage).  That is the
+                    # only environment signal it can establish safely, so do
+                    # not ask Codex to change application code in this case.
+                    if not pull_result.unsuccessful_jobs:
+                        run.state = PipelineRunState.PAUSED
+                        run.pause_reason = "CI failed before a code job could be identified; inspect the environment"
+                        run.next_action_at = None
+                        run.revision += 1
+                        if active_attempt is not None:
+                            active_attempt.state = ExecutionAttemptState.FAILED
+                            active_attempt.finished_at = now
+                            active_attempt.failure_code = "CI_ENVIRONMENT_FAILURE"
+                            active_attempt.failure_detail = pull_result.reason
+                        await session.flush()
+                        return PipelineRunRead.model_validate(run)
                     ci_fixes = [
                         attempt
                         for attempt in await self.repo.list_attempts(session, run.id)
-                        if attempt.kind == "ci-fix"
+                        if attempt.kind == "ci-fix" and attempt.epoch == run.epoch
                     ]
                     if len(ci_fixes) >= 2:
                         run.state = PipelineRunState.BLOCKED
@@ -365,6 +442,9 @@ class PipelineRunUseCase:
                             update={
                                 "kind": "ci-fix",
                                 "correlation_marker": f"hub-attempt:{uuid4()}",
+                                "pull_request": prior.pull_request.model_copy(
+                                    update={"head_sha": observation.pulls[0].head_sha}
+                                ),
                                 "instructions": prior.instructions
                                 + "\n\nCI failed for this PR. Fix these jobs: "
                                 + ", ".join(pull_result.unsuccessful_jobs or [pull_result.reason]),
@@ -376,6 +456,7 @@ class PipelineRunUseCase:
                             ExecutionAttempt(
                                 pipeline_run_id=run.id,
                                 attempt_number=await self.repo.next_attempt_number(session, run.id),
+                                epoch=run.epoch,
                                 kind=ExecutionAttemptKind.CI_FIX,
                                 state=ExecutionAttemptState.PLANNED,
                                 request_snapshot=request.model_dump(mode="json"),
@@ -397,6 +478,87 @@ class PipelineRunUseCase:
                         active_attempt.failure_code = "PR_CLOSED"
                         active_attempt.failure_detail = run.pause_reason
                     await session.flush()
+                elif pull_result.status == VerificationStatus.PASSED:
+                    # Re-observe immediately before the write; the merge API is
+                    # still the final authority for branch rules and head SHA.
+                    try:
+                        token_value = await self.observer.get_token(project.github_connector_id, "github")
+                        async with pipeline_services.create_github_client(token_value) as client:
+                            reader = GitHubActionsReader(client)
+                            current = await reader.observe_pull(
+                                project_read.observation_config([run.pull_number]), run.pull_number
+                            )
+                            if current.result.status != VerificationStatus.PASSED:
+                                return PipelineRunRead.model_validate(run)
+                            merge = await reader.merge_pull_request(
+                                project.github_repository, run.pull_number, current.head_sha
+                            )
+                    except PipelineConfigurationError as exc:
+                        raise ProjectError(422, str(exc)) from None
+                    except GitHubObservationError as exc:
+                        if exc.status_code not in (405, 409):
+                            raise ProjectError(502, str(exc)) from None
+                        merge = {"merged": False, "message": str(exc)}
+
+                    if merge.get("merged") is True:
+                        run.state = PipelineRunState.COMPLETED
+                        run.pause_reason = None
+                        run.next_action_at = None
+                        run.revision += 1
+                        active_attempt = await self.repo.active_attempt(session, run.id)
+                        if active_attempt is not None:
+                            active_attempt.state = ExecutionAttemptState.COMPLETED
+                            active_attempt.finished_at = now
+                        await session.flush()
+                    else:
+                        conflicts = [
+                            item
+                            for item in await self.repo.list_attempts(session, run.id)
+                            if item.kind == "conflict-fix" and item.epoch == run.epoch
+                        ]
+                        if len(conflicts) >= 1:
+                            run.state = PipelineRunState.BLOCKED
+                            run.pause_reason = "Merge conflict persisted after one Codex fix request; resume manually"
+                        else:
+                            active_attempt = await self.repo.active_attempt(session, run.id)
+                            if active_attempt is None:
+                                raise ProjectError(409, "Pipeline run has no active attempt to revise")
+                            active_attempt.state = ExecutionAttemptState.FAILED
+                            active_attempt.finished_at = now
+                            active_attempt.failure_code = "MERGE_CONFLICT"
+                            active_attempt.failure_detail = "GitHub could not merge the verified pull request"
+                            prior = ImplementationRequest.model_validate(active_attempt.request_snapshot)
+                            request = prior.model_copy(
+                                update={
+                                    "kind": "conflict-fix",
+                                    "correlation_marker": f"hub-attempt:{uuid4()}",
+                                    "pull_request": prior.pull_request.model_copy(
+                                        update={"head_sha": observation.pulls[0].head_sha}
+                                    ),
+                                    "instructions": prior.instructions
+                                    + "\n\nThe pull request cannot be merged cleanly. Merge the current base branch into this branch, resolve conflicts, run checks, and push the result.",
+                                }
+                            )
+                            canonical = json.dumps(
+                                request.model_dump(mode="json"), sort_keys=True, separators=(",", ":")
+                            )
+                            await self.repo.create_attempt(
+                                session,
+                                ExecutionAttempt(
+                                    pipeline_run_id=run.id,
+                                    attempt_number=await self.repo.next_attempt_number(session, run.id),
+                                    epoch=run.epoch,
+                                    kind=ExecutionAttemptKind.CONFLICT_FIX,
+                                    state=ExecutionAttemptState.PLANNED,
+                                    request_snapshot=request.model_dump(mode="json"),
+                                    request_digest=sha256(canonical.encode()).hexdigest(),
+                                    idempotency_key=UUID(request.correlation_marker.removeprefix("hub-attempt:")),
+                                ),
+                            )
+                            run.state = PipelineRunState.DISPATCHING
+                        run.next_action_at = None
+                        run.revision += 1
+                        await session.flush()
 
             return PipelineRunRead.model_validate(run)
 
@@ -451,7 +613,7 @@ class PipelineRunUseCase:
             async with pipeline_services.create_github_client(auth_token) as client:
                 reader = GitHubActionsReader(client)
                 login = await reader.current_login()
-                marker = f"{request.correlation_marker} kind=implementation delivery={delivery.delivery_number}"
+                marker = f"{request.correlation_marker} kind={request.kind} delivery={delivery.delivery_number}"
                 comment = await reader.reconcile_issue_comment(repository, pull_number, marker, login)
                 if comment is None:
                     comment = await reader.post_issue_comment(
@@ -524,14 +686,12 @@ class PipelineRunUseCase:
                 raise ProjectError(
                     422, f"Cannot resume a run that is not paused or blocked (current state: {run.state})"
                 )
-            if run.state == PipelineRunState.BLOCKED:
-                run.state = PipelineRunState.DISPATCHING
-                run.next_action_at = None
-            elif run.pull_number is not None:
-                run.state = PipelineRunState.AWAITING_CI
-            else:
-                run.state = PipelineRunState.DISPATCHING
+            # A user resume is an explicit request to deliver another mention;
+            # dispatch_implementation records it with cause=resume.
+            run.state = PipelineRunState.DISPATCHING
+            run.next_action_at = None
             run.pause_reason = None
+            run.epoch += 1
             run.revision += 1
             await session.flush()
             return PipelineRunRead.model_validate(run)

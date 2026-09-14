@@ -6,6 +6,8 @@ from app.features.project_management.pipeline_runs.schemas import (
     CompleteAttemptRequest,
     ExecutionAttemptList,
     ExecutionAttemptRead,
+    ExecutionDeliveryRead,
+    ExecutionReplyRead,
     LeaseGrant,
     LeaseMutation,
     LeaseRequest,
@@ -40,6 +42,16 @@ async def get_pipeline_run(run_id: UUID, use_case: Annotated[PipelineRunUseCase,
 @router.get("/{run_id}/attempts", response_model=ExecutionAttemptList)
 async def list_execution_attempts(run_id: UUID, use_case: Annotated[PipelineRunUseCase, Depends()]):
     return await use_case.list_attempts(run_id)
+
+
+@router.get("/{run_id}/attempts/{attempt_id}/deliveries", response_model=list[ExecutionDeliveryRead])
+async def list_execution_deliveries(run_id: UUID, attempt_id: UUID, use_case: Annotated[PipelineRunUseCase, Depends()]):
+    return await use_case.list_deliveries(run_id, attempt_id)
+
+
+@router.get("/{run_id}/attempts/{attempt_id}/replies", response_model=list[ExecutionReplyRead])
+async def list_execution_replies(run_id: UUID, attempt_id: UUID, use_case: Annotated[PipelineRunUseCase, Depends()]):
+    return await use_case.list_replies(run_id, attempt_id)
 
 
 @router.post("/{run_id}/lease", response_model=LeaseGrant)

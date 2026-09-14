@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { session } from '$lib/stores/session.svelte';
 	import { api } from '$lib/api';
+	import { page } from '$app/state';
 	import ThemeToggle from '$lib/components/shared/ThemeToggle.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import {
@@ -37,16 +38,50 @@
 		return () => clearInterval(interval);
 	});
 
-	const navItems = [
-		{ id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-		{ id: 'projects', label: 'Projects', icon: FolderKanban },
-		{ id: 'pipeline-runs', label: 'Pipeline Runs', icon: Workflow },
-		{ id: 'connectors', label: 'Connectors', icon: KeyRound },
-		{ id: 'configs', label: 'Schedule Configs', icon: CalendarClock },
-		{ id: 'jobs', label: 'Schedule Jobs', icon: History },
-		{ id: 'system', label: 'System Configs', icon: Settings },
-		{ id: 'specs', label: 'Task Specs', icon: FileCode }
+	const navSections = [
+		{
+			label: 'Overview',
+			items: [{ href: '/', label: 'Dashboard', icon: LayoutDashboard }]
+		},
+		{
+			label: 'Project management',
+			items: [
+				{ href: '/projects', label: 'Projects', icon: FolderKanban },
+				{ href: '/projects/runs', label: 'Pipeline runs', icon: Workflow }
+			]
+		},
+		{
+			label: 'Scheduling',
+			items: [
+				{ href: '/schedules/configs', label: 'Schedule configs', icon: CalendarClock },
+				{ href: '/schedules/jobs', label: 'Schedule jobs', icon: History }
+			]
+		},
+		{
+			label: 'Configuration',
+			items: [
+				{ href: '/settings/connectors', label: 'Connectors', icon: KeyRound },
+				{ href: '/settings/system', label: 'System configs', icon: Settings }
+			]
+		},
+		{
+			label: 'Operations',
+			items: [{ href: '/operations/tasks', label: 'Task specs', icon: FileCode }]
+		}
 	] as const;
+
+	function isActive(href: string) {
+		return page.url.pathname === href;
+	}
+
+	function currentPageLabel() {
+		for (const section of navSections) {
+			for (const item of section.items) {
+				if (isActive(item.href)) return item.label;
+			}
+		}
+		return 'Page not found';
+	}
 </script>
 
 <div class="flex min-h-screen bg-background text-foreground">
@@ -68,19 +103,31 @@
 		</div>
 
 		<!-- Nav Links -->
-		<nav class="flex-1 space-y-1 py-2">
-			{#each navItems as item (item.id)}
-				<button
-					type="button"
-					onclick={() => (session.activeTab = item.id)}
-					class="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors {session.activeTab ===
-					item.id
-						? 'bg-sidebar-accent font-semibold text-sidebar-accent-foreground shadow-xs'
-						: 'text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground'}"
-				>
-					<item.icon class="size-4 shrink-0" />
-					<span>{item.label}</span>
-				</button>
+		<nav class="flex-1 space-y-5 overflow-y-auto py-4" aria-label="Primary navigation">
+			{#each navSections as section (section.label)}
+				<div>
+					<p
+						class="px-3 pb-1.5 text-[10px] font-semibold tracking-wider text-muted-foreground uppercase"
+					>
+						{section.label}
+					</p>
+					<div class="space-y-1">
+						{#each section.items as item (item.href)}
+							<a
+								href={item.href}
+								aria-current={isActive(item.href) ? 'page' : undefined}
+								class="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors {isActive(
+									item.href
+								)
+									? 'bg-sidebar-accent font-semibold text-sidebar-accent-foreground shadow-xs'
+									: 'text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground'}"
+							>
+								<item.icon class="size-4 shrink-0" />
+								<span>{item.label}</span>
+							</a>
+						{/each}
+					</div>
+				</div>
 			{/each}
 		</nav>
 
@@ -132,7 +179,7 @@
 				</span>
 				<span class="text-muted-foreground/60">/</span>
 				<span class="text-sm font-semibold text-foreground capitalize">
-					{session.activeTab}
+					{currentPageLabel()}
 				</span>
 			</div>
 

@@ -49,6 +49,7 @@ class PipelineRunRead(UUIDSchemaMixin, TimestampSchemaMixin):
     pause_reason: str | None
     branch: str
     revision: int
+    epoch: int
     lease_owner: str | None
     lease_expires_at: datetime | None
     next_action_at: datetime | None
@@ -59,6 +60,7 @@ class ExecutionAttemptRead(UUIDSchemaMixin, TimestampSchemaMixin):
 
     pipeline_run_id: UUID
     attempt_number: int = Field(ge=1)
+    epoch: int = Field(ge=1)
     kind: ExecutionAttemptKind
     state: ExecutionAttemptState
     request_snapshot: dict
@@ -71,6 +73,27 @@ class ExecutionAttemptRead(UUIDSchemaMixin, TimestampSchemaMixin):
     finished_at: datetime | None
     failure_code: str | None
     failure_detail: str | None
+
+
+class ExecutionDeliveryRead(UUIDSchemaMixin, TimestampSchemaMixin):
+    model_config = ConfigDict(from_attributes=True)
+
+    execution_attempt_id: UUID
+    delivery_number: int = Field(ge=1)
+    cause: Literal["initial", "silent", "quota", "resume"]
+    comment_id: str | None
+    posted_at: datetime | None
+
+
+class ExecutionReplyRead(UUIDSchemaMixin, TimestampSchemaMixin):
+    model_config = ConfigDict(from_attributes=True)
+
+    execution_attempt_id: UUID
+    comment_id: str
+    author: str
+    replied_at: datetime
+    excerpt: str | None
+    is_quota_limit: bool
 
 
 class PipelineRunList(BaseModel):
@@ -107,7 +130,7 @@ class LeaseGrant(BaseModel):
 
 class ImplementationRequest(BaseModel):
     version: Literal[2] = 2
-    kind: Literal["implementation", "ci-fix"] = "implementation"
+    kind: Literal["implementation", "ci-fix", "conflict-fix"] = "implementation"
     correlation_marker: str
     repository: str
     pull_request: PullRequestSnapshot

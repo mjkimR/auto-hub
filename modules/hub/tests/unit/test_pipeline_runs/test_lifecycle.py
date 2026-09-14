@@ -47,6 +47,7 @@ def create_mock_run(
     run.pause_reason = None
     run.branch = "codex/pr-10"
     run.revision = 1
+    run.epoch = 1
     run.lease_owner = "worker-1"
     run.lease_token = uuid4()
     run.lease_expires_at = datetime.now(UTC)
@@ -57,9 +58,10 @@ def create_mock_run(
 
 
 @pytest.mark.parametrize(
-    ("delivery_number", "expected_state"), [(1, PipelineRunState.DISPATCHING), (3, PipelineRunState.BLOCKED)]
+    ("delivery_number", "quota_retries", "expected_state"),
+    [(1, 0, PipelineRunState.DISPATCHING), (3, 2, PipelineRunState.BLOCKED)],
 )
-async def test_quota_reply_schedules_retry_or_blocks_after_two_retries(delivery_number, expected_state):
+async def test_quota_reply_schedules_retry_or_blocks_after_two_retries(delivery_number, quota_retries, expected_state):
     repo = MagicMock()
     projects = MagicMock()
     observer = MagicMock()
@@ -75,6 +77,8 @@ async def test_quota_reply_schedules_retry_or_blocks_after_two_retries(delivery_
     repo.get_leased = AsyncMock(return_value=run)
     repo.active_attempt = AsyncMock(return_value=attempt)
     repo.latest_delivery = AsyncMock(return_value=delivery)
+    repo.list_deliveries = AsyncMock(return_value=[MagicMock(cause="quota") for _ in range(quota_retries)])
+    repo.create_delivery = AsyncMock()
     projects.get = AsyncMock(return_value=project)
     observer.list_pull_comments = AsyncMock(
         return_value=[
@@ -180,9 +184,9 @@ async def test_resume_run_transitions_paused_run_back_to_active():
             )
             res = await use_case.resume_run(mock_run.id)
 
-            assert mock_run.state == PipelineRunState.AWAITING_CI
+            assert mock_run.state == PipelineRunState.DISPATCHING
             assert mock_run.pause_reason is None
-            assert res.state == PipelineRunState.AWAITING_CI
+            assert res.state == PipelineRunState.DISPATCHING
 
 
 async def test_cancel_run_marks_run_and_active_attempt_canceled():
@@ -267,6 +271,7 @@ async def test_complete_attempt_records_result():
     mock_attempt.id = attempt_id
     mock_attempt.pipeline_run_id = mock_run.id
     mock_attempt.attempt_number = 1
+    mock_attempt.epoch = 1
     mock_attempt.kind = "implementation"
     mock_attempt.state = ExecutionAttemptState.RUNNING
     mock_attempt.request_snapshot = {}

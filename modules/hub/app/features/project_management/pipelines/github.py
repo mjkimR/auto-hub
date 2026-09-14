@@ -123,6 +123,30 @@ class GitHubActionsReader:
             raise GitHubObservationError("GitHub mention delivery returned an invalid object")
         return value
 
+    async def merge_pull_request(self, repository: str, pull_number: int, head_sha: str) -> dict[str, Any]:
+        """Ask GitHub to merge the exact head verified by Hub.
+
+        GitHub remains the authority for branch protection and the actual merge
+        result; callers must not treat a local CI observation as a merge.
+        """
+        try:
+            response = await self.client.put(
+                f"/repos/{repository}/pulls/{pull_number}/merge", json={"sha": head_sha, "merge_method": "squash"}
+            )
+            response.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            status = exc.response.status_code
+            raise GitHubObservationError(f"GitHub merge returned HTTP {status}", status) from None
+        except httpx.RequestError:
+            raise GitHubObservationError("GitHub merge request failed") from None
+        try:
+            value = response.json()
+        except ValueError:
+            raise GitHubObservationError("GitHub merge returned invalid JSON") from None
+        if not isinstance(value, dict):
+            raise GitHubObservationError("GitHub merge returned an invalid object")
+        return value
+
     async def find_pull_request(self, repository: str, head_branch: str) -> dict[str, Any] | None:
         owner = repository.split("/")[0]
         pulls = await self._get_list(f"/repos/{repository}/pulls", {"head": f"{owner}:{head_branch}", "state": "open"})

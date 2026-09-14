@@ -1,3 +1,5 @@
+import json
+
 import httpx
 import pytest
 from app.features.project_management.pipeline_runs.dispatch import build_codex_mention_comment, is_codex_quota_reply
@@ -83,6 +85,15 @@ class TestCodexMentionComment:
         with pytest.raises(ValueError):
             build_codex_mention_comment(make_request(), delivery=0)
 
+    def test_fix_request_uses_fix_language_and_preserves_its_kind_marker(self):
+        request = make_request()
+        request.kind = "ci-fix"
+
+        comment = build_codex_mention_comment(request)
+
+        assert comment.startswith("@codex Fix the CI or merge conflict described below")
+        assert f"kind=ci-fix delivery=1 head={HEAD}" in comment
+
 
 class TestLinkedIssueNumbers:
     def test_closing_keywords_link_issues_once_in_order(self):
@@ -137,3 +148,17 @@ class TestGitHubMentionDelivery:
                 await GitHubActionsReader(client).post_issue_comment("owner/repository", 7, "@codex task")
 
         assert "credential" not in str(exc.value)
+
+    async def test_merge_uses_the_verified_head_sha(self):
+        def respond(request: httpx.Request) -> httpx.Response:
+            assert request.method == "PUT"
+            assert request.url.path == "/repos/owner/repository/pulls/7/merge"
+            assert json.loads(request.content) == {"sha": HEAD, "merge_method": "squash"}
+            return httpx.Response(200, json={"merged": True, "sha": "d" * 40})
+
+        async with httpx.AsyncClient(
+            base_url="https://api.github.com", transport=httpx.MockTransport(respond)
+        ) as client:
+            result = await GitHubActionsReader(client).merge_pull_request("owner/repository", 7, HEAD)
+
+        assert result["merged"] is True
