@@ -1,5 +1,8 @@
-"""Read-only GitHub Actions adapter. Never checks out or executes repository code."""
+"""GitHub Actions adapter. It never checks out or executes repository code."""
 
+import io
+import re
+import zipfile
 from typing import Any
 from urllib.parse import quote
 
@@ -72,6 +75,33 @@ class GitHubActionsReader:
         if not isinstance(value, list) or any(not isinstance(item, dict) for item in value):
             raise GitHubObservationError("GitHub observation returned an invalid list")
         return value
+
+    async def job_log_excerpt(self, repository: str, job_id: int, *, max_chars: int = 2_000) -> str | None:
+        """Return a bounded, redacted tail of one failed job log.
+
+        GitHub returns a zip archive.  Both archive input and extracted output
+        are capped so an upstream response cannot exhaust worker memory.
+        """
+        if job_id <= 0:
+            return None
+        try:
+            response = await self.client.get(f"/repos/{repository}/actions/jobs/{job_id}/logs")
+            response.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            raise GitHubObservationError(f"GitHub job log returned HTTP {exc.response.status_code}") from None
+        except httpx.RequestError:
+            raise GitHubObservationError("GitHub job log request failed") from None
+        if len(response.content) > 2_000_000:
+            raise GitHubObservationError("GitHub job log archive exceeded its size limit")
+        try:
+            with zipfile.ZipFile(io.BytesIO(response.content)) as archive:
+                files = [item for item in archive.infolist() if not item.is_dir()]
+                if not files or sum(item.file_size for item in files) > 200_000:
+                    raise GitHubObservationError("GitHub job log archive exceeded its extraction limit")
+                text = b"".join(archive.read(item) for item in files).decode("utf-8", errors="replace")
+        except zipfile.BadZipFile:
+            raise GitHubObservationError("GitHub job log returned an invalid archive") from None
+        return _redact_log(text[-max_chars:]) or None
 
     async def current_login(self) -> str:
         user = await self._get("/user")
@@ -228,7 +258,11 @@ class GitHubActionsReader:
                 url=run["html_url"],
                 jobs=[
                     JobSnapshot(
-                        name=job["name"], status=job["status"], conclusion=job["conclusion"], url=job.get("html_url")
+                        id=job.get("id", 0),
+                        name=job["name"],
+                        status=job["status"],
+                        conclusion=job["conclusion"],
+                        url=job.get("html_url"),
                     )
                     for job in jobs
                 ],
@@ -252,3 +286,12 @@ class GitHubActionsReader:
             return observation
         observation.result = evaluate_verification(config.verification, head_sha, observation.run)
         return observation
+
+
+_LOG_SECRET = re.compile(
+    r"(?i)(?:authorization:\s*bearer\s+|gh[pousr]_[A-Za-z0-9_]+|github_pat_[A-Za-z0-9_]+|(?:token|password|secret)\s*[=:]\s*)[^\s]+"
+)
+
+
+def _redact_log(text: str) -> str:
+    return _LOG_SECRET.sub("[REDACTED]", text)

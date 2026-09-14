@@ -184,6 +184,40 @@ export interface paths {
 		patch?: never;
 		trace?: never;
 	};
+	'/api/v1/pipeline-runs/{run_id}/attempts/{attempt_id}/deliveries': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		/** List Execution Deliveries */
+		get: operations['list_execution_deliveries_api_v1_pipeline_runs__run_id__attempts__attempt_id__deliveries_get'];
+		put?: never;
+		post?: never;
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/api/v1/pipeline-runs/{run_id}/attempts/{attempt_id}/replies': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		/** List Execution Replies */
+		get: operations['list_execution_replies_api_v1_pipeline_runs__run_id__attempts__attempt_id__replies_get'];
+		put?: never;
+		post?: never;
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
 	'/api/v1/pipeline-runs/{run_id}/lease': {
 		parameters: {
 			query?: never;
@@ -631,6 +665,23 @@ export interface paths {
 		patch?: never;
 		trace?: never;
 	};
+	'/api/github/webhooks': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		get?: never;
+		put?: never;
+		/** Receive Github Webhook */
+		post: operations['receive_github_webhook_api_github_webhooks_post'];
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -822,7 +873,7 @@ export interface components {
 		 * ExecutionAttemptKind
 		 * @enum {string}
 		 */
-		ExecutionAttemptKind: 'implementation' | 'revision';
+		ExecutionAttemptKind: 'implementation' | 'ci-fix' | 'conflict-fix' | 'revision';
 		/** ExecutionAttemptList */
 		ExecutionAttemptList: {
 			/** Items */
@@ -854,6 +905,8 @@ export interface components {
 			pipeline_run_id: string;
 			/** Attempt Number */
 			attempt_number: number;
+			/** Epoch */
+			epoch: number;
 			kind: components['schemas']['ExecutionAttemptKind'];
 			state: components['schemas']['ExecutionAttemptState'];
 			/** Request Snapshot */
@@ -888,6 +941,76 @@ export interface components {
 		 */
 		ExecutionAttemptState:
 			'planned' | 'dispatching' | 'running' | 'suspended' | 'completed' | 'failed';
+		/** ExecutionDeliveryRead */
+		ExecutionDeliveryRead: {
+			/**
+			 * Created At
+			 * Format: date-time
+			 */
+			created_at: string;
+			/**
+			 * Updated At
+			 * Format: date-time
+			 */
+			updated_at: string;
+			/**
+			 * Id
+			 * Format: uuid
+			 */
+			id: string;
+			/**
+			 * Execution Attempt Id
+			 * Format: uuid
+			 */
+			execution_attempt_id: string;
+			/** Delivery Number */
+			delivery_number: number;
+			/**
+			 * Cause
+			 * @enum {string}
+			 */
+			cause: 'initial' | 'silent' | 'quota' | 'resume';
+			/** Comment Id */
+			comment_id: string | null;
+			/** Posted At */
+			posted_at: string | null;
+		};
+		/** ExecutionReplyRead */
+		ExecutionReplyRead: {
+			/**
+			 * Created At
+			 * Format: date-time
+			 */
+			created_at: string;
+			/**
+			 * Updated At
+			 * Format: date-time
+			 */
+			updated_at: string;
+			/**
+			 * Id
+			 * Format: uuid
+			 */
+			id: string;
+			/**
+			 * Execution Attempt Id
+			 * Format: uuid
+			 */
+			execution_attempt_id: string;
+			/** Comment Id */
+			comment_id: string;
+			/** Author */
+			author: string;
+			/**
+			 * Replied At
+			 * Format: date-time
+			 */
+			replied_at: string;
+			/** Excerpt */
+			excerpt: string | null;
+			/** Is Quota Limit */
+			is_quota_limit: boolean;
+		};
 		/** GitHubProjectConnection */
 		GitHubProjectConnection: {
 			/** Repository */
@@ -914,6 +1037,12 @@ export interface components {
 			 * @constant
 			 */
 			version: 2;
+			/**
+			 * Kind
+			 * @default implementation
+			 * @enum {string}
+			 */
+			kind: 'implementation' | 'ci-fix' | 'conflict-fix';
 			/** Correlation Marker */
 			correlation_marker: string;
 			/** Repository */
@@ -932,6 +1061,11 @@ export interface components {
 		};
 		/** JobSnapshot */
 		JobSnapshot: {
+			/**
+			 * Id
+			 * @default 0
+			 */
+			id: number;
 			/** Name */
 			name: string;
 			/** Status */
@@ -1165,6 +1299,8 @@ export interface components {
 			branch: string;
 			/** Revision */
 			revision: number;
+			/** Epoch */
+			epoch: number;
 			/** Lease Owner */
 			lease_owner: string | null;
 			/** Lease Expires At */
@@ -2374,6 +2510,70 @@ export interface operations {
 				};
 				content: {
 					'application/json': components['schemas']['ExecutionAttemptList'];
+				};
+			};
+			/** @description Validation Error */
+			422: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json': components['schemas']['HTTPValidationError'];
+				};
+			};
+		};
+	};
+	list_execution_deliveries_api_v1_pipeline_runs__run_id__attempts__attempt_id__deliveries_get: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				run_id: string;
+				attempt_id: string;
+			};
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description Successful Response */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json': components['schemas']['ExecutionDeliveryRead'][];
+				};
+			};
+			/** @description Validation Error */
+			422: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json': components['schemas']['HTTPValidationError'];
+				};
+			};
+		};
+	};
+	list_execution_replies_api_v1_pipeline_runs__run_id__attempts__attempt_id__replies_get: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				run_id: string;
+				attempt_id: string;
+			};
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description Successful Response */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json': components['schemas']['ExecutionReplyRead'][];
 				};
 			};
 			/** @description Validation Error */
@@ -3721,6 +3921,39 @@ export interface operations {
 				};
 				content: {
 					'application/json': components['schemas']['TaskSpecResponse'][];
+				};
+			};
+			/** @description Validation Error */
+			422: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json': components['schemas']['HTTPValidationError'];
+				};
+			};
+		};
+	};
+	receive_github_webhook_api_github_webhooks_post: {
+		parameters: {
+			query?: never;
+			header?: {
+				'x-github-delivery'?: string | null;
+				'x-github-event'?: string | null;
+				'x-hub-signature-256'?: string | null;
+			};
+			path?: never;
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description Successful Response */
+			202: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json': unknown;
 				};
 			};
 			/** @description Validation Error */

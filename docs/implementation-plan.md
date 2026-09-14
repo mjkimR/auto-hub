@@ -98,7 +98,7 @@ Implemented on 2026-09-11 against Linear issues: run acquisition first resumed a
 - [x] Implement the watchdog: one silent retry after 2 h without a head change; quota retries wait 5 h 10 min and block after two retries for a user-initiated resume. Hub does not infer weekly reset timing.
 - [x] Keep the adapter boundary so `openai/codex-action` can replace mention delivery without changing runs, attempts, or deliveries.
 
-### 3.4 Canary, Crash Recovery, and Integration Tests
+### 3.4 Remaining Validation Only: Canary, Crash Recovery, and Integration Tests
 
 - [ ] Add a user-initiated execution canary for a dedicated test repository and PR, following the protocol (§8). Never perform this write from the read-only connection check.
 - [ ] Test crashes before posting, after posting but before the local response is saved, and after the push. Each restart must converge on one attempt, one delivery, and `awaiting_ci` on the pushed head.
@@ -107,11 +107,13 @@ Implemented on 2026-09-11 against Linear issues: run acquisition first resumed a
 
 Completion criteria: Given an enabled project whose Codex environment meets the prerequisites, the user enrolls one open PR and Hub records one durable run and attempt, posts one mention, and reaches `awaiting_ci` on the head Codex pushed. Restarting Hub at every external-call boundary must converge without duplicate mentions. An unresponsive or quota-limited Codex ends in a paused run after bounded retries. Phase 3 does not request fixes or merge.
 
+Implementation verification on 2026-09-14: delivery/reply persistence, retry epochs, bounded and redacted CI log excerpts, CI-fix/conflict-fix dispatch, and merge transitions are implemented. `just lint`, `just check`, and `just test` passed; 310 backend tests passed. The only unchecked work in this phase is the user-authorized live canary and the remaining crash, concurrency, and timing test coverage above.
+
 External dependency: [Codex GitHub integration](https://learn.chatgpt.com/docs/third-party/github) documents non-review `@codex` PR comments as starting a cloud chat with the PR as context. The user-PAT identity requirement, self-push through the environment `GH_TOKEN`, and the connector reply account are observed in `g-sandbox`, not documented, and the canary must re-confirm them.
 
-## 4. CI Results → Fix, Merge, & Completion
+## 4. CI Results → Fix, Merge, & Completion — Implementation Complete
 
-- [ ] On red CI for the current head, post a `ci-fix` mention with failing job names and bounded log excerpts. Cap at 2 attempts per epoch, then pause.
+- [x] On red CI for the current head, post a `ci-fix` mention with failing job names and bounded log excerpts. Cap at 2 attempts per epoch, then pause.
 - [x] On base conflicts, post a `conflict-fix` mention that merges the base branch. Cap at 1 attempt per epoch, then pause.
 - [x] Watch every fix request with the Phase 3 watchdog.
 - [x] Resume from the Hub UI starts a new epoch: fix-loop counters reset, while enrollment and implementation history persist.
@@ -125,9 +127,13 @@ An LLM review lane (for example `@codex review` or a separate reviewer) is not p
 
 ## 5. Events & Multi-Repository Operations
 
-Add GitHub webhooks (`pull_request`, `issue_comment`, `workflow_run`), routing them into the shared observation pipeline.
-Handle event deduplication, out-of-order delivery, and missed events, keeping periodic polling as a recovery path.
-When onboarding a second repository, evaluate whether repository-specific branching is needed in Hub.
+- [x] Add an HMAC-SHA256 verified GitHub webhook endpoint. It is intentionally outside API-key authentication, rejects delivery while `GITHUB_WEBHOOK_SECRET` is unset, and records only a payload digest rather than the payload body.
+- [x] Deduplicate by `X-GitHub-Delivery`, route matching active-project events into the shared run advancement path, and retain polling as recovery when background processing fails.
+- [ ] Configure a deployed HTTPS endpoint and subscribe a GitHub repository to `pull_request`, `issue_comment`, and `workflow_run`; verify GitHub's ping and a real event delivery.
+- [ ] Test out-of-order events and missed-event recovery against a deployed repository. The local interface tests cover signature validation and duplicate deliveries.
+- [ ] When onboarding a second repository, evaluate whether repository-specific branching is needed in Hub.
+
+Implementation verification on 2026-09-14: webhook signature validation and delivery deduplication are covered with test HTTP requests. Migration `d0e1f2a3b4c5` was exercised through SQLite upgrade/downgrade/upgrade. GitHub repository configuration and live delivery remain deployment validation.
 
 ## Future Considerations
 

@@ -5,6 +5,7 @@ from app.features.configuration.connectors.api.v1 import router as v1_connectors
 from app.features.configuration.system_configs.api.v1 import router as v1_system_configs_router
 from app.features.execution.dispatchers.api.v1 import router as v1_dispatchers_router
 from app.features.execution.tasks.api.v1 import router as v1_tasks_router
+from app.features.project_management.github_webhooks.api import router as github_webhooks_router
 from app.features.project_management.pipeline_runs.api.v1 import router as v1_pipeline_runs_router
 from app.features.project_management.pipelines.api.v1 import router as v1_pipelines_router
 from app.features.project_management.projects.api.v1 import router as v1_projects_router
@@ -47,3 +48,5 @@ v1_router.include_router(v1_schedule_jobs_router)
 v1_router.include_router(v1_dispatchers_router)
 v1_router.include_router(v1_tasks_router)
 router.include_router(v1_router)
+# GitHub authenticates this endpoint with its HMAC signature, not Hub's API key.
+router.include_router(github_webhooks_router)

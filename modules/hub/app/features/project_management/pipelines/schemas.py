@@ -51,6 +51,7 @@ class VerificationStatus(StrEnum):
 
 
 class JobSnapshot(BaseModel):
+    id: int = 0
     name: str
     status: str
     conclusion: str | None = None

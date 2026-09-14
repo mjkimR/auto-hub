@@ -32,6 +32,16 @@ class AuthConfig(BaseSettings):
     APP_SECRET_KEY: SecretStr = Field(..., description="Secret key for authentication")
 
 
+class GitHubWebhookConfig(BaseSettings):
+    """Deployment-owned secret shared with GitHub's webhook configuration."""
+
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+
+    GITHUB_WEBHOOK_SECRET: SecretStr | None = Field(
+        default=None, description="GitHub webhook HMAC secret; webhook delivery is disabled when unset"
+    )
+
+
 @lru_cache
 def get_scheduler_defaults() -> SchedulerDefaults:
     """Get an instance of SchedulerDefaults with values loaded from environment variables or defaults."""
@@ -42,3 +52,8 @@ def get_scheduler_defaults() -> SchedulerDefaults:
 def get_auth_config() -> AuthConfig:
     """Get an instance of AuthConfig with values loaded from environment variables or defaults."""
     return AuthConfig(**{})
+
+
+@lru_cache
+def get_github_webhook_config() -> GitHubWebhookConfig:
+    return GitHubWebhookConfig(**{})

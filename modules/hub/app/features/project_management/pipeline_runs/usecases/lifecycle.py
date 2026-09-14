@@ -438,6 +438,12 @@ class PipelineRunUseCase:
                         active_attempt.failure_code = "CI_FAILED"
                         active_attempt.failure_detail = pull_result.reason
                         prior = ImplementationRequest.model_validate(active_attempt.request_snapshot)
+                        log_excerpt = await self._failed_job_log_excerpt(
+                            project.github_connector_id,
+                            project.github_repository,
+                            observation.pulls[0].run,
+                            pull_result.unsuccessful_jobs,
+                        )
                         request = prior.model_copy(
                             update={
                                 "kind": "ci-fix",
@@ -447,7 +453,8 @@ class PipelineRunUseCase:
                                 ),
                                 "instructions": prior.instructions
                                 + "\n\nCI failed for this PR. Fix these jobs: "
-                                + ", ".join(pull_result.unsuccessful_jobs or [pull_result.reason]),
+                                + ", ".join(pull_result.unsuccessful_jobs or [pull_result.reason])
+                                + (f"\n\n## Bounded failing-job log excerpt\n\n{log_excerpt}" if log_excerpt else ""),
                             }
                         )
                         canonical = json.dumps(request.model_dump(mode="json"), sort_keys=True, separators=(",", ":"))
@@ -766,6 +773,26 @@ class PipelineRunUseCase:
                     run.revision += 1
             await session.flush()
             return ExecutionAttemptRead.model_validate(attempt)
+
+    async def _failed_job_log_excerpt(self, connector_id: UUID, repository: str, run, failed_names: list[str]) -> str:
+        """Best-effort evidence for a fix request; log access never blocks state handling."""
+        if run is None:
+            return ""
+        failed = [job for job in run.jobs if job.name in failed_names and job.conclusion == "failure"]
+        if not failed:
+            return ""
+        try:
+            token = await self.observer.get_token(connector_id, "github")
+            async with pipeline_services.create_github_client(token) as client:
+                reader = GitHubActionsReader(client)
+                excerpts = []
+                for job in failed[:3]:
+                    excerpt = await reader.job_log_excerpt(repository, job.id, max_chars=1_000)
+                    if excerpt:
+                        excerpts.append(f"### {job.name}\n\n```text\n{excerpt}\n```")
+                return "\n\n".join(excerpts)
+        except (GitHubObservationError, PipelineConfigurationError):
+            return ""
 
     @staticmethod
     def _github_repository(project) -> str:

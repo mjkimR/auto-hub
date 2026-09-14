@@ -1,4 +1,6 @@
 import json
+from io import BytesIO
+from zipfile import ZIP_DEFLATED, ZipFile
 
 import httpx
 import pytest
@@ -162,3 +164,22 @@ class TestGitHubMentionDelivery:
             result = await GitHubActionsReader(client).merge_pull_request("owner/repository", 7, HEAD)
 
         assert result["merged"] is True
+
+    async def test_failed_job_log_is_bounded_and_redacted(self):
+        archive = BytesIO()
+        with ZipFile(archive, "w", ZIP_DEFLATED) as logs:
+            logs.writestr("job.txt", "line\n" + "tail\n" * 1_000 + "Authorization: Bearer secret-token\n")
+
+        def respond(request: httpx.Request) -> httpx.Response:
+            assert request.url.path == "/repos/owner/repository/actions/jobs/8/logs"
+            return httpx.Response(200, content=archive.getvalue())
+
+        async with httpx.AsyncClient(
+            base_url="https://api.github.com", transport=httpx.MockTransport(respond)
+        ) as client:
+            excerpt = await GitHubActionsReader(client).job_log_excerpt("owner/repository", 8, max_chars=100)
+
+        assert excerpt is not None
+        assert "secret-token" not in excerpt
+        assert "[REDACTED]" in excerpt
+        assert len(excerpt) <= 100
