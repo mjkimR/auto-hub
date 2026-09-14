@@ -73,6 +73,45 @@ class GitHubActionsReader:
             raise GitHubObservationError("GitHub observation returned an invalid list")
         return value
 
+    async def current_login(self) -> str:
+        user = await self._get("/user")
+        login = user.get("login")
+        if not isinstance(login, str) or not login:
+            raise GitHubObservationError("GitHub returned an incomplete authenticated user")
+        return login
+
+    async def reconcile_issue_comment(
+        self, repository: str, pull_number: int, marker: str, author: str
+    ) -> dict[str, Any] | None:
+        """Find one trusted marker using a bounded list of PR issue comments."""
+        for page in range(1, 11):
+            comments = await self._get_list(
+                f"/repos/{repository}/issues/{pull_number}/comments", {"per_page": 100, "page": page}
+            )
+            for comment in comments:
+                if comment.get("user", {}).get("login") == author and marker in str(comment.get("body") or ""):
+                    return comment
+            if len(comments) < 100:
+                return None
+        raise GitHubObservationError("GitHub comment reconciliation exceeded its pagination limit")
+
+    async def post_issue_comment(self, repository: str, pull_number: int, body: str) -> dict[str, Any]:
+        try:
+            response = await self.client.post(f"/repos/{repository}/issues/{pull_number}/comments", json={"body": body})
+            response.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            status = exc.response.status_code
+            raise GitHubObservationError(f"GitHub mention delivery returned HTTP {status}", status) from None
+        except httpx.RequestError:
+            raise GitHubObservationError("GitHub mention delivery request failed") from None
+        try:
+            value = response.json()
+        except ValueError:
+            raise GitHubObservationError("GitHub mention delivery returned invalid JSON") from None
+        if not isinstance(value, dict):
+            raise GitHubObservationError("GitHub mention delivery returned an invalid object")
+        return value
+
     async def find_pull_request(self, repository: str, head_branch: str) -> dict[str, Any] | None:
         owner = repository.split("/")[0]
         pulls = await self._get_list(f"/repos/{repository}/pulls", {"head": f"{owner}:{head_branch}", "state": "open"})

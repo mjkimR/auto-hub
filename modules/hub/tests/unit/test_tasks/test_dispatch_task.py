@@ -1,4 +1,4 @@
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import ANY, AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 import pytest
@@ -72,7 +72,7 @@ async def test_dispatch_task_acquires_lease_and_prepares_implementation_for_queu
         mock_use_case.release_lease.assert_awaited_once()
 
 
-async def test_dispatch_task_acquires_lease_and_advances_active_run():
+async def test_dispatch_task_acquires_lease_and_delivers_a_prepared_implementation():
     project_id = uuid4()
     run_id = uuid4()
     lease_token = uuid4()
@@ -95,12 +95,12 @@ async def test_dispatch_task_acquires_lease_and_advances_active_run():
 
         mock_use_case = mock_use_case_cls.return_value
         mock_use_case.acquire_lease = AsyncMock(return_value=grant)
-        mock_use_case.advance_run = AsyncMock(return_value=mock_run)
+        mock_use_case.dispatch_implementation = AsyncMock(return_value=mock_run)
         mock_use_case.release_lease = AsyncMock()
 
         await dispatch_project_task(ProjectDispatchPayload(project_id=project_id))
 
         mock_repo.get_active.assert_awaited_once()
         mock_use_case.acquire_lease.assert_awaited_once()
-        mock_use_case.advance_run.assert_awaited_once()
+        mock_use_case.dispatch_implementation.assert_awaited_once_with(run_id, owner=ANY, token=lease_token)
         mock_use_case.release_lease.assert_awaited_once()

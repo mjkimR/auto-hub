@@ -104,3 +104,21 @@ class ExecutionAttempt(Base, UUIDMixin, TimestampMixin):
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     failure_code: Mapped[str | None] = mapped_column(String(100), nullable=True)
     failure_detail: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
+class ExecutionDelivery(Base, UUIDMixin, TimestampMixin):
+    """A durable, reconcilable request to post one Codex mention."""
+
+    __tablename__ = "execution_deliveries"
+    __table_args__ = (
+        CheckConstraint("delivery_number >= 1", name="ck_execution_deliveries_number_positive"),
+        Index("uq_execution_deliveries_attempt_number", "execution_attempt_id", "delivery_number", unique=True),
+    )
+
+    execution_attempt_id: Mapped[UUID] = mapped_column(
+        ForeignKey("execution_attempts.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    delivery_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    cause: Mapped[str] = mapped_column(String(30), nullable=False, default="initial")
+    comment_id: Mapped[str | None] = mapped_column(String(255), nullable=True, unique=True)
+    posted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

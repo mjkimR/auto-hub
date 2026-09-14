@@ -3,7 +3,13 @@ from __future__ import annotations
 from datetime import datetime
 from uuid import UUID
 
-from app.features.pipeline_runs.models import ACTIVE_RUN_STATES, ExecutionAttempt, ExecutionAttemptState, PipelineRun
+from app.features.pipeline_runs.models import (
+    ACTIVE_RUN_STATES,
+    ExecutionAttempt,
+    ExecutionAttemptState,
+    ExecutionDelivery,
+    PipelineRun,
+)
 from sqlalchemy import func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -105,6 +111,22 @@ class PipelineRunRepository:
 
     async def get_attempt(self, session: AsyncSession, attempt_id: UUID) -> ExecutionAttempt | None:
         return await session.get(ExecutionAttempt, attempt_id)
+
+    async def latest_delivery(self, session: AsyncSession, attempt_id: UUID) -> ExecutionDelivery | None:
+        return (
+            await session.scalars(
+                select(ExecutionDelivery)
+                .where(ExecutionDelivery.execution_attempt_id == attempt_id)
+                .order_by(ExecutionDelivery.delivery_number.desc())
+                .limit(1)
+            )
+        ).one_or_none()
+
+    async def create_delivery(self, session: AsyncSession, delivery: ExecutionDelivery) -> ExecutionDelivery:
+        session.add(delivery)
+        await session.flush()
+        await session.refresh(delivery)
+        return delivery
 
     async def acquire_lease(
         self,

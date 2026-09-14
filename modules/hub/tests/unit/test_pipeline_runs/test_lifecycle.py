@@ -1,5 +1,5 @@
 from datetime import UTC, datetime
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import ANY, AsyncMock, MagicMock
 from uuid import uuid4
 
 import pytest
@@ -47,6 +47,37 @@ def create_mock_run(
     run.created_at = datetime.now(UTC)
     run.updated_at = datetime.now(UTC)
     return run
+
+
+async def test_manual_advance_dispatches_a_prepared_implementation():
+    repo = MagicMock()
+    projects = MagicMock()
+    observer = MagicMock()
+    use_case = PipelineRunUseCase(repo, projects, observer)
+    run = create_mock_run(state=PipelineRunState.DISPATCHING)
+    grant = LeaseGrant(
+        run_id=run.id,
+        owner="manual:test",
+        token=uuid4(),
+        expires_at=datetime.now(UTC),
+        run_revision=run.revision,
+    )
+    expected = MagicMock()
+
+    use_case.acquire_lease = AsyncMock(return_value=grant)
+    use_case.get = AsyncMock(return_value=run)
+    use_case.dispatch_implementation = AsyncMock(return_value=expected)
+    use_case.release_lease = AsyncMock()
+
+    result = await use_case.manual_advance(run.id, observer)
+
+    assert result is expected
+    use_case.dispatch_implementation.assert_awaited_once_with(run.id, owner=ANY, token=grant.token)
+    assert use_case.release_lease.await_args is not None
+    assert use_case.dispatch_implementation.await_args is not None
+    release_request = use_case.release_lease.await_args.args[1]
+    assert release_request.token == grant.token
+    assert release_request.owner == use_case.dispatch_implementation.await_args.kwargs["owner"]
 
 
 async def test_pause_run_transitions_state_and_clears_lease():
@@ -224,6 +255,7 @@ async def test_manual_advance_leases_and_advances():
     grant = MagicMock(spec=LeaseGrant)
     grant.token = uuid4()
     use_case.acquire_lease = AsyncMock(return_value=grant)
+    use_case.get = AsyncMock(return_value=MagicMock(state=PipelineRunState.AWAITING_CI))
     use_case.advance_run = AsyncMock(return_value=MagicMock())
     use_case.release_lease = AsyncMock()
 

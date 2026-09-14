@@ -68,7 +68,7 @@ Implemented on 2026-09-14 together with §3.1, the PR re-keying in §3.2, and re
 - [x] Add `POST /api/v1/projects/{project_id}/runs` and an Enroll PR action in the project UI that register an open PR of the project's repository as a `queued` run. Hub never selects work on its own.
 - [x] Reject closed PRs, fork PRs, `@codex` in the PR title, PR body, or a linked issue, missing linked issues, and projects that already have an active run (before any GitHub read).
 - [x] Record the connector's authenticated GitHub login as `github_login` in the connection check, and fail the identity item when the token does not act as a user account.
-- [ ] Show the onboarding checklist from the protocol (§1): Codex environment, agent internet access, environment `GH_TOKEN`, and connector permissions. The connector form currently states only the token permissions and the Codex-linked account.
+- [x] Show the onboarding checklist from the protocol (§1): Codex environment, agent internet access, environment `GH_TOKEN`, connector permissions, and repository `AGENTS.md` in the project settings dialog.
 - [x] Cover open, closed, fork, mention, missing-issue, duplicate, disabled, and edited-project enrollment with test HTTP transports.
 
 ### 3.2 Durable Run, Attempt, and Lease State
@@ -91,9 +91,9 @@ Implemented on 2026-09-11 against Linear issues: run acquisition first resumed a
 
 - [x] Persist and commit an immutable request snapshot, canonical digest, and idempotency key under the run lease before any external call.
 - [x] Build the request (version 2) from the PR snapshot, and render the mention comment in the protocol format: leading `@codex`, self-contained task with linked issues, push block for the PR head ref, trailing `hub-attempt` marker. HTML comments in the task text are removed so hidden text cannot forge a marker.
-- [ ] Post mentions only with the project's GitHub user PAT. Never post Hub comments that contain `@codex` outside task requests.
-- [ ] Reconcile before every post by listing PR comments for a marker with the same attempt ID and delivery number authored by the connector's login. Adopt a found comment instead of posting again.
-- [ ] Move `dispatching` → `implementing` once the delivery comment is confirmed, and `implementing` → `awaiting_ci` once the PR head differs from the delivery marker's `head`. A Codex reply alone never completes the attempt.
+- [x] Post initial mentions only with the project's GitHub user PAT. Never post Hub comments that contain `@codex` outside task requests.
+- [x] Reconcile before the initial post by listing bounded PR comments for a marker with the same attempt ID and delivery number authored by the connector's login. Adopt a found comment instead of posting again.
+- [x] Move `dispatching` → `implementing` once the delivery comment is confirmed, and `implementing` → `awaiting_ci` once the PR head differs from the delivery marker's `head`. A Codex reply alone never completes the attempt.
 - [ ] Record Codex connector replies after a delivery, and classify usage-limit replies in one matcher.
 - [ ] Implement the watchdog: one silent retry after 2 h without a head change, quota retries after 2 h and 4 h, then pause with `codex-unresponsive` or `codex-quota-persistent`. Apply a five-minute tolerance.
 - [ ] Keep the adapter boundary so `openai/codex-action` can replace mention delivery without changing runs, attempts, or deliveries.

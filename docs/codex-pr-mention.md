@@ -1,6 +1,6 @@
 # Codex PR Mention Protocol
 
-Hub starts Codex cloud work by posting an `@codex` comment on a pull request the user opened and enrolled. This document is the contract for that adapter. Enrollment (§2), the connection check's identity item (§1), and comment rendering (§3) are implemented; posting, reconciliation, progress observation, and the watchdog are not (see [Implementation Plan §3](implementation-plan.md#3-user-pr--codex-mention-implementation)).
+Hub starts Codex cloud work by posting an `@codex` comment on a pull request the user opened and enrolled. This document is the contract for that adapter. Enrollment (§2), the connection check's identity item (§1), comment rendering (§3), initial posting and marker reconciliation (§4), and head-change observation (§5) are implemented. Codex reply handling and the watchdog remain follow-up work (see [Implementation Plan §3](implementation-plan.md#3-user-pr--codex-mention-implementation)).
 
 The protocol follows the path that completed unattended implementation and CI runs in `g-sandbox` (decisions D-013 and D-017, `gsdev pr` gate). Behaviors marked *observed* come from that operation, not from official documentation, and must be re-checked by the canary in §8.
 

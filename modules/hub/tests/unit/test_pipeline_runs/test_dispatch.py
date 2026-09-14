@@ -1,7 +1,9 @@
+import httpx
 import pytest
 from app.features.pipeline_runs.dispatch import build_codex_mention_comment
 from app.features.pipeline_runs.github import linked_issue_numbers
 from app.features.pipeline_runs.schemas import ImplementationRequest, LinkedIssue, PullRequestSnapshot
+from app.features.pipelines.github import GitHubActionsReader, GitHubObservationError
 
 pytestmark = pytest.mark.unit
 
@@ -86,3 +88,41 @@ class TestLinkedIssueNumbers:
 
     def test_missing_body_links_nothing(self):
         assert linked_issue_numbers(None) == []
+
+
+class TestGitHubMentionDelivery:
+    async def test_reconciliation_uses_only_the_connector_accounts_marker(self):
+        marker = f"{MARKER} kind=implementation delivery=1"
+
+        def respond(request: httpx.Request) -> httpx.Response:
+            assert request.method == "GET"
+            assert request.url.path == "/repos/owner/repository/issues/7/comments"
+            return httpx.Response(
+                200,
+                json=[
+                    {"id": 1, "body": f"<!-- {marker} -->", "user": {"login": "other-user"}},
+                    {"id": 2, "body": f"<!-- {marker} -->", "user": {"login": "connector-user"}},
+                ],
+            )
+
+        async with httpx.AsyncClient(
+            base_url="https://api.github.com", transport=httpx.MockTransport(respond)
+        ) as client:
+            comment = await GitHubActionsReader(client).reconcile_issue_comment(
+                "owner/repository", 7, marker, "connector-user"
+            )
+
+        assert comment is not None
+        assert comment["id"] == 2
+
+    async def test_posting_sanitizes_upstream_errors(self):
+        async def respond(_: httpx.Request) -> httpx.Response:
+            return httpx.Response(403, json={"message": "credential details must not escape"})
+
+        async with httpx.AsyncClient(
+            base_url="https://api.github.com", transport=httpx.MockTransport(respond)
+        ) as client:
+            with pytest.raises(GitHubObservationError, match="HTTP 403") as exc:
+                await GitHubActionsReader(client).post_issue_comment("owner/repository", 7, "@codex task")
+
+        assert "credential" not in str(exc.value)

@@ -18,12 +18,12 @@ Drawing on operational experience from `g-sandbox`, Godot-specific logic, planni
 
 ## Implementation Status
 
-The existing scheduler and management UI are preserved. The current implementation scope is **read-only CI observation on saved project connections**.
+The existing scheduler and management UI are preserved. The current implementation scope includes CI observation on saved project connections and initial Codex PR mention delivery.
 A repository is registered as a connection, a connection check confirms CI is readable and verifies one current PR, and scheduled runs persist the latest observation of the required GitHub Actions jobs.
 The CI templates serve as starter files to install in target repositories, and existing `pipeline.observe` schedules can be imported onto a project connection.
-Open pull requests can be enrolled explicitly as durable runs, with attempt and lease state and the rendered Codex mention request. Hub does not post the mention yet.
+Open pull requests can be enrolled explicitly as durable runs. Hub persists a planned delivery, reconciles its marker against PR comments authored by the configured GitHub user, and posts the initial Codex mention only when no matching comment exists. A changed PR head advances the run to CI observation.
 
-Codex PR mention delivery and reconciliation, manual CI execution, automated fix/merge, and distribution of shared reusable workflows are planned as follow-up work.
+Codex reply handling and watchdog retries, manual CI execution, automated fix/merge, and distribution of shared reusable workflows are planned as follow-up work.
 Currently, a status of `passed` in observation results signifies fulfillment of the CI contract, not approval for merge.
 
 ## Documentation
@@ -40,7 +40,7 @@ Currently, a status of `passed` in observation results signifies fulfillment of 
 
 ## Development
 
-The backend is built with Python/FastAPI in `modules/hub`, and the frontend is built with React/TypeScript in `modules/hub-ui`.
+The backend is built with Python/FastAPI in `modules/hub`, and the frontend is built with Svelte/TypeScript in `modules/hub-ui`.
 PostgreSQL is the standard database, with SQLite used for default testing.
 
 The single source of truth for execution commands and default arguments is [justfile](justfile). Check available commands with `just --list`.

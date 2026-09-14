@@ -579,7 +579,7 @@
 			<DialogHeader>
 				<DialogTitle>Project Settings</DialogTitle>
 				<DialogDescription>
-					Configure repository providers, CI workflow jobs, and issue tracking.
+					Configure the repository, CI workflow jobs, and Codex dispatch prerequisites.
 				</DialogDescription>
 			</DialogHeader>
 			<form onsubmit={handleUpdateProject} class="space-y-5 py-2">
@@ -697,6 +697,31 @@
 										required={hasGithub}
 									/>
 								</div>
+							</div>
+
+							<div class="space-y-2 rounded-md border border-primary/20 bg-primary/5 p-3 text-xs">
+								<div class="font-semibold text-foreground">Codex dispatch checklist</div>
+								<ul class="space-y-1.5 text-muted-foreground">
+									<li>
+										Codex is connected to the same GitHub user as this connector and has an
+										environment for this repository.
+									</li>
+									<li>
+										The environment can reach <code>github.com</code> and has a repository-scoped
+										<code>GH_TOKEN</code> with Contents and Pull requests read/write access.
+									</li>
+									<li>
+										This connector uses that user’s PAT with Pull requests read/write, Issues read,
+										Actions read, and Contents read access.
+									</li>
+									<li>
+										The repository has an <code>AGENTS.md</code> that states its required checks.
+									</li>
+								</ul>
+								<p class="text-muted-foreground">
+									Run Connection Check after saving to confirm the connector account and CI read
+									access.
+								</p>
 							</div>
 						</div>
 					{/if}
