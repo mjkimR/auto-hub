@@ -1,7 +1,7 @@
 import pytest
-from app.features.system_configs.models import SystemConfig
-from app.features.system_configs.repos import SystemConfigRepository
-from app.features.system_configs.services import SystemConfigContextKwargs, SystemConfigService
+from app.features.configuration.system_configs.models import SystemConfig
+from app.features.configuration.system_configs.repos import SystemConfigRepository
+from app.features.configuration.system_configs.services import SystemConfigContextKwargs, SystemConfigService
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tests.utils.fastapi import resolve_dependency

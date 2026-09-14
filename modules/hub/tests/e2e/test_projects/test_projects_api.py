@@ -5,10 +5,10 @@ from uuid import UUID, uuid4
 import httpx
 import pytest
 from app.features import tasks
-from app.features.pipelines import services
-from app.features.schedule_configs.models import ScheduleConfig
-from app.features.schedule_jobs.models import ScheduleJob
-from app.features.tasks.domains.pipeline import task as pipeline_task
+from app.features.execution.tasks.domains.pipeline import task as pipeline_task
+from app.features.project_management.pipelines import services
+from app.features.scheduling.schedule_configs.models import ScheduleConfig
+from app.features.scheduling.schedule_jobs.models import ScheduleJob
 from sqlalchemy import select, update
 from tests.utils.assertions import assert_status_code
 
@@ -363,7 +363,7 @@ class TestScheduledProjectObservation:
         assert not github_scenario.requests
 
     async def test_project_observation_is_published_in_task_specs(self, client, github_scenario):
-        from app.features.tasks.usecases.task_spec import GetTaskSpecUseCase
+        from app.features.execution.tasks.usecases.task_spec import GetTaskSpecUseCase
 
         GetTaskSpecUseCase.clear_cache()
         response = await client.get("/api/v1/tasks/specs?name=pipeline.observe_project")

@@ -66,7 +66,7 @@ def build_schema_instance[T: BaseModel](model_cls: type[T], **overrides: Any) ->
             "payload": {},
         }
     elif cls_name == "ScheduleJobCreate":
-        from app.features.schedule_jobs.models import ScheduleJobStatus
+        from app.features.scheduling.schedule_jobs.models import ScheduleJobStatus
 
         known_defaults = {
             "name": f"job-{random_string(6)}",

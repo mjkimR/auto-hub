@@ -5,10 +5,10 @@ from uuid import UUID, uuid4
 
 import httpx
 import pytest
-from app.features.pipeline_runs import usecases as run_usecases
-from app.features.pipeline_runs.models import PipelineRun, PipelineRunState
-from app.features.pipelines import services
-from app.features.projects.models import ProjectConnection
+from app.features.project_management.pipeline_runs.models import PipelineRun, PipelineRunState
+from app.features.project_management.pipeline_runs.usecases import lifecycle as run_usecases
+from app.features.project_management.pipelines import services
+from app.features.project_management.projects.models import ProjectConnection
 from sqlalchemy import update
 from tests.utils.assertions import assert_status_code
 

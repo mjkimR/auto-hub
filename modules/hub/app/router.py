@@ -1,15 +1,15 @@
 from typing import Annotated
 
 from app.auth import verify_api_key
-from app.features.connectors.api.v1 import router as v1_connectors_router
-from app.features.dispatchers.api.v1 import router as v1_dispatchers_router
-from app.features.pipeline_runs.api import router as v1_pipeline_runs_router
-from app.features.pipelines.api import router as v1_pipelines_router
-from app.features.projects.api import router as v1_projects_router
-from app.features.schedule_configs.api.v1 import router as v1_schedule_configs_router
-from app.features.schedule_jobs.api.v1 import router as v1_schedule_jobs_router
-from app.features.system_configs.api.v1 import router as v1_system_configs_router
-from app.features.tasks.api.v1 import router as v1_tasks_router
+from app.features.configuration.connectors.api.v1 import router as v1_connectors_router
+from app.features.configuration.system_configs.api.v1 import router as v1_system_configs_router
+from app.features.execution.dispatchers.api.v1 import router as v1_dispatchers_router
+from app.features.execution.tasks.api.v1 import router as v1_tasks_router
+from app.features.project_management.pipeline_runs.api.v1 import router as v1_pipeline_runs_router
+from app.features.project_management.pipelines.api.v1 import router as v1_pipelines_router
+from app.features.project_management.projects.api.v1 import router as v1_projects_router
+from app.features.scheduling.schedule_configs.api.v1 import router as v1_schedule_configs_router
+from app.features.scheduling.schedule_jobs.api.v1 import router as v1_schedule_jobs_router
 from app_layer_base.core.database.deps import get_session
 from fastapi import APIRouter, Depends, Response, status
 from sqlalchemy import text

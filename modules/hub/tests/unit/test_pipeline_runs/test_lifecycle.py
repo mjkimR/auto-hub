@@ -1,16 +1,22 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from unittest.mock import ANY, AsyncMock, MagicMock
 from uuid import uuid4
 
 import pytest
-from app.features.pipeline_runs.models import ExecutionAttempt, ExecutionAttemptState, PipelineRun, PipelineRunState
-from app.features.pipeline_runs.schemas import (
+from app.features.project_management.pipeline_runs.models import (
+    ExecutionAttempt,
+    ExecutionAttemptState,
+    ExecutionDelivery,
+    PipelineRun,
+    PipelineRunState,
+)
+from app.features.project_management.pipeline_runs.schemas import (
     AttachPRRequest,
     CompleteAttemptRequest,
     LeaseGrant,
     PauseRunRequest,
 )
-from app.features.pipeline_runs.usecases import PipelineRunUseCase
+from app.features.project_management.pipeline_runs.usecases.lifecycle import PipelineRunUseCase
 
 pytestmark = pytest.mark.unit
 
@@ -44,9 +50,56 @@ def create_mock_run(
     run.lease_owner = "worker-1"
     run.lease_token = uuid4()
     run.lease_expires_at = datetime.now(UTC)
+    run.next_action_at = None
     run.created_at = datetime.now(UTC)
     run.updated_at = datetime.now(UTC)
     return run
+
+
+@pytest.mark.parametrize(
+    ("delivery_number", "expected_state"), [(1, PipelineRunState.DISPATCHING), (3, PipelineRunState.BLOCKED)]
+)
+async def test_quota_reply_schedules_retry_or_blocks_after_two_retries(delivery_number, expected_state):
+    repo = MagicMock()
+    projects = MagicMock()
+    observer = MagicMock()
+    use_case = PipelineRunUseCase(repo, projects, observer)
+    run = create_mock_run()
+    project = MagicMock(enabled=True, revision=1, github_repository="owner/repo", github_connector_id=uuid4())
+    attempt = MagicMock(spec=ExecutionAttempt)
+    attempt.id = uuid4()
+    delivery = MagicMock(spec=ExecutionDelivery)
+    delivery.delivery_number = delivery_number
+    delivery.posted_at = datetime.now(UTC)
+
+    repo.get_leased = AsyncMock(return_value=run)
+    repo.active_attempt = AsyncMock(return_value=attempt)
+    repo.latest_delivery = AsyncMock(return_value=delivery)
+    projects.get = AsyncMock(return_value=project)
+    observer.list_pull_comments = AsyncMock(
+        return_value=[
+            {
+                "user": {"login": "chatgpt-codex-connector"},
+                "body": "You reached a Codex usage limit.",
+                "created_at": delivery.posted_at.isoformat(),
+            }
+        ]
+    )
+
+    mock_tx = MagicMock()
+    mock_session = AsyncMock()
+    mock_tx.__aenter__ = AsyncMock(return_value=mock_session)
+    mock_tx.__aexit__ = AsyncMock(return_value=None)
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr("app.features.project_management.pipeline_runs.usecases.lifecycle.AsyncTransaction", lambda: mock_tx)
+        result = await use_case.advance_run(run.id, owner="worker-1", token=run.lease_token, observer=observer)
+
+    assert result.state == expected_state
+    if expected_state == PipelineRunState.DISPATCHING:
+        assert run.next_action_at is not None
+        assert timedelta(hours=5, minutes=9) < run.next_action_at - delivery.posted_at < timedelta(hours=5, minutes=11)
+    else:
+        assert "persisted" in run.pause_reason
 
 
 async def test_manual_advance_dispatches_a_prepared_implementation():
@@ -95,7 +148,9 @@ async def test_pause_run_transitions_state_and_clears_lease():
         mock_tx.__aexit__ = AsyncMock(return_value=None)
 
         with pytest.MonkeyPatch.context() as mp:
-            mp.setattr("app.features.pipeline_runs.usecases.AsyncTransaction", lambda: mock_tx)
+            mp.setattr(
+                "app.features.project_management.pipeline_runs.usecases.lifecycle.AsyncTransaction", lambda: mock_tx
+            )
             res = await use_case.pause_run(mock_run.id, PauseRunRequest(reason="Maintenance"))
 
             assert mock_run.state == PipelineRunState.PAUSED
@@ -120,7 +175,9 @@ async def test_resume_run_transitions_paused_run_back_to_active():
         mock_tx.__aexit__ = AsyncMock(return_value=None)
 
         with pytest.MonkeyPatch.context() as mp:
-            mp.setattr("app.features.pipeline_runs.usecases.AsyncTransaction", lambda: mock_tx)
+            mp.setattr(
+                "app.features.project_management.pipeline_runs.usecases.lifecycle.AsyncTransaction", lambda: mock_tx
+            )
             res = await use_case.resume_run(mock_run.id)
 
             assert mock_run.state == PipelineRunState.AWAITING_CI
@@ -148,7 +205,9 @@ async def test_cancel_run_marks_run_and_active_attempt_canceled():
         mock_tx.__aexit__ = AsyncMock(return_value=None)
 
         with pytest.MonkeyPatch.context() as mp:
-            mp.setattr("app.features.pipeline_runs.usecases.AsyncTransaction", lambda: mock_tx)
+            mp.setattr(
+                "app.features.project_management.pipeline_runs.usecases.lifecycle.AsyncTransaction", lambda: mock_tx
+            )
             res = await use_case.cancel_run(mock_run.id)
 
             assert mock_run.state == PipelineRunState.CANCELED
@@ -181,7 +240,9 @@ async def test_attach_pr_transitions_to_awaiting_ci():
         mock_tx.__aexit__ = AsyncMock(return_value=None)
 
         with pytest.MonkeyPatch.context() as mp:
-            mp.setattr("app.features.pipeline_runs.usecases.AsyncTransaction", lambda: mock_tx)
+            mp.setattr(
+                "app.features.project_management.pipeline_runs.usecases.lifecycle.AsyncTransaction", lambda: mock_tx
+            )
             req = AttachPRRequest(pull_number=99)
             res = await use_case.attach_pr(mock_run.id, req)
 
@@ -229,7 +290,9 @@ async def test_complete_attempt_records_result():
         mock_tx.__aexit__ = AsyncMock(return_value=None)
 
         with pytest.MonkeyPatch.context() as mp:
-            mp.setattr("app.features.pipeline_runs.usecases.AsyncTransaction", lambda: mock_tx)
+            mp.setattr(
+                "app.features.project_management.pipeline_runs.usecases.lifecycle.AsyncTransaction", lambda: mock_tx
+            )
             req = CompleteAttemptRequest(
                 status="failed",
                 failure_code="BUILD_ERR",

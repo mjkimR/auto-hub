@@ -1,9 +1,9 @@
 import uuid
 
 import pytest
-from app.features.schedule_configs.models import ScheduleConfig
-from app.features.schedule_configs.repos import ScheduleConfigRepository
-from app.features.schedule_configs.schemas import ScheduleConfigCreate, ScheduleConfigRead
+from app.features.scheduling.schedule_configs.models import ScheduleConfig
+from app.features.scheduling.schedule_configs.repos import ScheduleConfigRepository
+from app.features.scheduling.schedule_configs.schemas import ScheduleConfigCreate, ScheduleConfigRead
 from httpx import AsyncClient
 
 from tests.utils.assertions import (

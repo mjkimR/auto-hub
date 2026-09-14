@@ -13,11 +13,11 @@ from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from app.features.dispatchers.services import DispatcherService
-from app.features.schedule_configs.models import ScheduleConfig
-from app.features.schedule_configs.schemas import ScheduleConfigRead
-from app.features.schedule_jobs.models import ScheduleJobStatus
-from app.features.schedule_jobs.schemas import ScheduleJobRead
+from app.features.execution.dispatchers.services import DispatcherService
+from app.features.scheduling.schedule_configs.models import ScheduleConfig
+from app.features.scheduling.schedule_configs.schemas import ScheduleConfigRead
+from app.features.scheduling.schedule_jobs.models import ScheduleJobStatus
+from app.features.scheduling.schedule_jobs.schemas import ScheduleJobRead
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -159,8 +159,8 @@ class TestRunDispatch:
         service.job_repo.get_by_pk = AsyncMock(return_value=job_obj)
 
         with (
-            patch("app.features.dispatchers.services.task_registry") as mock_registry,
-            patch("app.features.dispatchers.services.AsyncTransaction") as mock_tx,
+            patch("app.features.execution.dispatchers.services.task_registry") as mock_registry,
+            patch("app.features.execution.dispatchers.services.AsyncTransaction") as mock_tx,
         ):
             mock_registry.get.return_value = _async_task
             mock_session = _mock_session()
@@ -179,8 +179,8 @@ class TestRunDispatch:
         service.job_repo.get_by_pk = AsyncMock(return_value=job_obj)
 
         with (
-            patch("app.features.dispatchers.services.task_registry") as mock_registry,
-            patch("app.features.dispatchers.services.AsyncTransaction") as mock_tx,
+            patch("app.features.execution.dispatchers.services.task_registry") as mock_registry,
+            patch("app.features.execution.dispatchers.services.AsyncTransaction") as mock_tx,
         ):
             mock_registry.get.return_value = None  # Unregistered task
             mock_session = _mock_session()
@@ -202,8 +202,8 @@ class TestRunDispatch:
         job_obj = self._mock_job_obj()
 
         with (
-            patch("app.features.dispatchers.services.task_registry") as mock_registry,
-            patch("app.features.dispatchers.services.AsyncTransaction") as mock_tx,
+            patch("app.features.execution.dispatchers.services.task_registry") as mock_registry,
+            patch("app.features.execution.dispatchers.services.AsyncTransaction") as mock_tx,
         ):
             mock_registry.get.return_value = _sync_task
             mock_session = _mock_session()
@@ -225,8 +225,8 @@ class TestRunDispatch:
         job_obj = self._mock_job_obj()
 
         with (
-            patch("app.features.dispatchers.services.task_registry") as mock_registry,
-            patch("app.features.dispatchers.services.AsyncTransaction") as mock_tx,
+            patch("app.features.execution.dispatchers.services.task_registry") as mock_registry,
+            patch("app.features.execution.dispatchers.services.AsyncTransaction") as mock_tx,
         ):
             mock_registry.get.return_value = _timeout_task
             mock_session = _mock_session()
@@ -248,8 +248,8 @@ class TestRunDispatch:
         job_obj = self._mock_job_obj()
 
         with (
-            patch("app.features.dispatchers.services.task_registry") as mock_registry,
-            patch("app.features.dispatchers.services.AsyncTransaction") as mock_tx,
+            patch("app.features.execution.dispatchers.services.task_registry") as mock_registry,
+            patch("app.features.execution.dispatchers.services.AsyncTransaction") as mock_tx,
         ):
             mock_registry.get.return_value = _cancelled_task
             mock_session = _mock_session()
@@ -273,8 +273,8 @@ class TestRunDispatch:
         job_obj = self._mock_job_obj()
 
         with (
-            patch("app.features.dispatchers.services.task_registry") as mock_registry,
-            patch("app.features.dispatchers.services.AsyncTransaction") as mock_tx,
+            patch("app.features.execution.dispatchers.services.task_registry") as mock_registry,
+            patch("app.features.execution.dispatchers.services.AsyncTransaction") as mock_tx,
         ):
             mock_registry.get.return_value = _failing_task
             mock_session = _mock_session()
@@ -294,8 +294,8 @@ class TestRunDispatch:
             pass
 
         with (
-            patch("app.features.dispatchers.services.task_registry") as mock_registry,
-            patch("app.features.dispatchers.services.AsyncTransaction") as mock_tx,
+            patch("app.features.execution.dispatchers.services.task_registry") as mock_registry,
+            patch("app.features.execution.dispatchers.services.AsyncTransaction") as mock_tx,
         ):
             mock_registry.get.return_value = _async_task
             mock_session = _mock_session()

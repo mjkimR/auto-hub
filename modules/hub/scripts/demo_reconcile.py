@@ -19,9 +19,9 @@ from pathlib import Path
 # Allow running as a plain script from the hub module (`python scripts/demo_reconcile.py`).
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from app.features.tasks.domains.appointment_chain.calendar.fake import FakeCalendarClient
-from app.features.tasks.domains.appointment_chain.reconcile import reconcile_chain
-from app.features.tasks.domains.appointment_chain.schemas import ChainConfig, ChainState
+from app.features.execution.tasks.domains.appointment_chain.calendar.fake import FakeCalendarClient
+from app.features.execution.tasks.domains.appointment_chain.reconcile import reconcile_chain
+from app.features.execution.tasks.domains.appointment_chain.schemas import ChainConfig, ChainState
 
 CHAIN_KEY = "demo-haircut"
 

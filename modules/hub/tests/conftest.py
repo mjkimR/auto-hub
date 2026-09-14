@@ -46,7 +46,7 @@ def client_headers() -> dict[str, str]:
 @pytest.fixture
 def app(credential_key_provider):
     """Create FastAPI app with hub-specific credential overrides."""
-    from app.features.connectors.crypto import get_credential_key_provider
+    from app.features.configuration.connectors.crypto import get_credential_key_provider
     from app.main import create_app
 
     application = create_app()

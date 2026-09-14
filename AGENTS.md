@@ -32,7 +32,7 @@ We use **just** as the primary command runner and task orchestrator.
 ### Backend (`modules/hub`)
 - **Flow**: `API (Router) -> UseCase -> Service -> Repository` (Clean Architecture).
 - **DI**: Use FastAPI's `Depends` and `Annotated`.
-- **Tasks**: Decorate with `@task(name="namespace.name")` in `app/features/tasks`. Always use Pydantic models for payloads.
+- **Tasks**: Decorate with `@task(name="namespace.name")` in `app/features/execution/tasks`. Always use Pydantic models for payloads.
 
 ### Frontend (`modules/hub-ui`)
 - **Tech Stack**: Svelte 5 (Runes forced mode), SvelteKit 2 (SPA), TypeScript, Tailwind CSS v4, shadcn-svelte (bits-ui), openapi-fetch, zod.
@@ -47,6 +47,5 @@ We use **just** as the primary command runner and task orchestrator.
 2. **Commits**: Concise, imperative, and **no emojis** (e.g., "Add user-defined timeout").
 3. **Pre-flight Checks**: Always run `just lint` and verification builds before proposing a final solution.
 4. **Git Commit**: Do not execute `git commit` commands or perform commits automatically unless explicitly requested or approved by the user.
-
 
 

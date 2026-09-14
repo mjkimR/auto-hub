@@ -3,7 +3,7 @@
 from uuid import UUID, uuid4
 
 import pytest
-from app.features.task_states import store as task_state_store
+from app.features.execution.task_states import store as task_state_store
 
 pytestmark = pytest.mark.integrate
 

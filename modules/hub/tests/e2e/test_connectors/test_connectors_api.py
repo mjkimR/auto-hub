@@ -1,8 +1,8 @@
 import uuid
 
 import pytest
-from app.features.connectors.models import Connector
-from app.features.connectors.schemas import ConnectorRead
+from app.features.configuration.connectors.models import Connector
+from app.features.configuration.connectors.schemas import ConnectorRead
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 

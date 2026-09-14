@@ -1,8 +1,8 @@
 from uuid import uuid4
 
 import pytest
-from app.features.projects.schemas import ProjectObservationPayload, ProjectUpdate, ProjectWrite
-from app.features.projects.templates import TEMPLATE_PROFILES, list_templates
+from app.features.project_management.projects.schemas import ProjectObservationPayload, ProjectUpdate, ProjectWrite
+from app.features.project_management.projects.templates import TEMPLATE_PROFILES, list_templates
 from pydantic import ValidationError
 
 pytestmark = pytest.mark.unit

@@ -1,10 +1,10 @@
 from datetime import UTC, datetime
 
 import pytest
-from app.features.schedule_jobs.models import ScheduleJob, ScheduleJobStatus
-from app.features.schedule_jobs.repos import ScheduleJobRepository
-from app.features.schedule_jobs.schemas import ScheduleJobCreate
-from app.features.schedule_jobs.services import ScheduleJobContextKwargs, ScheduleJobService
+from app.features.scheduling.schedule_jobs.models import ScheduleJob, ScheduleJobStatus
+from app.features.scheduling.schedule_jobs.repos import ScheduleJobRepository
+from app.features.scheduling.schedule_jobs.schemas import ScheduleJobCreate
+from app.features.scheduling.schedule_jobs.services import ScheduleJobContextKwargs, ScheduleJobService
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tests.utils.fastapi import resolve_dependency

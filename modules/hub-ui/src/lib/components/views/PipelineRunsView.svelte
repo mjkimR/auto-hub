@@ -162,6 +162,8 @@
 				return 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/30';
 			case 'paused':
 				return 'bg-orange-500/15 text-orange-600 dark:text-orange-400 border-orange-500/30';
+			case 'blocked':
+				return 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/30';
 			case 'canceled':
 			default:
 				return 'bg-muted text-muted-foreground border-border';
@@ -383,6 +385,7 @@
 			<option value="completed">Completed</option>
 			<option value="failed">Failed</option>
 			<option value="paused">Paused</option>
+			<option value="blocked">Blocked</option>
 			<option value="canceled">Canceled</option>
 		</select>
 	</div>
@@ -471,7 +474,7 @@
 										<CheckCircle2 class="size-3" />
 									{:else if run.state === 'failed'}
 										<AlertCircle class="size-3" />
-									{:else if run.state === 'paused'}
+									{:else if run.state === 'paused' || run.state === 'blocked'}
 										<PauseCircle class="size-3" />
 									{/if}
 									<span class="capitalize">{run.state.replace('_', ' ')}</span>
@@ -527,7 +530,7 @@
 							<TableCell class="text-right">
 								<div class="flex items-center justify-end gap-1">
 									{#if run.state !== 'completed' && run.state !== 'failed' && run.state !== 'canceled'}
-										{#if run.state === 'paused'}
+										{#if run.state === 'paused' || run.state === 'blocked'}
 											<Button
 												variant="ghost"
 												size="icon"

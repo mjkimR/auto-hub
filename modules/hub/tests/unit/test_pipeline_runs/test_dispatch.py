@@ -1,9 +1,13 @@
 import httpx
 import pytest
-from app.features.pipeline_runs.dispatch import build_codex_mention_comment
-from app.features.pipeline_runs.github import linked_issue_numbers
-from app.features.pipeline_runs.schemas import ImplementationRequest, LinkedIssue, PullRequestSnapshot
-from app.features.pipelines.github import GitHubActionsReader, GitHubObservationError
+from app.features.project_management.pipeline_runs.dispatch import build_codex_mention_comment, is_codex_quota_reply
+from app.features.project_management.pipeline_runs.github import linked_issue_numbers
+from app.features.project_management.pipeline_runs.schemas import (
+    ImplementationRequest,
+    LinkedIssue,
+    PullRequestSnapshot,
+)
+from app.features.project_management.pipelines.github import GitHubActionsReader, GitHubObservationError
 
 pytestmark = pytest.mark.unit
 
@@ -88,6 +92,13 @@ class TestLinkedIssueNumbers:
 
     def test_missing_body_links_nothing(self):
         assert linked_issue_numbers(None) == []
+
+
+class TestCodexQuotaReply:
+    @pytest.mark.parametrize("body", ["You reached a Codex usage limit.", "See your usage settings for details."])
+    def test_recognizes_only_the_codex_connectors_quota_reply(self, body):
+        assert is_codex_quota_reply("chatgpt-codex-connector", body)
+        assert not is_codex_quota_reply("another-user", body)
 
 
 class TestGitHubMentionDelivery:

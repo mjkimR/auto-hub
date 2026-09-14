@@ -8,14 +8,14 @@ payload-derived :class:`ChainConfig` plus a persisted :class:`ChainState`.
 from datetime import date, timedelta
 
 import pytest
-from app.features.tasks.domains.appointment_chain.calendar.base import KIND_CONFIRMED, KIND_TENTATIVE
-from app.features.tasks.domains.appointment_chain.calendar.fake import FakeCalendarClient
-from app.features.tasks.domains.appointment_chain.reconcile import (
+from app.features.execution.tasks.domains.appointment_chain.calendar.base import KIND_CONFIRMED, KIND_TENTATIVE
+from app.features.execution.tasks.domains.appointment_chain.calendar.fake import FakeCalendarClient
+from app.features.execution.tasks.domains.appointment_chain.reconcile import (
     TENTATIVE_SUFFIX,
     ReconcileActionType,
     reconcile_chain,
 )
-from app.features.tasks.domains.appointment_chain.schemas import ChainConfig, ChainState
+from app.features.execution.tasks.domains.appointment_chain.schemas import ChainConfig, ChainState
 
 pytestmark = pytest.mark.unit
 

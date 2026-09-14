@@ -1,11 +1,11 @@
 from datetime import UTC, datetime
 
 import pytest
-from app.features.schedule_configs.repos import ScheduleConfigRepository
-from app.features.schedule_jobs.models import ScheduleJob, ScheduleJobStatus
-from app.features.schedule_jobs.schemas import ScheduleJobCreate
-from app.features.schedule_jobs.services import ScheduleJobContextKwargs
-from app.features.schedule_jobs.usecases.crud import CreateScheduleJobUseCase
+from app.features.scheduling.schedule_configs.repos import ScheduleConfigRepository
+from app.features.scheduling.schedule_jobs.models import ScheduleJob, ScheduleJobStatus
+from app.features.scheduling.schedule_jobs.schemas import ScheduleJobCreate
+from app.features.scheduling.schedule_jobs.services import ScheduleJobContextKwargs
+from app.features.scheduling.schedule_jobs.usecases.crud import CreateScheduleJobUseCase
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tests.utils.fastapi import resolve_dependency

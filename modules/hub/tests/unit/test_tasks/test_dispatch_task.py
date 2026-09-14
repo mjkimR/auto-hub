@@ -2,11 +2,11 @@ from unittest.mock import ANY, AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 import pytest
-from app.features.pipeline_runs.models import PipelineRun, PipelineRunState
-from app.features.pipeline_runs.schemas import LeaseGrant
-from app.features.projects.schemas import ProjectDispatchPayload
-from app.features.tasks.core.context import task_context
-from app.features.tasks.domains.pipeline.task import dispatch_project_task
+from app.features.execution.tasks.core.context import task_context
+from app.features.execution.tasks.domains.pipeline.task import dispatch_project_task
+from app.features.project_management.pipeline_runs.models import PipelineRun, PipelineRunState
+from app.features.project_management.pipeline_runs.schemas import LeaseGrant
+from app.features.project_management.projects.schemas import ProjectDispatchPayload
 
 pytestmark = pytest.mark.unit
 
@@ -14,7 +14,8 @@ pytestmark = pytest.mark.unit
 @pytest.fixture(autouse=True)
 def mock_credential_provider(monkeypatch, credential_key_provider):
     monkeypatch.setattr(
-        "app.features.tasks.domains.pipeline.task.get_credential_key_provider", lambda: credential_key_provider
+        "app.features.execution.tasks.domains.pipeline.task.get_credential_key_provider",
+        lambda: credential_key_provider,
     )
 
 
@@ -28,7 +29,7 @@ async def test_dispatch_task_noops_when_no_active_run():
     project_id = uuid4()
     with (
         task_context(config_id=uuid4(), config_name="test", run_id=uuid4()),
-        patch("app.features.tasks.domains.pipeline.task.PipelineRunRepository") as mock_repo_cls,
+        patch("app.features.execution.tasks.domains.pipeline.task.PipelineRunRepository") as mock_repo_cls,
     ):
         mock_repo = mock_repo_cls.return_value
         mock_repo.get_active = AsyncMock(return_value=None)
@@ -46,6 +47,7 @@ async def test_dispatch_task_acquires_lease_and_prepares_implementation_for_queu
     mock_run = MagicMock(spec=PipelineRun)
     mock_run.id = run_id
     mock_run.state = PipelineRunState.QUEUED
+    mock_run.next_action_at = None
 
     grant = MagicMock(spec=LeaseGrant)
     grant.token = lease_token
@@ -53,8 +55,8 @@ async def test_dispatch_task_acquires_lease_and_prepares_implementation_for_queu
 
     with (
         task_context(config_id=uuid4(), config_name="test", run_id=uuid4()),
-        patch("app.features.tasks.domains.pipeline.task.PipelineRunRepository") as mock_repo_cls,
-        patch("app.features.tasks.domains.pipeline.task.PipelineRunUseCase") as mock_use_case_cls,
+        patch("app.features.execution.tasks.domains.pipeline.task.PipelineRunRepository") as mock_repo_cls,
+        patch("app.features.execution.tasks.domains.pipeline.task.PipelineRunUseCase") as mock_use_case_cls,
     ):
         mock_repo = mock_repo_cls.return_value
         mock_repo.get_active = AsyncMock(return_value=mock_run)
@@ -80,6 +82,7 @@ async def test_dispatch_task_acquires_lease_and_delivers_a_prepared_implementati
     mock_run = MagicMock(spec=PipelineRun)
     mock_run.id = run_id
     mock_run.state = PipelineRunState.DISPATCHING
+    mock_run.next_action_at = None
 
     grant = MagicMock(spec=LeaseGrant)
     grant.token = lease_token
@@ -87,8 +90,8 @@ async def test_dispatch_task_acquires_lease_and_delivers_a_prepared_implementati
 
     with (
         task_context(config_id=uuid4(), config_name="test", run_id=uuid4()),
-        patch("app.features.tasks.domains.pipeline.task.PipelineRunRepository") as mock_repo_cls,
-        patch("app.features.tasks.domains.pipeline.task.PipelineRunUseCase") as mock_use_case_cls,
+        patch("app.features.execution.tasks.domains.pipeline.task.PipelineRunRepository") as mock_repo_cls,
+        patch("app.features.execution.tasks.domains.pipeline.task.PipelineRunUseCase") as mock_use_case_cls,
     ):
         mock_repo = mock_repo_cls.return_value
         mock_repo.get_active = AsyncMock(return_value=mock_run)

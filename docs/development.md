@@ -25,7 +25,7 @@ The Frontend strictly consumes the generated SDK.
 
 The backend follows the `API → UseCase → Service → Repository` clean architecture flow.
 Tasks are registered with `@task(name="namespace.name")` and Pydantic payloads.
-Domain packages must be imported in `app/features/tasks/domains/__init__.py` for auto-discovery.
+Domain packages must be imported in `app/features/execution/tasks/domains/__init__.py` for auto-discovery.
 Task schemas can be inspected via `/api/v1/tasks/specs`.
 
 `ScheduleConfig` stores cron or interval configuration alongside the payload.

@@ -1169,6 +1169,8 @@ export interface components {
 			lease_owner: string | null;
 			/** Lease Expires At */
 			lease_expires_at: string | null;
+			/** Next Action At */
+			next_action_at: string | null;
 		};
 		/**
 		 * PipelineRunState
@@ -1180,6 +1182,7 @@ export interface components {
 			| 'implementing'
 			| 'awaiting_ci'
 			| 'paused'
+			| 'blocked'
 			| 'completed'
 			| 'failed'
 			| 'canceled';

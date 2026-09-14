@@ -1,9 +1,9 @@
 import pytest
-from app.features.connectors.crypto import get_credential_key_provider
-from app.features.connectors.models import Connector
-from app.features.connectors.schemas import ConnectorCreate, ConnectorProvider
-from app.features.connectors.services import ConnectorContextKwargs
-from app.features.connectors.usecases.crud import CreateConnectorUseCase
+from app.features.configuration.connectors.crypto import get_credential_key_provider
+from app.features.configuration.connectors.models import Connector
+from app.features.configuration.connectors.schemas import ConnectorCreate, ConnectorProvider
+from app.features.configuration.connectors.services import ConnectorContextKwargs
+from app.features.configuration.connectors.usecases.crud import CreateConnectorUseCase
 from pydantic import JsonValue
 from sqlalchemy.ext.asyncio import AsyncSession
 

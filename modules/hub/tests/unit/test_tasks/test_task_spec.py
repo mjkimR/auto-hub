@@ -1,5 +1,5 @@
-from app.features.tasks.core import registry
-from app.features.tasks.usecases.task_spec import GetTaskSpecUseCase
+from app.features.execution.tasks.core import registry
+from app.features.execution.tasks.usecases.task_spec import GetTaskSpecUseCase
 from pydantic import BaseModel
 
 

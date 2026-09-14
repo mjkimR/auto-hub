@@ -13,10 +13,10 @@ from unittest.mock import patch
 import pytest
 import pytest_asyncio
 from app.common.config import SchedulerDefaults
-from app.features.dispatchers.services import DispatcherService
-from app.features.schedule_configs.models import ScheduleConfig
-from app.features.schedule_jobs.models import ScheduleJob, ScheduleJobStatus
-from app.features.schedule_jobs.repos import ScheduleJobRepository
+from app.features.execution.dispatchers.services import DispatcherService
+from app.features.scheduling.schedule_configs.models import ScheduleConfig
+from app.features.scheduling.schedule_jobs.models import ScheduleJob, ScheduleJobStatus
+from app.features.scheduling.schedule_jobs.repos import ScheduleJobRepository
 from sqlalchemy.ext.asyncio import AsyncSession
 
 # ---------------------------------------------------------------------------
@@ -272,8 +272,8 @@ class TestDispatchJobs:
     @pytest_asyncio.fixture
     async def config_and_job(self, session) -> tuple:
         config = await _create_schedule_config(session, task_func="hello_world")
-        from app.features.schedule_configs.schemas import ScheduleConfigRead
-        from app.features.schedule_jobs.schemas import ScheduleJobRead
+        from app.features.scheduling.schedule_configs.schemas import ScheduleConfigRead
+        from app.features.scheduling.schedule_jobs.schemas import ScheduleJobRead
 
         job_obj = await _create_schedule_job(session, config, status=ScheduleJobStatus.PENDING, retry_need=False)
         await session.commit()
@@ -295,7 +295,7 @@ class TestDispatchJobs:
         async def _mock_hello_world(**kwargs):
             pass
 
-        with patch("app.features.dispatchers.services.task_registry") as mock_registry:
+        with patch("app.features.execution.dispatchers.services.task_registry") as mock_registry:
             mock_registry.get.return_value = _mock_hello_world
             await service.dispatch_jobs([(job_dto, config_dto)], run_id)
 
@@ -316,7 +316,7 @@ class TestDispatchJobs:
         async def _mock_failing(**kwargs):
             raise RuntimeError("boom")
 
-        with patch("app.features.dispatchers.services.task_registry") as mock_registry:
+        with patch("app.features.execution.dispatchers.services.task_registry") as mock_registry:
             mock_registry.get.return_value = _mock_failing
             await service.dispatch_jobs([(job_dto, config_dto)], run_id)
 
@@ -333,8 +333,8 @@ class TestDispatchJobs:
 
     async def test_multiple_jobs_dispatched_concurrently(self, service, session):
         """Multiple jobs should be dispatched concurrently and all updated to SUCCESS."""
-        from app.features.schedule_configs.schemas import ScheduleConfigRead
-        from app.features.schedule_jobs.schemas import ScheduleJobRead
+        from app.features.scheduling.schedule_configs.schemas import ScheduleConfigRead
+        from app.features.scheduling.schedule_jobs.schemas import ScheduleJobRead
         from sqlalchemy import select
 
         pairs = []
@@ -356,7 +356,7 @@ class TestDispatchJobs:
         async def _noop(**kwargs):
             pass
 
-        with patch("app.features.dispatchers.services.task_registry") as mock_registry:
+        with patch("app.features.execution.dispatchers.services.task_registry") as mock_registry:
             mock_registry.get.return_value = _noop
             await service.dispatch_jobs(pairs, run_id)
 

@@ -2,13 +2,13 @@ import asyncio
 import uuid
 from unittest.mock import MagicMock, patch
 
-from app.features.dispatchers.services import DispatcherService
+from app.features.execution.dispatchers.services import DispatcherService
 
 
 async def test_dispatch_jobs_timeout(monkeypatch):
     from app.common.config import SchedulerDefaults
-    from app.features.schedule_configs.schemas import ScheduleConfigRead
-    from app.features.schedule_jobs.schemas import ScheduleJobRead
+    from app.features.scheduling.schedule_configs.schemas import ScheduleConfigRead
+    from app.features.scheduling.schedule_jobs.schemas import ScheduleJobRead
 
     mock_job = MagicMock(spec=ScheduleJobRead)
     mock_config = MagicMock(spec=ScheduleConfigRead)
@@ -38,7 +38,7 @@ async def test_dispatch_jobs_timeout(monkeypatch):
 
     service._dispatch = slow_dispatch
 
-    with patch("app.features.dispatchers.services.logger") as mock_logger:
+    with patch("app.features.execution.dispatchers.services.logger") as mock_logger:
         await service.dispatch_jobs([(mock_job, mock_config)], run_id)
         mock_logger.error.assert_called_once()
         assert "timed out after" in mock_logger.error.call_args[0][0]

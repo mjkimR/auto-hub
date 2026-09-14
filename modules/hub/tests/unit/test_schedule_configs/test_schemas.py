@@ -1,5 +1,5 @@
 import pytest
-from app.features.schedule_configs.schemas import ScheduleConfigCreate, ScheduleConfigPatch
+from app.features.scheduling.schedule_configs.schemas import ScheduleConfigCreate, ScheduleConfigPatch
 
 
 def test_schedule_config_create_invalid_cron():
@@ -50,7 +50,7 @@ def test_schedule_config_patch_mutually_exclusive_triggers():
 
 
 def test_cron_expression_caching():
-    from app.features.schedule_configs.schemas import _check_cron_expression, _validate_cron_expression
+    from app.features.scheduling.schedule_configs.schemas import _check_cron_expression, _validate_cron_expression
 
     # Clear cache first to have clean stats
     _check_cron_expression.cache_clear()

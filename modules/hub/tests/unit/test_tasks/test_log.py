@@ -2,13 +2,13 @@ import uuid
 from unittest.mock import MagicMock, patch
 
 import pytest
-from app.features.tasks.core.context import TaskMeta
-from app.features.tasks.core.log import logger
+from app.features.execution.tasks.core.context import TaskMeta
+from app.features.execution.tasks.core.log import logger
 
 
 @pytest.fixture
 def mock_core_logger():
-    with patch("app.features.tasks.core.log.core_logger") as mock:
+    with patch("app.features.execution.tasks.core.log.core_logger") as mock:
         mock_bound = MagicMock()
         mock.bind.return_value = mock_bound
         yield mock
@@ -16,7 +16,7 @@ def mock_core_logger():
 
 @pytest.fixture
 def mock_get_task_meta():
-    with patch("app.features.tasks.core.log.get_task_meta") as mock:
+    with patch("app.features.execution.tasks.core.log.get_task_meta") as mock:
         yield mock
 
 

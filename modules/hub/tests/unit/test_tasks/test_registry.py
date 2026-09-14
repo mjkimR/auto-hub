@@ -1,5 +1,12 @@
 import pytest
-from app.features.tasks.core.registry import _registry, _wrap_with_payload_adapter, all_tasks, autodiscover, get, task
+from app.features.execution.tasks.core.registry import (
+    _registry,
+    _wrap_with_payload_adapter,
+    all_tasks,
+    autodiscover,
+    get,
+    task,
+)
 from pydantic import BaseModel
 
 
@@ -116,7 +123,7 @@ def test_autodiscover_valid_package():
 
 
 def test_autodiscover_default_package(monkeypatch):
-    import app.features.tasks.core.registry as registry_module
+    import app.features.execution.tasks.core.registry as registry_module
 
     # We patch _import_submodules to avoid scanning actual files and just see if it's called
     # with the correct default directory and package.
@@ -133,7 +140,7 @@ def test_autodiscover_default_package(monkeypatch):
     # Check that it uses the parent dir
     assert str(registry_module.Path(registry_module.__file__).parent.parent) in calls[0][0]
     # Check that it uses the expected default package name
-    assert calls[0][1] == "app.features.tasks"
+    assert calls[0][1] == "app.features.execution.tasks"
 
 
 def test_get_success():

@@ -10,16 +10,16 @@ import uuid
 from datetime import UTC, datetime, timedelta
 
 # Ensure hello_world is registered in task_registry before tests run
-import app.features.tasks.examples  # noqa: F401
+import app.features.execution.tasks.examples  # noqa: F401
 import pytest
 import pytest_asyncio
 from app.common.config import SchedulerDefaults
-from app.features.dispatchers.services import DispatcherService
-from app.features.schedule_configs.models import ScheduleConfig
-from app.features.schedule_configs.schemas import ScheduleConfigRead
-from app.features.schedule_jobs.models import ScheduleJob, ScheduleJobStatus
-from app.features.schedule_jobs.repos import ScheduleJobRepository
-from app.features.schedule_jobs.schemas import ScheduleJobRead
+from app.features.execution.dispatchers.services import DispatcherService
+from app.features.scheduling.schedule_configs.models import ScheduleConfig
+from app.features.scheduling.schedule_configs.schemas import ScheduleConfigRead
+from app.features.scheduling.schedule_jobs.models import ScheduleJob, ScheduleJobStatus
+from app.features.scheduling.schedule_jobs.repos import ScheduleJobRepository
+from app.features.scheduling.schedule_jobs.schemas import ScheduleJobRead
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 

@@ -1,8 +1,8 @@
 import pytest
-from app.features.system_configs.models import SystemConfig
-from app.features.system_configs.schemas import SystemConfigCreate
-from app.features.system_configs.services import SystemConfigContextKwargs
-from app.features.system_configs.usecases.crud import CreateSystemConfigUseCase
+from app.features.configuration.system_configs.models import SystemConfig
+from app.features.configuration.system_configs.schemas import SystemConfigCreate
+from app.features.configuration.system_configs.services import SystemConfigContextKwargs
+from app.features.configuration.system_configs.usecases.crud import CreateSystemConfigUseCase
 from app_layer_base.base.exceptions.basic import ConflictException
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -56,7 +56,7 @@ class TestCreateSystemConfig:
         self,
         make_db,
     ):
-        from app.features.system_configs.repos import SystemConfigRepository
+        from app.features.configuration.system_configs.repos import SystemConfigRepository
 
         await make_db(SystemConfigRepository, name="duplicate_key", data={})
 

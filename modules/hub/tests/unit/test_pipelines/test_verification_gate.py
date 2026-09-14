@@ -1,6 +1,6 @@
 import pytest
-from app.features.pipelines.gate import evaluate_verification
-from app.features.pipelines.schemas import JobSnapshot, RunSnapshot, VerificationConfig
+from app.features.project_management.pipelines.gate import evaluate_verification
+from app.features.project_management.pipelines.schemas import JobSnapshot, RunSnapshot, VerificationConfig
 
 pytestmark = pytest.mark.unit
 

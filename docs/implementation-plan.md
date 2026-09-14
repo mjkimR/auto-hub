@@ -95,7 +95,7 @@ Implemented on 2026-09-11 against Linear issues: run acquisition first resumed a
 - [x] Reconcile before the initial post by listing bounded PR comments for a marker with the same attempt ID and delivery number authored by the connector's login. Adopt a found comment instead of posting again.
 - [x] Move `dispatching` → `implementing` once the delivery comment is confirmed, and `implementing` → `awaiting_ci` once the PR head differs from the delivery marker's `head`. A Codex reply alone never completes the attempt.
 - [ ] Record Codex connector replies after a delivery, and classify usage-limit replies in one matcher.
-- [ ] Implement the watchdog: one silent retry after 2 h without a head change, quota retries after 2 h and 4 h, then pause with `codex-unresponsive` or `codex-quota-persistent`. Apply a five-minute tolerance.
+- [ ] Implement the watchdog: one silent retry after 2 h without a head change; quota retries wait 5 h 10 min and block after two retries for a user-initiated resume. Hub does not infer weekly reset timing.
 - [ ] Keep the adapter boundary so `openai/codex-action` can replace mention delivery without changing runs, attempts, or deliveries.
 
 ### 3.4 Canary, Crash Recovery, and Integration Tests

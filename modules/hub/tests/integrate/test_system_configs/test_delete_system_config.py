@@ -1,10 +1,10 @@
 import uuid
 
 import pytest
-from app.features.system_configs.models import SystemConfig
-from app.features.system_configs.repos import SystemConfigRepository
-from app.features.system_configs.services import SystemConfigContextKwargs
-from app.features.system_configs.usecases.crud import DeleteSystemConfigUseCase
+from app.features.configuration.system_configs.models import SystemConfig
+from app.features.configuration.system_configs.repos import SystemConfigRepository
+from app.features.configuration.system_configs.services import SystemConfigContextKwargs
+from app.features.configuration.system_configs.usecases.crud import DeleteSystemConfigUseCase
 from app_layer_base.base.exceptions.basic import NotFoundException
 from sqlalchemy.ext.asyncio import AsyncSession
 

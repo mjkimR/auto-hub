@@ -10,11 +10,11 @@ from datetime import date, timedelta
 from uuid import uuid4
 
 import pytest
-from app.features.task_states import store as task_state_store
-from app.features.tasks.domains.appointment_chain import run_reconcile
-from app.features.tasks.domains.appointment_chain.calendar.base import KIND_CONFIRMED, KIND_TENTATIVE
-from app.features.tasks.domains.appointment_chain.calendar.fake import reset_shared_store, shared_fake_client
-from app.features.tasks.domains.appointment_chain.schemas import ChainConfig, ChainState
+from app.features.execution.task_states import store as task_state_store
+from app.features.execution.tasks.domains.appointment_chain import run_reconcile
+from app.features.execution.tasks.domains.appointment_chain.calendar.base import KIND_CONFIRMED, KIND_TENTATIVE
+from app.features.execution.tasks.domains.appointment_chain.calendar.fake import reset_shared_store, shared_fake_client
+from app.features.execution.tasks.domains.appointment_chain.schemas import ChainConfig, ChainState
 from app_layer_base.core.database.transaction import AsyncTransaction
 
 pytestmark = pytest.mark.integrate

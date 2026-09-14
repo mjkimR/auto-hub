@@ -11,10 +11,10 @@ from datetime import UTC, datetime, timedelta
 from unittest.mock import patch
 
 import pytest
-from app.features.schedule_configs.models import ScheduleConfig
-from app.features.schedule_configs.repos import ScheduleConfigRepository
-from app.features.schedule_jobs.models import ScheduleJob, ScheduleJobStatus
-from app.features.schedule_jobs.repos import ScheduleJobRepository
+from app.features.scheduling.schedule_configs.models import ScheduleConfig
+from app.features.scheduling.schedule_configs.repos import ScheduleConfigRepository
+from app.features.scheduling.schedule_jobs.models import ScheduleJob, ScheduleJobStatus
+from app.features.scheduling.schedule_jobs.repos import ScheduleJobRepository
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -58,7 +58,7 @@ class TestDispatcherTriggerAPI:
             last_run_at=past - timedelta(minutes=5),
         )
 
-        with patch("app.features.dispatchers.services.task_registry") as mock_registry:
+        with patch("app.features.execution.dispatchers.services.task_registry") as mock_registry:
             mock_registry.get.return_value = _noop
             response = await client.post(BASE_URL)
 
@@ -77,7 +77,7 @@ class TestDispatcherTriggerAPI:
         client: AsyncClient,
     ):
         """When there are no due configs, dispatched should be 0."""
-        with patch("app.features.dispatchers.services.task_registry") as mock_registry:
+        with patch("app.features.execution.dispatchers.services.task_registry") as mock_registry:
             mock_registry.get.return_value = _noop
             response = await client.post(BASE_URL)
 
@@ -99,7 +99,7 @@ class TestDispatcherTriggerAPI:
             next_run_at=past,
         )
 
-        with patch("app.features.dispatchers.services.task_registry") as mock_registry:
+        with patch("app.features.execution.dispatchers.services.task_registry") as mock_registry:
             mock_registry.get.return_value = _noop
             response = await client.post(BASE_URL)
 
@@ -126,7 +126,7 @@ class TestDispatcherTriggerAPI:
             next_run_at=past,
         )
 
-        with patch("app.features.dispatchers.services.task_registry") as mock_registry:
+        with patch("app.features.execution.dispatchers.services.task_registry") as mock_registry:
             mock_registry.get.return_value = _noop
             response = await client.post(BASE_URL)
 
@@ -148,7 +148,7 @@ class TestDispatcherTriggerAPI:
             next_run_at=future,
         )
 
-        with patch("app.features.dispatchers.services.task_registry") as mock_registry:
+        with patch("app.features.execution.dispatchers.services.task_registry") as mock_registry:
             mock_registry.get.return_value = _noop
             response = await client.post(BASE_URL)
 
@@ -171,7 +171,7 @@ class TestDispatcherTriggerAPI:
             next_run_at=now - timedelta(minutes=1),
         )
 
-        with patch("app.features.dispatchers.services.task_registry") as mock_registry:
+        with patch("app.features.execution.dispatchers.services.task_registry") as mock_registry:
             mock_registry.get.return_value = _noop
             response = await client.post(BASE_URL)
 
@@ -194,7 +194,7 @@ class TestDispatcherTriggerAPI:
             next_run_at=now - timedelta(minutes=1),
         )
 
-        with patch("app.features.dispatchers.services.task_registry") as mock_registry:
+        with patch("app.features.execution.dispatchers.services.task_registry") as mock_registry:
             mock_registry.get.return_value = _noop
             response = await client.post(BASE_URL)
 
@@ -222,7 +222,7 @@ class TestDispatcherTriggerAPI:
             last_run_at=past - timedelta(minutes=5),
         )
 
-        with patch("app.features.dispatchers.services.task_registry") as mock_registry:
+        with patch("app.features.execution.dispatchers.services.task_registry") as mock_registry:
             mock_registry.get.return_value = _noop
             response = await client.post(BASE_URL)
 
@@ -269,7 +269,7 @@ class TestDispatcherTriggerAPI:
             started_at=datetime.now(UTC) - timedelta(minutes=10),
         )
 
-        with patch("app.features.dispatchers.services.task_registry") as mock_registry:
+        with patch("app.features.execution.dispatchers.services.task_registry") as mock_registry:
             mock_registry.get.return_value = _noop
             response = await client.post(BASE_URL)
 
@@ -305,7 +305,7 @@ class TestDispatcherTriggerAPI:
             started_at=datetime.now(UTC) - timedelta(minutes=10),
         )
 
-        with patch("app.features.dispatchers.services.task_registry") as mock_registry:
+        with patch("app.features.execution.dispatchers.services.task_registry") as mock_registry:
             mock_registry.get.return_value = _noop
             response = await client.post(BASE_URL)
 
@@ -336,7 +336,7 @@ class TestDispatcherTriggerAPI:
             last_run_at=None,
         )
 
-        with patch("app.features.dispatchers.services.task_registry") as mock_registry:
+        with patch("app.features.execution.dispatchers.services.task_registry") as mock_registry:
             mock_registry.get.return_value = _failing
             response = await client.post(BASE_URL)
 

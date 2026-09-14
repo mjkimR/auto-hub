@@ -3,7 +3,7 @@ import uuid
 from base64 import b64encode
 
 import pytest
-from app.features.connectors.crypto import (
+from app.features.configuration.connectors.crypto import (
     ConnectorCredentialCipher,
     CredentialDecryptionError,
     EncryptedCredentials,

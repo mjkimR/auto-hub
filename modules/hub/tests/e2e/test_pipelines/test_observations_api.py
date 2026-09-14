@@ -5,10 +5,10 @@ from uuid import UUID
 import httpx
 import pytest
 from app.features import tasks
-from app.features.pipelines import services
-from app.features.schedule_configs.models import ScheduleConfig
-from app.features.schedule_jobs.models import ScheduleJob
-from app.features.tasks.domains.pipeline import task as pipeline_task
+from app.features.execution.tasks.domains.pipeline import task as pipeline_task
+from app.features.project_management.pipelines import services
+from app.features.scheduling.schedule_configs.models import ScheduleConfig
+from app.features.scheduling.schedule_jobs.models import ScheduleJob
 from sqlalchemy import select, update
 from tests.utils.assertions import assert_status_code
 
@@ -114,7 +114,7 @@ class TestPipelineObservationAPI:
     async def test_inspect_reads_github_without_persisting_or_exposing_token(
         self, client, observation_payload, session
     ):
-        from app.features.task_states.models import TaskState
+        from app.features.execution.task_states.models import TaskState
 
         response = await client.post("/api/v1/pipelines/inspect", json=observation_payload)
         assert_status_code(response, 200)
@@ -261,7 +261,7 @@ class TestPipelineObservationAPI:
         assert_status_code(response, 404)
 
     async def test_observer_is_exposed_in_task_specs(self, client, github_scenario):
-        from app.features.tasks.usecases.task_spec import GetTaskSpecUseCase
+        from app.features.execution.tasks.usecases.task_spec import GetTaskSpecUseCase
 
         GetTaskSpecUseCase.clear_cache()
         response = await client.get("/api/v1/tasks/specs?name=pipeline.observe")

@@ -1,10 +1,10 @@
 from datetime import datetime
 
 import pytest
-from app.features.schedule_configs.models import ScheduleConfig
-from app.features.schedule_configs.schemas import ScheduleConfigCreate
-from app.features.schedule_configs.services import ScheduleConfigContextKwargs
-from app.features.schedule_configs.usecases.crud import CreateScheduleConfigUseCase
+from app.features.scheduling.schedule_configs.models import ScheduleConfig
+from app.features.scheduling.schedule_configs.schemas import ScheduleConfigCreate
+from app.features.scheduling.schedule_configs.services import ScheduleConfigContextKwargs
+from app.features.scheduling.schedule_configs.usecases.crud import CreateScheduleConfigUseCase
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tests.utils.fastapi import resolve_dependency

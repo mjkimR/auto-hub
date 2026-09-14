@@ -106,12 +106,11 @@ All delays include a five-minute tolerance for scheduler jitter. Timers reset fo
 | --- | --- |
 | No head change 2 h after the latest delivery or Codex reply, no silent retry yet | Post delivery `n+1` with cause `silent` |
 | No head change 2 h after a silent retry | Pause the run: `codex-unresponsive` |
-| Usage-limit reply, no quota retry yet | Post delivery with cause `quota` 2 h after the reply |
-| Usage-limit reply after one quota retry | Post delivery with cause `quota` 4 h after the reply |
-| Usage-limit reply after two quota retries | Pause the run: `codex-quota-persistent` |
+| Usage-limit reply, fewer than two quota retries | Post the next delivery 5 h 10 min after the reply |
+| Usage-limit reply after two quota retries | Block the run: `codex-quota-persistent`; a user must resume it |
 | User resumes a paused run | Post delivery with cause `resume`; fix-loop caps restart |
 
-A silent retry can duplicate work if the first task was only slow. That is accepted because both tasks push to the same branch and Hub evaluates only the resulting head.
+A silent retry can duplicate work if the first task was only slow. That is accepted because both tasks push to the same branch and Hub evaluates only the resulting head. Hub never guesses a weekly reset: a persistent quota limit is blocked for a user to resume after confirming availability.
 
 ## 7. Known Risks
 

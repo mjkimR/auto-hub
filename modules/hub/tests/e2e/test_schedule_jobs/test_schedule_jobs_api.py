@@ -2,11 +2,11 @@ import uuid
 from datetime import UTC, datetime
 
 import pytest
-from app.features.schedule_configs.models import ScheduleConfig
-from app.features.schedule_configs.repos import ScheduleConfigRepository
-from app.features.schedule_jobs.models import ScheduleJob, ScheduleJobStatus
-from app.features.schedule_jobs.repos import ScheduleJobRepository
-from app.features.schedule_jobs.schemas import ScheduleJobCreate, ScheduleJobRead
+from app.features.scheduling.schedule_configs.models import ScheduleConfig
+from app.features.scheduling.schedule_configs.repos import ScheduleConfigRepository
+from app.features.scheduling.schedule_jobs.models import ScheduleJob, ScheduleJobStatus
+from app.features.scheduling.schedule_jobs.repos import ScheduleJobRepository
+from app.features.scheduling.schedule_jobs.schemas import ScheduleJobCreate, ScheduleJobRead
 from httpx import AsyncClient
 
 from tests.utils.assertions import (

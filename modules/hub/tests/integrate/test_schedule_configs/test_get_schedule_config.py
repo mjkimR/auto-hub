@@ -1,7 +1,7 @@
 import pytest
-from app.features.schedule_configs.models import ScheduleConfig
-from app.features.schedule_configs.repos import ScheduleConfigRepository
-from app.features.schedule_configs.services import ScheduleConfigContextKwargs, ScheduleConfigService
+from app.features.scheduling.schedule_configs.models import ScheduleConfig
+from app.features.scheduling.schedule_configs.repos import ScheduleConfigRepository
+from app.features.scheduling.schedule_configs.services import ScheduleConfigContextKwargs, ScheduleConfigService
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tests.utils.fastapi import resolve_dependency
