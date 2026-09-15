@@ -18,7 +18,7 @@ if [[ -z "$KEY" ]]; then
 fi
 
 PROJECT_ID="${PROJECT_ID:-$(gcloud config get-value project 2>/dev/null || true)}"
-REGION="${REGION:-asia-northeast3}"
+REGION="${REGION:-us-west1}"
 SERVICE_NAME="${SERVICE_NAME:-auto-hub}"
 JOB_NAME="${SERVICE_NAME}-dispatcher-tick"
 

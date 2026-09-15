@@ -11,7 +11,7 @@ fi
 
 echo "==> Fetching Auto Hub configuration from Google Cloud..."
 SERVICE_NAME="auto-hub"
-REGION="asia-northeast3"
+REGION="${REGION:-us-west1}"
 
 SERVICE_URL=$(gcloud run services describe "$SERVICE_NAME" --region="$REGION" --format="value(status.url)" 2>/dev/null || echo "https://auto-hub-y2hhy3omua-du.a.run.app")
 SECRETS_JSON=$(gcloud secrets versions access latest --secret=auto-hub-secrets 2>/dev/null || echo "")

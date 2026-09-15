@@ -6,7 +6,7 @@ set -euo pipefail
 # ─────────────────────────────────────────────────────────────────────────────
 
 PROJECT_ID="${PROJECT_ID:-$(gcloud config get-value project 2>/dev/null || true)}"
-REGION="${REGION:-asia-northeast3}"
+REGION="${REGION:-us-west1}"
 DB_CONNECTION_NAME="${DB_CONNECTION_NAME:-}"
 DB_USER="${DB_USER:-hub_user}"
 DB_PASSWORD="${DB_PASSWORD:-}"
@@ -23,7 +23,7 @@ Set up Secret Manager secrets required by Auto Hub.
 
 Options:
   -p, --project PROJECT_ID     GCP Project ID (default: current gcloud project)
-  -r, --region REGION          GCP Region (default: asia-northeast3)
+  -r, --region REGION          GCP Region (default: us-west1)
   -s, --app-secret SECRET      Plaintext App Secret Key (will be SHA-256 hashed before storing)
   -a, --service-account NAME   Dedicated Service Account name (default: auto-hub-sa)
   -b, --database-url URL       Full PostgreSQL connection URL (e.g. Aiven/external DB)

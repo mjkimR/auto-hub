@@ -10,7 +10,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
 PROJECT_ID="${PROJECT_ID:-$(gcloud config get-value project 2>/dev/null || true)}"
-REGION="${REGION:-asia-northeast3}"
+REGION="${REGION:-us-west1}"
 SERVICE_NAME="${SERVICE_NAME:-auto-hub}"
 REPO_NAME="${REPO_NAME:-auto-hub}"
 DB_CONNECTION_NAME="${DB_CONNECTION_NAME:-}"
@@ -27,7 +27,7 @@ Build and deploy Auto Hub to Google Cloud Run using Cloud Build.
 
 Options:
   -p, --project PROJECT_ID     GCP Project ID (default: current gcloud project)
-  -r, --region REGION          GCP Region (default: asia-northeast3)
+  -r, --region REGION          GCP Region (default: us-west1)
   -s, --service NAME           Cloud Run service name (default: auto-hub)
   -a, --service-account NAME   Dedicated Service Account name (default: auto-hub-sa)
   -c, --connection-name NAME   Cloud SQL Connection Name (PROJECT:REGION:INSTANCE)
@@ -89,12 +89,13 @@ fi
 
 IMAGE_URI="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO_NAME}/${SERVICE_NAME}:${TAG}"
 
-# 2. Ensure Cloud Build GCS staging bucket is fixed to us-central1 (Always Free Tier)
-GCS_STAGING_REGION="us-central1"
-CLOUDBUILD_BUCKET="gs://${PROJECT_ID}-cloudbuild-us"
+# 2. Keep Cloud Build GCS staging data in the deployment region to avoid
+#    unnecessary cross-region transfer.
+GCS_STAGING_REGION="$REGION"
+CLOUDBUILD_BUCKET="gs://${PROJECT_ID}-cloudbuild-${GCS_STAGING_REGION}"
 
 if ! gcloud storage buckets describe "$CLOUDBUILD_BUCKET" >/dev/null 2>&1; then
-  echo "==> Creating GCS staging bucket in $GCS_STAGING_REGION (Free Tier): $CLOUDBUILD_BUCKET..."
+  echo "==> Creating GCS staging bucket in $GCS_STAGING_REGION: $CLOUDBUILD_BUCKET..."
   gcloud storage buckets create "$CLOUDBUILD_BUCKET" \
     --location="$GCS_STAGING_REGION" \
     --project="$PROJECT_ID" \

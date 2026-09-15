@@ -8,8 +8,8 @@ The FastAPI backend (`modules/hub`) and Svelte 5 frontend (`modules/hub-ui`) are
 ## ⚡ Quick Start (Using Helper Scripts)
 
 Automated scripts are available under `docker/helper/`, allowing you to configure secrets and deploy with a single command:
-- **GCS Staging Bucket**: The temporary source bucket for Cloud Build is always created in **`us-central1` (GCS 5GB Always Free tier)** and automatically cleaned up after the build.
-- **Cloud Run & Artifact Registry**: Can be deployed to any region of your choice (default: Seoul `asia-northeast3`, etc.).
+- **GCS Staging Bucket**: The temporary source bucket for Cloud Build is created in the selected deployment region and automatically cleaned up after the build.
+- **Cloud Run & Artifact Registry**: Default to **`us-west1` (Oregon)** for North America network-cost optimization; pass `REGION` or `--region` when another region is required.
 
 ```bash
 # [Case A: Using Aiven or External PostgreSQL (Recommended - 100% Free)]
@@ -35,7 +35,7 @@ just deploy-cloud-run -c "PROJECT:REGION:INSTANCE"
 ### 1.1 Set GCP Project and Variables
 ```bash
 export PROJECT_ID="your-gcp-project-id"
-export REGION="asia-northeast3" # Seoul region (or us-central1, etc.)
+export REGION="us-west1" # Oregon (North America)
 export SERVICE_NAME="auto-hub"
 export REPO_NAME="auto-hub"
 export DB_INSTANCE_NAME="auto-hub-db"
