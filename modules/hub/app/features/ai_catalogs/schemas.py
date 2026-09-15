@@ -22,6 +22,12 @@ class AICatalogRead(UUIDSchemaMixin, TimestampSchemaMixin):
     effective_concurrency: int = 0
     probe_started_at: datetime | None
     probe_window_minutes: int
+    short_refresh_enabled: bool
+    short_refresh_cycle_minutes: int
+    long_refresh_cycle_minutes: int
+    refresh_jitter_minutes: int
+    short_refresh_failure_count: int
+    last_refreshed_at: datetime | None
     revision: int
     held_run_count: int = 0
 
@@ -38,3 +44,9 @@ class SetAvailabilityRequest(BaseModel):
 
 class SetEnabledRequest(BaseModel):
     enabled: bool
+
+
+class UpdateRefreshPolicyRequest(BaseModel):
+    short_refresh_enabled: bool
+    short_refresh_cycle_minutes: int = Field(ge=1, le=43_200)
+    long_refresh_cycle_minutes: int = Field(ge=1, le=525_600)

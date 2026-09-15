@@ -20,6 +20,11 @@
 	let availableAt = $state('');
 	let note = $state('');
 	let dialogOpen = $state(false);
+	let policyKey = $state<string | null>(null);
+	let shortRefreshEnabled = $state(true);
+	let shortRefreshHours = $state('5');
+	let longRefreshDays = $state('7');
+	let policyDialogOpen = $state(false);
 
 	function openAvailability(key: string) {
 		selectedKey = key;
@@ -28,10 +33,42 @@
 		dialogOpen = true;
 	}
 
+	function openRefreshPolicy(catalog: (typeof catalogs.items)[number]) {
+		policyKey = catalog.key;
+		shortRefreshEnabled = catalog.short_refresh_enabled;
+		shortRefreshHours = String(catalog.short_refresh_cycle_minutes / 60);
+		longRefreshDays = String(catalog.long_refresh_cycle_minutes / (60 * 24));
+		policyDialogOpen = true;
+	}
+
 	async function saveAvailability(event: SubmitEvent) {
 		event.preventDefault();
 		if (selectedKey && (await catalogs.setAvailability(selectedKey, availableAt, note)))
 			dialogOpen = false;
+	}
+
+	async function saveRefreshPolicy(event: SubmitEvent) {
+		event.preventDefault();
+		const shortHours = Number(shortRefreshHours);
+		const longDays = Number(longRefreshDays);
+		if (
+			!policyKey ||
+			!Number.isFinite(shortHours) ||
+			shortHours <= 0 ||
+			!Number.isFinite(longDays) ||
+			longDays <= 0
+		) {
+			return;
+		}
+		if (
+			await catalogs.updateRefreshPolicy(
+				policyKey,
+				shortRefreshEnabled,
+				Math.round(shortHours * 60),
+				Math.round(longDays * 24 * 60)
+			)
+		)
+			policyDialogOpen = false;
 	}
 
 	function stateLabel(value: string) {
@@ -114,6 +151,12 @@
 								onclick={() => openAvailability(catalog.key)}
 								disabled={catalogs.saving}>Set refresh time</Button
 							>
+							<Button
+								size="sm"
+								variant="outline"
+								onclick={() => openRefreshPolicy(catalog)}
+								disabled={catalogs.saving}>Refresh policy</Button
+							>
 							{#if catalog.availability_state === 'quota_blocked'}<Button
 									size="sm"
 									variant="outline"
@@ -152,6 +195,45 @@
 				><Button type="button" variant="outline" onclick={() => (dialogOpen = false)}>Cancel</Button
 				><Button type="submit" disabled={catalogs.saving}>Save global hold</Button></DialogFooter
 			>
+		</form>
+	</DialogContent>
+</Dialog>
+
+<Dialog bind:open={policyDialogOpen}>
+	<DialogContent>
+		<DialogHeader>
+			<DialogTitle>Refresh policy</DialogTitle>
+			<DialogDescription>
+				A quota block waits from the most recent catalog refresh. Each cycle includes a fixed
+				10-minute safety jitter; after two failed short cycles, the long cycle is used.
+			</DialogDescription>
+		</DialogHeader>
+		<form onsubmit={saveRefreshPolicy} class="space-y-4">
+			<label class="flex items-center gap-2 text-sm font-medium">
+				<input type="checkbox" bind:checked={shortRefreshEnabled} />
+				Use short refresh cycle
+			</label>
+			<label class="grid gap-1 text-sm font-medium">
+				Short cycle (hours)
+				<Input
+					type="number"
+					min="0.1"
+					step="0.1"
+					bind:value={shortRefreshHours}
+					disabled={!shortRefreshEnabled}
+					required
+				/>
+			</label>
+			<label class="grid gap-1 text-sm font-medium">
+				Long cycle (days)
+				<Input type="number" min="0.1" step="0.1" bind:value={longRefreshDays} required />
+			</label>
+			<DialogFooter>
+				<Button type="button" variant="outline" onclick={() => (policyDialogOpen = false)}
+					>Cancel</Button
+				>
+				<Button type="submit" disabled={catalogs.saving}>Save policy</Button>
+			</DialogFooter>
 		</form>
 	</DialogContent>
 </Dialog>

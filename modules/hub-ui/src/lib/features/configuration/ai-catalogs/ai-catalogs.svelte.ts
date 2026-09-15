@@ -83,4 +83,32 @@ export class AICatalogsState {
 			this.saving = false;
 		}
 	}
+
+	async updateRefreshPolicy(
+		key: string,
+		shortRefreshEnabled: boolean,
+		shortRefreshCycleMinutes: number,
+		longRefreshCycleMinutes: number
+	) {
+		this.saving = true;
+		try {
+			const res = await api.PUT('/api/v1/ai-catalogs/{catalog_key}/refresh-policy', {
+				params: { path: { catalog_key: key } },
+				body: {
+					short_refresh_enabled: shortRefreshEnabled,
+					short_refresh_cycle_minutes: shortRefreshCycleMinutes,
+					long_refresh_cycle_minutes: longRefreshCycleMinutes
+				}
+			});
+			if (res.error) {
+				toast.error(detail(res.error, 'Failed to update refresh policy'));
+				return false;
+			}
+			toast.success('AI catalog refresh policy updated');
+			await this.load();
+			return true;
+		} finally {
+			this.saving = false;
+		}
+	}
 }

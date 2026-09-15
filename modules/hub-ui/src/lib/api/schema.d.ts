@@ -621,6 +621,23 @@ export interface paths {
 		patch?: never;
 		trace?: never;
 	};
+	'/api/v1/ai-catalogs/{catalog_key}/refresh-policy': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		get?: never;
+		/** Update Ai Catalog Refresh Policy */
+		put: operations['update_ai_catalog_refresh_policy_api_v1_ai_catalogs__catalog_key__refresh_policy_put'];
+		post?: never;
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
 	'/api/v1/schedule_jobs': {
 		parameters: {
 			query?: never;
@@ -794,6 +811,18 @@ export interface components {
 			probe_started_at: string | null;
 			/** Probe Window Minutes */
 			probe_window_minutes: number;
+			/** Short Refresh Enabled */
+			short_refresh_enabled: boolean;
+			/** Short Refresh Cycle Minutes */
+			short_refresh_cycle_minutes: number;
+			/** Long Refresh Cycle Minutes */
+			long_refresh_cycle_minutes: number;
+			/** Refresh Jitter Minutes */
+			refresh_jitter_minutes: number;
+			/** Short Refresh Failure Count */
+			short_refresh_failure_count: number;
+			/** Last Refreshed At */
+			last_refreshed_at: string | null;
 			/** Revision */
 			revision: number;
 			/**
@@ -2214,6 +2243,15 @@ export interface components {
 			filename: string;
 			/** Content */
 			content: string;
+		};
+		/** UpdateRefreshPolicyRequest */
+		UpdateRefreshPolicyRequest: {
+			/** Short Refresh Enabled */
+			short_refresh_enabled: boolean;
+			/** Short Refresh Cycle Minutes */
+			short_refresh_cycle_minutes: number;
+			/** Long Refresh Cycle Minutes */
+			long_refresh_cycle_minutes: number;
 		};
 		/** ValidationError */
 		ValidationError: {
@@ -3907,6 +3945,41 @@ export interface operations {
 		requestBody: {
 			content: {
 				'application/json': components['schemas']['SetEnabledRequest'];
+			};
+		};
+		responses: {
+			/** @description Successful Response */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json': components['schemas']['AICatalogRead'];
+				};
+			};
+			/** @description Validation Error */
+			422: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json': components['schemas']['HTTPValidationError'];
+				};
+			};
+		};
+	};
+	update_ai_catalog_refresh_policy_api_v1_ai_catalogs__catalog_key__refresh_policy_put: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				catalog_key: string;
+			};
+			cookie?: never;
+		};
+		requestBody: {
+			content: {
+				'application/json': components['schemas']['UpdateRefreshPolicyRequest'];
 			};
 		};
 		responses: {

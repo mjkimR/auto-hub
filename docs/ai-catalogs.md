@@ -42,6 +42,10 @@ AI Catalog Gateway ── adapter binding ── Codex GitHub mention / Jules / 
 | `effective_concurrency` | Current maximum, reduced to `1` in recovery probe mode |
 | `state` | `normal`, `quota_blocked`, `probe`, `disabled`, or `unknown` |
 | `block_until` | Earliest UTC dispatch time while quota-blocked |
+| `short_refresh_enabled`, `short_refresh_cycle_minutes` | Whether to use the short cycle and its configurable interval (default: 5 hours) |
+| `long_refresh_cycle_minutes` | Configurable long-cycle interval after short retries are exhausted (default: 1 week) |
+| `refresh_jitter_minutes` | Fixed safety delay added to every calculated cycle boundary (default: 10 minutes) |
+| `last_refreshed_at`, `short_refresh_failure_count` | Global refresh anchor and consecutive short-cycle failure count |
 | `block_source`, `block_note`, `blocked_at` | Safe operator-visible evidence and audit metadata |
 | `probe_started_at`, `probe_window_minutes` | Recovery observation window; initial window is 10 minutes |
 | `revision` | Optimistic state/configuration revision |
@@ -72,21 +76,26 @@ refresh(block_until) -> replan deferred tasks
    deferred tasks for immediate eligibility.
 5. Any quota event during probe returns the catalog to `quota_blocked` and
    starts a new block window.
-6. A task that has caused two quota blocks is catalog-blocked. Its catalog
-   assignment remains blocked even after the global catalog recovers; other
-   tasks may proceed.
+6. A quota reply chooses the next shared wait from `last_refreshed_at`, never
+   from the time the reply arrived. When the short cycle is enabled, the first
+   two consecutive failed refreshes wait `short cycle + 10 minutes`; after
+   that, the catalog waits `long cycle + 10 minutes`. A successful recovery
+   probe resets the short-cycle failure count. With the short cycle disabled,
+   every quota block uses the long cycle directly.
 7. Disabled or unknown catalogs never silently fail over to a different model
    or account.
 
-The existing five-hour-ten-minute value is a catalog policy fallback only when
-the adapter cannot prove a reset time. It is never a run-level constant.
+The default policy is a 5-hour short cycle, a 1-week long cycle, and a 10-minute
+safety jitter. These values are catalog configuration, not run-level constants.
 
 ## Manual and local refresh
 
 **Settings → AI Catalogs** is the authoritative UI. Operators can set a
 specific local reset time, clear a hold, enable/disable a catalog, and inspect
-active/deferred/blocked counts. Input is converted to UTC; the server rejects
-past times.
+active/deferred/blocked counts. The refresh policy dialog lets them turn the
+short cycle on or off and set both short-cycle hours and long-cycle days. This
+allows plans such as GPT Pro, which only need the long cycle. Input is converted
+to UTC; the server rejects past times.
 
 An explicit reset time invokes `refresh(block_until)`:
 

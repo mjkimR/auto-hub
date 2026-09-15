@@ -7,6 +7,7 @@ from app.features.ai_catalogs.schemas import (
     AICatalogRead,
     SetAvailabilityRequest,
     SetEnabledRequest,
+    UpdateRefreshPolicyRequest,
 )
 from app.features.ai_catalogs.services import AICatalogService
 from app_layer_base.core.database.transaction import AsyncTransaction
@@ -64,4 +65,16 @@ async def set_ai_catalog_enabled(
 ):
     async with AsyncTransaction() as session:
         catalog = await service.set_enabled(session, catalog_key, request.enabled, datetime.now(UTC))
+        return await _read(catalog, repo, session)
+
+
+@router.put("/{catalog_key}/refresh-policy", response_model=AICatalogRead)
+async def update_ai_catalog_refresh_policy(
+    catalog_key: str,
+    request: UpdateRefreshPolicyRequest,
+    service: Annotated[AICatalogService, Depends()],
+    repo: Annotated[AICatalogRepository, Depends()],
+):
+    async with AsyncTransaction() as session:
+        catalog = await service.update_refresh_policy(session, catalog_key, request)
         return await _read(catalog, repo, session)

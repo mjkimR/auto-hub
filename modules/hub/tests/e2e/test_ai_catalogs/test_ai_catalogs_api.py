@@ -105,6 +105,44 @@ class TestAICatalogsAPI:
         assert response.json()["enabled"] is True
         assert response.json()["availability_state"] == "normal"
 
+    async def test_update_refresh_policy(self, client: AsyncClient, session: AsyncSession):
+        catalog = AICatalog(
+            key="test-catalog-policy",
+            name="Test Catalog Policy",
+            kind=AICatalogKind.CODEX,
+            adapter="codex-github-mention",
+            enabled=True,
+            availability_state=AICatalogState.NORMAL,
+            revision=1,
+        )
+        session.add(catalog)
+        await session.commit()
+
+        response = await client.put(
+            f"{self._base_url}/test-catalog-policy/refresh-policy",
+            json={
+                "short_refresh_enabled": False,
+                "short_refresh_cycle_minutes": 240,
+                "long_refresh_cycle_minutes": 20_160,
+            },
+        )
+        assert_status_code(response, 200)
+        data = response.json()
+        assert data["short_refresh_enabled"] is False
+        assert data["short_refresh_cycle_minutes"] == 240
+        assert data["long_refresh_cycle_minutes"] == 20_160
+        assert data["refresh_jitter_minutes"] == 10
+
+        response = await client.put(
+            f"{self._base_url}/test-catalog-policy/refresh-policy",
+            json={
+                "short_refresh_enabled": True,
+                "short_refresh_cycle_minutes": 0,
+                "long_refresh_cycle_minutes": 20_160,
+            },
+        )
+        assert_status_code(response, 422)
+
     async def test_catalog_not_found(self, client: AsyncClient):
         response = await client.put(
             f"{self._base_url}/non-existent/availability",

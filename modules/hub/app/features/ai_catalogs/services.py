@@ -4,13 +4,13 @@ from uuid import UUID
 
 from app.features.ai_catalogs.models import AICatalog, AICatalogState
 from app.features.ai_catalogs.repos import AICatalogRepository
-from app.features.ai_catalogs.schemas import SetAvailabilityRequest
-from app.features.project_management.pipeline_runs.models import PipelineRun, PipelineRunState
+from app.features.ai_catalogs.schemas import SetAvailabilityRequest, UpdateRefreshPolicyRequest
+from app.features.project_management.pipeline_runs.models import PipelineRun
 from app.features.project_management.projects.services import ProjectError
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-CODEX_QUOTA_FALLBACK = timedelta(hours=5, minutes=10)
+SHORT_REFRESH_FAILURE_LIMIT = 2
 
 
 def _utc(value: datetime) -> datetime:
@@ -40,6 +40,7 @@ class AICatalogService:
                 raise ProjectError(409, "AI catalog is quota-blocked; wait for its refresh time")
             catalog.availability_state = AICatalogState.PROBE
             catalog.probe_started_at = now
+            catalog.last_refreshed_at = _utc(catalog.available_at)
             catalog.revision += 1
         elif (
             catalog.availability_state == AICatalogState.PROBE
@@ -49,6 +50,7 @@ class AICatalogService:
             catalog.availability_state = AICatalogState.NORMAL
             catalog.probe_started_at = None
             catalog.available_at = None
+            catalog.short_refresh_failure_count = 0
             catalog.availability_note = "Recovery probe completed; normal catalog concurrency restored"
             catalog.revision += 1
         if await self.repo.active_run_count(session, catalog_id, run_id) >= self.effective_concurrency(catalog):
@@ -112,22 +114,46 @@ class AICatalogService:
         await session.flush()
         return catalog
 
+    async def update_refresh_policy(
+        self, session: AsyncSession, key: str, request: UpdateRefreshPolicyRequest
+    ) -> AICatalog:
+        catalog = await self.repo.get_by_key(session, key, lock=True)
+        if catalog is None:
+            raise ProjectError(404, "AI catalog not found")
+        catalog.short_refresh_enabled = request.short_refresh_enabled
+        catalog.short_refresh_cycle_minutes = request.short_refresh_cycle_minutes
+        catalog.long_refresh_cycle_minutes = request.long_refresh_cycle_minutes
+        catalog.revision += 1
+        await session.flush()
+        return catalog
+
     async def record_quota_event(self, session: AsyncSession, run: PipelineRun, observed_at: datetime) -> AICatalog:
-        """The catalog owns both the global block and the per-task quota cap."""
+        """Apply the catalog's refresh-cycle policy after a quota observation."""
         catalog = await self.repo.get(session, run.ai_catalog_id, lock=True)
         if catalog is None:
             raise ProjectError(409, "AI catalog was removed")
         now = datetime.now(UTC)
-        fallback = _utc(observed_at) + CODEX_QUOTA_FALLBACK
-        if catalog.available_at is None or _utc(catalog.available_at) <= now or _utc(catalog.available_at) < fallback:
-            catalog.available_at = fallback
-            catalog.availability_source = "quota-fallback"
+        refresh_anchor = _utc(catalog.last_refreshed_at or observed_at)
+        use_short_cycle = (
+            catalog.short_refresh_enabled and catalog.short_refresh_failure_count < SHORT_REFRESH_FAILURE_LIMIT
+        )
+        if use_short_cycle:
+            cycle_minutes = catalog.short_refresh_cycle_minutes
+            catalog.short_refresh_failure_count += 1
+            cycle_name = "short"
+        else:
+            cycle_minutes = catalog.long_refresh_cycle_minutes
+            cycle_name = "long"
+        next_available_at = refresh_anchor + timedelta(minutes=cycle_minutes + catalog.refresh_jitter_minutes)
+        if next_available_at <= now:
+            next_available_at = now + timedelta(minutes=catalog.refresh_jitter_minutes)
+        catalog.available_at = next_available_at
+        catalog.availability_source = f"quota-{cycle_name}-cycle"
         run.quota_block_count += 1
-        if run.quota_block_count >= 2:
-            run.state = PipelineRunState.BLOCKED
-            run.pause_reason = "AI catalog blocked this task after two quota events"
         catalog.availability_state = AICatalogState.QUOTA_BLOCKED
-        catalog.availability_note = "Codex reported a usage limit; waiting for the catalog reset window"
+        catalog.availability_note = (
+            f"Codex reported a usage limit; waiting for the {cycle_name} refresh cycle plus safety jitter"
+        )
         catalog.availability_updated_at = now
         catalog.revision += 1
         await session.flush()
