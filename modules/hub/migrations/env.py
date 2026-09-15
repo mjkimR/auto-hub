@@ -6,6 +6,9 @@ from app_layer_base.base.models.mixin import Base
 from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import async_engine_from_config
 import sqlalchemy as sa
+from app_layer_base.config_util import load_env
+
+load_env()
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

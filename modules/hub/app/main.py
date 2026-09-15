@@ -96,5 +96,8 @@ def create_app():
 
 if __name__ == "__main__":
     import uvicorn
+    from app_layer_base.config_util import load_env
+
+    load_env()
 
     uvicorn.run(create_app(), host="localhost", port=8389)
