@@ -28,8 +28,10 @@ class AICatalogRead(UUIDSchemaMixin, TimestampSchemaMixin):
     refresh_jitter_minutes: int
     short_refresh_failure_count: int
     last_refreshed_at: datetime | None
+    usage_window_started_at: datetime | None
     revision: int
     held_run_count: int = 0
+    active_run_count: int = 0
 
 
 class AICatalogList(BaseModel):

@@ -823,6 +823,8 @@ export interface components {
 			short_refresh_failure_count: number;
 			/** Last Refreshed At */
 			last_refreshed_at: string | null;
+			/** Usage Window Started At */
+			usage_window_started_at: string | null;
 			/** Revision */
 			revision: number;
 			/**
@@ -830,6 +832,11 @@ export interface components {
 			 * @default 0
 			 */
 			held_run_count: number;
+			/**
+			 * Active Run Count
+			 * @default 0
+			 */
+			active_run_count: number;
 		};
 		/**
 		 * AICatalogState

@@ -553,6 +553,53 @@ async def test_ready_batch_filters_before_limit(client, project, github, session
     assert [str(run.id) for run in ready] == [second["id"]]
 
 
+async def test_catalog_hold_gates_only_dispatching_runs(client, project, github, session):
+    from app.features.ai_catalogs.models import AICatalog, AICatalogState
+    from app.features.project_management.pipeline_runs.repos import PipelineRunRepository
+
+    observing = (await enroll(client, project)).json()
+    waiting = (await enroll(client, project, 8)).json()
+    now = datetime.now(UTC)
+    await session.execute(
+        update(PipelineRun).where(PipelineRun.id == UUID(observing["id"])).values(state="awaiting_ci")
+    )
+    await session.execute(update(PipelineRun).where(PipelineRun.id == UUID(waiting["id"])).values(state="dispatching"))
+    await session.execute(
+        update(AICatalog)
+        .where(AICatalog.id == UUID(observing["ai_catalog_id"]))
+        .values(availability_state=AICatalogState.QUOTA_BLOCKED, available_at=now + timedelta(hours=5))
+    )
+    await session.commit()
+
+    ready = await PipelineRunRepository().list_active(session, UUID(project["id"]), limit=10, ready_at=now)
+
+    assert [str(run.id) for run in ready] == [observing["id"]]
+
+
+async def test_runs_waiting_for_admission_do_not_hold_catalog_capacity(client, project, github, session):
+    from app.features.ai_catalogs.repos import AICatalogRepository
+    from app.features.project_management.pipeline_runs.models import ExecutionAttempt
+
+    first, attempt = await prepare_run(client, project)
+    second = (await enroll(client, project, 8)).json()
+    await session.execute(update(PipelineRun).where(PipelineRun.id == UUID(second["id"])).values(state="dispatching"))
+    await session.commit()
+    catalog_id, repo = UUID(first["ai_catalog_id"]), AICatalogRepository()
+
+    # Two planned dispatches at concurrency 1 must not see each other as capacity holders.
+    assert await repo.active_run_count(session, catalog_id, UUID(first["id"])) == 0
+    assert await repo.active_run_count(session, catalog_id, UUID(second["id"])) == 0
+
+    await session.execute(
+        update(ExecutionAttempt).where(ExecutionAttempt.id == UUID(attempt["id"])).values(state="dispatching")
+    )
+    await session.commit()
+
+    assert await repo.active_run_count(session, catalog_id, UUID(second["id"])) == 1
+    listing = await client.get("/api/v1/ai-catalogs")
+    assert [item["active_run_count"] for item in listing.json()["items"]] == [1]
+
+
 @pytest.fixture
 def mention_github(github, monkeypatch):
     original = github.respond
@@ -645,10 +692,33 @@ async def test_reconciled_delivery_preserves_time_and_processes_existing_quota_r
     catalogs = (await client.get("/api/v1/ai-catalogs")).json()["items"]
     catalog = next(item for item in catalogs if item["key"] == "personal-codex")
     due = datetime.fromisoformat(catalog["available_at"].replace("Z", "+00:00")).replace(tzinfo=UTC)
-    assert due == replied_at + timedelta(hours=5, minutes=10)
+    # The reconciled mention is the first task of the usage window, so the wait starts from it.
+    assert due == posted_at + timedelta(hours=5, minutes=10)
     replies = (await client.get(f"{root}/attempts/{attempt['id']}/replies")).json()
     assert len(replies) == 1 and replies[0]["is_quota_limit"] is True
     assert len(mention_github) == 2
+
+
+async def test_probe_window_starts_when_the_probe_mention_is_delivered(client, project, mention_github, session):
+    from app.features.ai_catalogs.models import AICatalog, AICatalogState
+
+    run, _ = await prepare_run(client, project)
+    await session.execute(
+        update(AICatalog)
+        .where(AICatalog.id == UUID(run["ai_catalog_id"]))
+        .values(availability_state=AICatalogState.QUOTA_BLOCKED, available_at=datetime.now(UTC) - timedelta(minutes=1))
+    )
+    await session.commit()
+
+    response = await client.post(f"/api/v1/pipeline-runs/{run['id']}/advance")
+
+    assert_status_code(response, 200)
+    assert response.json()["state"] == "implementing"
+    catalog = (await client.get("/api/v1/ai-catalogs")).json()["items"][0]
+    assert catalog["availability_state"] == "probe"
+    assert catalog["effective_concurrency"] == 1
+    probe_started_at = datetime.fromisoformat(catalog["probe_started_at"].replace("Z", "+00:00")).replace(tzinfo=UTC)
+    assert probe_started_at == datetime.fromisoformat(mention_github[0]["created_at"])
 
 
 async def test_expired_dispatcher_cannot_post_after_another_worker_takes_over(

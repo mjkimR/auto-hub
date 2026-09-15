@@ -13,7 +13,7 @@ from app.features.project_management.pipeline_runs.models import (
     PipelineRun,
     PipelineRunState,
 )
-from sqlalchemy import func, or_, select, update
+from sqlalchemy import ColumnElement, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
@@ -58,16 +58,20 @@ class PipelineRunRepository:
     async def list_active(
         self, session: AsyncSession, project_id: UUID, *, limit: int, ready_at: datetime | None = None
     ) -> list[PipelineRun]:
+        admitting_states: list[ColumnElement[bool]] = [
+            AICatalog.availability_state.in_((AICatalogState.NORMAL, AICatalogState.PROBE))
+        ]
+        if ready_at is not None:
+            admitting_states.append(
+                (AICatalog.availability_state == AICatalogState.QUOTA_BLOCKED) & (AICatalog.available_at <= ready_at)
+            )
         filters = [
             PipelineRun.project_id == project_id,
             PipelineRun.state.in_(ACTIVE_RUN_STATES),
-            AICatalog.enabled.is_(True),
-            (
-                (AICatalog.availability_state.in_((AICatalogState.NORMAL, AICatalogState.PROBE)))
-                | (
-                    (AICatalog.availability_state == AICatalogState.QUOTA_BLOCKED)
-                    & (AICatalog.available_at <= ready_at)
-                )
+            # Only dispatch needs catalog admission; CI, push, and quota-reply observation continue during a hold.
+            or_(
+                PipelineRun.state != PipelineRunState.DISPATCHING,
+                AICatalog.enabled.is_(True) & or_(*admitting_states),
             ),
         ]
         if ready_at is not None:

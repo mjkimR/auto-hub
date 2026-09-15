@@ -134,12 +134,13 @@
 									: 'Available now'}
 							</div>
 							<p class="mt-1 text-xs text-muted-foreground">
-								Source: {catalog.availability_source ?? 'not set'} · {catalog.held_run_count} active run(s)
-								affected
+								Source: {catalog.availability_source ?? 'not set'} · {catalog.held_run_count} queued,
+								dispatching, or implementing run(s)
 							</p>
 							<p class="mt-1 text-xs text-muted-foreground">
-								Concurrency: {catalog.effective_concurrency} active now / {catalog.configured_concurrency}
-								configured{catalog.availability_state === 'probe' ? ' (recovery probe)' : ''}
+								Concurrency: {catalog.active_run_count} in use / {catalog.effective_concurrency} allowed
+								({catalog.configured_concurrency}
+								configured){catalog.availability_state === 'probe' ? ' · recovery probe' : ''}
 							</p>
 							{#if catalog.availability_note}<p class="mt-2 text-xs text-muted-foreground">
 									{catalog.availability_note}
@@ -157,7 +158,7 @@
 								onclick={() => openRefreshPolicy(catalog)}
 								disabled={catalogs.saving}>Refresh policy</Button
 							>
-							{#if catalog.availability_state === 'quota_blocked'}<Button
+							{#if catalog.available_at}<Button
 									size="sm"
 									variant="outline"
 									onclick={() => catalogs.clearAvailability(catalog.key)}
@@ -204,7 +205,7 @@
 		<DialogHeader>
 			<DialogTitle>Refresh policy</DialogTitle>
 			<DialogDescription>
-				A quota block waits from the most recent catalog refresh. Each cycle includes a fixed
+				A quota block waits one cycle from the first task of the current usage window, plus a fixed
 				10-minute safety jitter; after two failed short cycles, the long cycle is used.
 			</DialogDescription>
 		</DialogHeader>

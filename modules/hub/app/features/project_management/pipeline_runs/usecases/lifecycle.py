@@ -752,6 +752,8 @@ class PipelineRunUseCase:
             run.state = PipelineRunState.IMPLEMENTING
             run.next_action_at = None
             run.revision += 1
+            if self.ai_catalogs is not None:
+                await self.ai_catalogs.record_dispatch_delivered(session, run.ai_catalog_id, posted_at)
             await session.flush()
             return PipelineRunRead.model_validate(run)
 

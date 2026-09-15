@@ -5,8 +5,9 @@
 The seeded `personal-codex` record is the initial **AI Catalog gateway**. It
 owns dispatch admission, quota block state, probe recovery, and per-run quota
 block counts. The persistence table, API, run reference, and UI are all named
-AI Catalog. A separate adapter/credential-binding entity remains a future
-extraction once a second adapter is introduced.
+AI Catalog. A separate adapter/credential-binding entity (for example
+`connector_ids`) remains a future extraction once a second adapter is
+introduced.
 
 ## Why a catalog is the gateway
 
@@ -16,8 +17,8 @@ same account/model route. If runs own their own retry timestamps they can race,
 retry together after a reset, and defeat the intended safety limit.
 
 Every AI-bound task therefore submits a dispatch request to exactly one
-catalog. The catalog decides whether to dispatch now, defer it, block the task,
-or refresh its schedule. Tasks do not calculate quota retry times.
+catalog. The catalog decides whether to dispatch now or reject the request
+until its shared gate opens. Tasks do not calculate quota retry times.
 
 ```text
 Pipeline run / attempt
@@ -27,8 +28,7 @@ AI Catalog Gateway ── adapter binding ── Codex GitHub mention / Jules / 
   capacity leases
   global block window
   recovery probe
-  deferred-task refresh
-  per-task quota block count
+  per-run quota block count
 ```
 
 ## Catalog model
@@ -36,54 +36,77 @@ AI Catalog Gateway ── adapter binding ── Codex GitHub mention / Jules / 
 | Field | Responsibility |
 | --- | --- |
 | `id`, `key`, `name` | Stable catalog identity and operator-facing label |
-| `adapter` | Execution integration selected by the catalog |
-| `connector_ids` | Optional credential/connection dependencies for the adapter |
+| `kind`, `adapter` | Execution integration selected by the catalog |
+| `enabled` | Operator switch; a disabled catalog admits no dispatch |
 | `configured_concurrency` | Normal maximum concurrent external executions |
-| `effective_concurrency` | Current maximum, reduced to `1` in recovery probe mode |
-| `state` | `normal`, `quota_blocked`, `probe`, `disabled`, or `unknown` |
-| `block_until` | Earliest UTC dispatch time while quota-blocked |
+| `effective_concurrency` (read-only) | Current maximum, reduced to `1` in recovery probe mode |
+| `availability_state` | `normal`, `quota_blocked`, `probe`, `disabled`, or `unknown` |
+| `available_at` | Earliest UTC dispatch time of the current hold; kept while disabled |
 | `short_refresh_enabled`, `short_refresh_cycle_minutes` | Whether to use the short cycle and its configurable interval (default: 5 hours) |
 | `long_refresh_cycle_minutes` | Configurable long-cycle interval after short retries are exhausted (default: 1 week) |
 | `refresh_jitter_minutes` | Fixed safety delay added to every calculated cycle boundary (default: 10 minutes) |
-| `last_refreshed_at`, `short_refresh_failure_count` | Global refresh anchor and consecutive short-cycle failure count |
-| `block_source`, `block_note`, `blocked_at` | Safe operator-visible evidence and audit metadata |
-| `probe_started_at`, `probe_window_minutes` | Recovery observation window; initial window is 10 minutes |
+| `usage_window_started_at` | Delivery time of the first task in the current provider usage window; the quota wait anchor |
+| `last_refreshed_at`, `short_refresh_failure_count` | End of the latest hold (older quota evidence is ignored) and consecutive short-cycle failure count |
+| `availability_source`, `availability_note`, `availability_updated_at` | Safe operator-visible evidence and audit metadata |
+| `probe_started_at`, `probe_window_minutes` | Delivery time of the recovery probe and its observation window (10 minutes) |
+| `held_run_count`, `active_run_count` (read-only) | Runs queued/dispatching/implementing, and runs currently holding capacity |
 | `revision` | Optimistic state/configuration revision |
 
-Catalog state is global. A task assignment records only `catalog_id`, its
-quota block count, and the catalog decision that last deferred or blocked it.
-It does not own a quota-derived retry timestamp.
+Catalog state is global. A pipeline run records only its `ai_catalog_id` and
+`quota_block_count`. It does not own a quota-derived retry timestamp, and the
+reason a dispatch was rejected is returned to the caller rather than stored on
+the run.
 
 ## Gateway decisions
 
-The catalog service exposes these decisions to the scheduler and adapters:
+The catalog service exposes these operations to the scheduler and adapters:
 
 ```text
-request_dispatch(task) -> grant | defer(until) | task_blocked(reason)
-complete_dispatch(task, outcome) -> capacity release / recovery observation
-record_quota_event(task, event_time) -> catalog block + task decision
-refresh(block_until) -> replan deferred tasks
+request_dispatch(run) -> grant | 409 (unavailable, quota-blocked, or at capacity)
+record_dispatch_delivered(run, posted_at) -> starts a pending probe window
+record_quota_event(run, observed_at) -> catalog hold + run quota block count
+set_availability(available_at) / clear_availability() -> shared gate
 ```
 
-1. A normal catalog grants a capacity lease only when active leases are below
-   `effective_concurrency`.
-2. A quota-blocked catalog defers every non-blocked task until `block_until`.
-   It never asks individual tasks to infer a reset time.
-3. When `block_until` passes, the catalog enters `probe`, limits effective
-   concurrency to one, and dispatches one eligible task.
-4. If that probe runs for 10 minutes without another quota event, the catalog
-   returns to `normal`, restores configured concurrency, and refreshes all
-   deferred tasks for immediate eligibility.
-5. Any quota event during probe returns the catalog to `quota_blocked` and
-   starts a new block window.
-6. A quota reply chooses the next shared wait from `last_refreshed_at`, never
-   from the time the reply arrived. When the short cycle is enabled, the first
-   two consecutive failed refreshes wait `short cycle + 10 minutes`; after
-   that, the catalog waits `long cycle + 10 minutes`. A successful recovery
-   probe resets the short-cycle failure count. With the short cycle disabled,
-   every quota block uses the long cycle directly.
-7. Disabled or unknown catalogs never silently fail over to a different model
-   or account.
+1. A catalog grants a dispatch only when the runs holding capacity are below
+   `effective_concurrency`. A run holds capacity while it is `implementing`, or
+   while it is `dispatching` with an admitted (possibly uncertain) mention
+   post. A `dispatching` run that is only waiting for admission holds nothing,
+   so waiting runs never block each other.
+2. A quota-blocked catalog rejects dispatch until `available_at`. It never asks
+   individual runs to infer a reset time. Only dispatch is gated: the scheduler
+   keeps observing CI, pushes, merges, and quota replies during a hold.
+3. When `available_at` passes, the next admission enters `probe`, sets
+   `last_refreshed_at` to that time, limits effective concurrency to one, and
+   dispatches one eligible run. The probe window starts only when that mention
+   is actually delivered.
+4. Once a delivered probe has run for 10 minutes without another quota event,
+   the catalog returns to `normal`, restores configured concurrency, and resets
+   the short-cycle failure count. This is evaluated at the next admission or
+   quota observation; waiting runs become eligible on the next scheduler tick.
+5. A quota event observed after the probe was delivered returns the catalog to
+   `quota_blocked` and starts a new hold.
+6. Codex resets a usage window a fixed time (5 hours) after the window's first
+   task, so an older refresh time says nothing about the next reset. Each
+   delivered mention opens a new window when none is open or the previous one
+   has already lasted a full window (the short cycle, or the long cycle when
+   the short cycle is disabled); a recovery probe and a cleared hold always
+   start a new one. A quota reply waits `cycle + jitter` from
+   `usage_window_started_at`. If no window start is known, or the reply falls
+   outside that window, the reply time is used instead: it is the latest
+   possible window start, so the hold is never released early. When the short
+   cycle is enabled, the first two
+   consecutive failed refreshes use the short cycle; after that, the catalog
+   uses the long cycle. With the short cycle disabled, every quota block uses
+   the long cycle directly.
+7. A reply observed before the current hold or the latest refresh is already
+   accounted for. It increments the run's quota block count but neither
+   consumes another short retry nor moves an existing hold earlier, so several
+   runs hitting the same exhaustion produce one hold, and a verified reset time
+   is never shortened by a late reply.
+8. Disabled or unknown catalogs never silently fail over to a different model
+   or account. Disabling keeps a pending hold; re-enabling restores it, and an
+   expired hold resumes through a recovery probe.
 
 The default policy is a 5-hour short cycle, a 1-week long cycle, and a 10-minute
 safety jitter. These values are catalog configuration, not run-level constants.
@@ -92,15 +115,15 @@ safety jitter. These values are catalog configuration, not run-level constants.
 
 **Settings → AI Catalogs** is the authoritative UI. Operators can set a
 specific local reset time, clear a hold, enable/disable a catalog, and inspect
-active/deferred/blocked counts. The refresh policy dialog lets them turn the
-short cycle on or off and set both short-cycle hours and long-cycle days. This
-allows plans such as GPT Pro, which only need the long cycle. Input is converted
-to UTC; the server rejects past times.
+the assigned and in-use run counts. The refresh policy dialog lets them turn
+the short cycle on or off and set both short-cycle hours and long-cycle days.
+This allows plans such as GPT Pro, which only need the long cycle. Input is
+converted to UTC; the server rejects past times.
 
-An explicit reset time invokes `refresh(block_until)`:
+An explicit reset time replaces the catalog's `available_at`:
 
-- the catalog stores the new global time;
-- all deferred catalog tasks are refreshed against it;
+- the catalog stores the new global time, even while disabled;
+- every run assigned to the catalog waits on that one shared gate;
 - the scheduler sees one shared gate rather than per-task timers.
 
 The optional `just sync-codex-quota` helper reads a signed-in local Codex

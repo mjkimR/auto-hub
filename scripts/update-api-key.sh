@@ -86,7 +86,9 @@ ENV_FILE="${ROOT_DIR}/modules/hub/.env"
 echo "==> [4/4] Checking local .env file..."
 if [[ -f "$ENV_FILE" ]]; then
   if grep -q "^APP_SECRET_KEY=" "$ENV_FILE"; then
-    sed -i "s|^APP_SECRET_KEY=.*|APP_SECRET_KEY=${HASHED_KEY}|" "$ENV_FILE"
+    # An attached backup suffix is accepted by both BSD (macOS) and GNU sed.
+    sed -i.bak "s|^APP_SECRET_KEY=.*|APP_SECRET_KEY=${HASHED_KEY}|" "$ENV_FILE"
+    rm -f "${ENV_FILE}.bak"
     echo "  ✓ Updated APP_SECRET_KEY in $ENV_FILE."
   else
     echo "APP_SECRET_KEY=${HASHED_KEY}" >> "$ENV_FILE"

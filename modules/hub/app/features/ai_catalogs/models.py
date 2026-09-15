@@ -42,4 +42,5 @@ class AICatalog(Base, UUIDMixin, TimestampMixin):
     refresh_jitter_minutes: Mapped[int] = mapped_column(Integer, nullable=False, default=10)
     short_refresh_failure_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     last_refreshed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    usage_window_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     revision: Mapped[int] = mapped_column(Integer, nullable=False, default=1)

@@ -21,6 +21,7 @@ async def _read(catalog, repo, session) -> AICatalogRead:
     return AICatalogRead.model_validate(catalog).model_copy(
         update={
             "held_run_count": await repo.held_run_count(session, catalog.id, datetime.now(UTC)),
+            "active_run_count": await repo.active_run_count(session, catalog.id),
             "effective_concurrency": AICatalogService.effective_concurrency(catalog),
         }
     )
