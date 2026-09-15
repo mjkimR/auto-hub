@@ -1,4 +1,3 @@
-import asyncio
 import base64
 import binascii
 import os
@@ -11,8 +10,7 @@ import orjson
 from cryptography.exceptions import InvalidTag
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from fastapi import Depends
-from google.cloud import secretmanager_v1
-from pydantic import Field
+from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _AES_256_KEY_BYTES = 32
@@ -23,12 +21,9 @@ _AAD_VERSION = "v1"
 class ConnectorCryptoConfig(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
-    CONNECTOR_CREDENTIAL_KEY_SECRET: str = Field(
+    CONNECTOR_CREDENTIAL_KEY: SecretStr = Field(
         ...,
-        description=(
-            "Secret Manager resource without a version, for example "
-            "projects/my-project/secrets/connector-credential-key"
-        ),
+        description="Base64-encoded 32-byte AES key used to encrypt connector credentials",
     )
     CONNECTOR_CREDENTIAL_KEY_VERSION: str = Field(
         "1",
@@ -48,35 +43,19 @@ class CredentialKeyProvider(Protocol):
     async def get_key(self, version: str) -> bytes: ...
 
 
-class SecretManagerCredentialKeyProvider:
+class EnvironmentCredentialKeyProvider:
     def __init__(self, config: Annotated[ConnectorCryptoConfig, Depends(get_connector_crypto_config)]):
-        self._secret_resource = config.CONNECTOR_CREDENTIAL_KEY_SECRET.rstrip("/")
         self._current_version = config.CONNECTOR_CREDENTIAL_KEY_VERSION
-        self._client: secretmanager_v1.SecretManagerServiceAsyncClient | None = None
-        self._keys: dict[str, bytes] = {}
-        self._load_lock = asyncio.Lock()
+        self._key = self._decode_key(config.CONNECTOR_CREDENTIAL_KEY.get_secret_value().encode())
 
     @property
     def current_version(self) -> str:
         return self._current_version
 
     async def get_key(self, version: str) -> bytes:
-        if key := self._keys.get(version):
-            return key
-
-        async with self._load_lock:
-            if key := self._keys.get(version):
-                return key
-
-            if self._client is None:
-                self._client = secretmanager_v1.SecretManagerServiceAsyncClient()
-
-            response = await self._client.access_secret_version(
-                request={"name": f"{self._secret_resource}/versions/{version}"}
-            )
-            key = self._decode_key(response.payload.data)
-            self._keys[version] = key
-            return key
+        if version != self._current_version:
+            raise ValueError(f"Unsupported connector credential key version: {version}")
+        return self._key
 
     @staticmethod
     def _decode_key(value: bytes) -> bytes:
@@ -93,7 +72,7 @@ class SecretManagerCredentialKeyProvider:
 @lru_cache
 def get_credential_key_provider() -> CredentialKeyProvider:
     """Return one cached provider so each process reads a key version only once."""
-    return SecretManagerCredentialKeyProvider(get_connector_crypto_config())
+    return EnvironmentCredentialKeyProvider(get_connector_crypto_config())
 
 
 @dataclass(frozen=True)

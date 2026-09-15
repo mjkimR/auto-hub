@@ -103,26 +103,25 @@ create_or_update_secret() {
   fi
 }
 
-# 1. connector-credential-key (32 bytes AES key in base64)
-KEY_VAL=$(openssl rand -base64 32)
-create_or_update_secret "connector-credential-key" "$KEY_VAL"
-
-# 2. auto-hub-app-secret (SHA-256 hashed secret for UI/API authentication)
+# Build one per-repository JSON bundle. Individual values never need their own
+# Secret Manager resources; app-common expands this bundle at process startup.
+# 1. App secret (SHA-256 hashed secret for UI/API authentication)
 if [[ -n "$RAW_APP_SECRET" ]]; then
+  LOGIN_KEY="$RAW_APP_SECRET"
   echo "  - Plaintext App Secret provided. Computing SHA-256 hash..."
   APP_SECRET_VAL=$(hash_sha256 "$RAW_APP_SECRET")
-  create_or_update_secret "auto-hub-app-secret" "$APP_SECRET_VAL" "true"
+  :
 else
   RANDOM_KEY=$(openssl rand -hex 32)
+  LOGIN_KEY="$RANDOM_KEY"
   APP_SECRET_VAL=$(hash_sha256 "$RANDOM_KEY")
-  create_or_update_secret "auto-hub-app-secret" "$APP_SECRET_VAL"
+  :
 fi
 
-# 3. auto-hub-webhook-secret (20 bytes hex)
+# 2. GitHub webhook secret (20 bytes hex)
 WEBHOOK_SECRET_VAL=$(openssl rand -hex 20)
-create_or_update_secret "auto-hub-webhook-secret" "$WEBHOOK_SECRET_VAL"
 
-# 4. auto-hub-database-url
+# 3. Database URL
 if [[ -n "$DATABASE_URL" ]]; then
   # Normalize postgres:// or postgresql:// to postgresql+asyncpg://
   if [[ "$DATABASE_URL" =~ ^postgres:// ]]; then
@@ -133,25 +132,29 @@ if [[ -n "$DATABASE_URL" ]]; then
   # Normalize sslmode= to ssl= for asyncpg driver
   DATABASE_URL="${DATABASE_URL//sslmode=/ssl=}"
   echo "  - Storing provided DATABASE_URL..."
-  if gcloud secrets describe "auto-hub-database-url" --project="$PROJECT_ID" >/dev/null 2>&1; then
-    echo -n "$DATABASE_URL" | gcloud secrets versions add "auto-hub-database-url" --project="$PROJECT_ID" --data-file=- >/dev/null
-    echo "    Updated 'auto-hub-database-url' with latest version."
-  else
-    create_or_update_secret "auto-hub-database-url" "$DATABASE_URL"
-  fi
 elif [[ -n "$DB_CONNECTION_NAME" ]]; then
   if [[ -z "$DB_PASSWORD" ]]; then
     read -rsp "Enter password for database user '$DB_USER': " DB_PASSWORD
     echo ""
   fi
   DATABASE_URL="postgresql+asyncpg://${DB_USER}:${DB_PASSWORD}@/${DB_NAME}?host=/cloudsql/${DB_CONNECTION_NAME}"
-  create_or_update_secret "auto-hub-database-url" "$DATABASE_URL"
 else
-  echo "  - Notice: Neither --database-url nor --connection-name was specified."
-  if ! gcloud secrets describe "auto-hub-database-url" --project="$PROJECT_ID" >/dev/null 2>&1; then
-    echo "    Please create 'auto-hub-database-url' manually or re-run with -b <URL> or -c <PROJECT:REGION:INSTANCE>."
-  fi
+  echo "Error: --database-url or --connection-name is required for the Auto Hub secret bundle." >&2
+  exit 1
 fi
+
+# 4. Connector credential encryption key (base64-encoded 32-byte AES key)
+CONNECTOR_KEY_VAL=$(openssl rand -base64 32)
+
+SECRETS_JSON=$( \
+  APP_SECRET_VAL="$APP_SECRET_VAL" \
+  DATABASE_URL="$DATABASE_URL" \
+  WEBHOOK_SECRET_VAL="$WEBHOOK_SECRET_VAL" \
+  CONNECTOR_KEY_VAL="$CONNECTOR_KEY_VAL" \
+  python3 -c 'import json, os; print(json.dumps({"APP_SECRET_KEY": os.environ["APP_SECRET_VAL"], "DATABASE_URL": os.environ["DATABASE_URL"], "GITHUB_WEBHOOK_SECRET": os.environ["WEBHOOK_SECRET_VAL"], "CONNECTOR_CREDENTIAL_KEY": os.environ["CONNECTOR_KEY_VAL"], "CONNECTOR_CREDENTIAL_KEY_VERSION": "1"}, separators=(",", ":")))' \
+)
+
+create_or_update_secret "auto-hub-secrets" "$SECRETS_JSON" "true"
 
 
 # 5. Create dedicated Service Account & grant secretAccessor role
@@ -172,7 +175,6 @@ gcloud projects add-iam-policy-binding "$PROJECT_ID" \
 
 echo "==> Secret Manager setup completed successfully!"
 echo "    Dedicated Service Account: $SA_EMAIL"
-echo "    App Secret Key (Hashed for UI/API):"
-gcloud secrets versions access latest --secret=auto-hub-app-secret --project="$PROJECT_ID"
-echo ""
-
+echo "    Secret bundle: auto-hub-secrets"
+echo "    Save this plaintext API key securely for UI/Scheduler authentication:"
+echo "    $LOGIN_KEY"

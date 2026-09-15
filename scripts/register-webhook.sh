@@ -14,10 +14,11 @@ SERVICE_NAME="auto-hub"
 REGION="asia-northeast3"
 
 SERVICE_URL=$(gcloud run services describe "$SERVICE_NAME" --region="$REGION" --format="value(status.url)" 2>/dev/null || echo "https://auto-hub-y2hhy3omua-du.a.run.app")
-WEBHOOK_SECRET=$(gcloud secrets versions access latest --secret=auto-hub-webhook-secret 2>/dev/null || echo "")
+SECRETS_JSON=$(gcloud secrets versions access latest --secret=auto-hub-secrets 2>/dev/null || echo "")
+WEBHOOK_SECRET=$(SECRETS_JSON="$SECRETS_JSON" python3 -c 'import json, os; print(json.loads(os.environ["SECRETS_JSON"])["GITHUB_WEBHOOK_SECRET"])' 2>/dev/null || echo "")
 
 if [[ -z "$WEBHOOK_SECRET" ]]; then
-  echo "Error: Could not retrieve 'auto-hub-webhook-secret' from Google Secret Manager."
+  echo "Error: Could not retrieve GITHUB_WEBHOOK_SECRET from auto-hub-secrets."
   echo "Please make sure you are logged into gcloud and have permissions."
   exit 1
 fi

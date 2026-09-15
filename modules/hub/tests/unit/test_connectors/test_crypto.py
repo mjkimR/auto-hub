@@ -7,7 +7,7 @@ from app.features.configuration.connectors.crypto import (
     ConnectorCredentialCipher,
     CredentialDecryptionError,
     EncryptedCredentials,
-    SecretManagerCredentialKeyProvider,
+    EnvironmentCredentialKeyProvider,
 )
 
 from tests.fixtures.connectors import StaticCredentialKeyProvider
@@ -18,10 +18,10 @@ class TestConnectorCredentialCipher:
     async def test_secret_manager_key_must_decode_to_32_bytes(self):
         key = bytes(range(32))
 
-        assert SecretManagerCredentialKeyProvider._decode_key(b64encode(key)) == key
+        assert EnvironmentCredentialKeyProvider._decode_key(b64encode(key)) == key
 
         with pytest.raises(ValueError, match="exactly 32 bytes"):
-            SecretManagerCredentialKeyProvider._decode_key(b64encode(b"too-short"))
+            EnvironmentCredentialKeyProvider._decode_key(b64encode(b"too-short"))
 
     async def test_encrypt_and_decrypt_credentials(self):
         cipher = ConnectorCredentialCipher(StaticCredentialKeyProvider(bytes(range(32))))

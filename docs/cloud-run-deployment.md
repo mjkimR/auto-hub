@@ -85,44 +85,26 @@ gcloud sql users create hub_user \
 
 ## 3. Secret Manager Configuration
 
-Sensitive configuration values are registered in Secret Manager and injected securely into Cloud Run.
+All Auto Hub secrets are stored as one JSON payload and injected through `APP_SECRETS_JSON`.
+The setup helper generates the bundle and prints only the one-time plaintext API key needed for UI access:
 
-### 3.1 Connector Token Encryption Master Key (32-byte AES key)
 ```bash
-openssl rand -base64 32 | gcloud secrets create connector-credential-key \
-  --replication-policy=automatic \
-  --data-file=-
+just setup-secrets -- --project "$PROJECT_ID" --connection-name "$DB_CONNECTION_NAME"
 ```
 
-### 3.2 Management API Authentication Key (`APP_SECRET_KEY`)
-Used for accessing Hub UI and admin APIs:
-```bash
-openssl rand -hex 32 | gcloud secrets create auto-hub-app-secret \
-  --replication-policy=automatic \
-  --data-file=-
-```
-*(Copy and enter this key when accessing the UI for the first time.)*
+The bundle contains `APP_SECRET_KEY`, `DATABASE_URL`, `GITHUB_WEBHOOK_SECRET`,
+`CONNECTOR_CREDENTIAL_KEY`, and `CONNECTOR_CREDENTIAL_KEY_VERSION`. The app-common
+environment loader expands these into normal environment variables at startup.
 
-### 3.3 GitHub Webhook Secret (`GITHUB_WEBHOOK_SECRET`)
-Random secret token used for verifying GitHub Webhook HMAC signatures:
-```bash
-openssl rand -hex 20 | gcloud secrets create auto-hub-webhook-secret \
-  --replication-policy=automatic \
-  --data-file=-
-```
-
-### 3.4 Database Connection URL (`DATABASE_URL`)
+### 3.1 Database Connection URL (`DATABASE_URL`)
 Cloud Run connects via Cloud SQL Unix Domain Socket (`/cloudsql/PROJECT:REGION:INSTANCE`):
 ```bash
 # Retrieve Cloud SQL Connection Name
 export DB_CONNECTION_NAME=$(gcloud sql instances describe "$DB_INSTANCE_NAME" --format="value(connectionName)")
 
-# Create DATABASE_URL secret
 # Format: postgresql+asyncpg://<USER>:<PASSWORD>@/<DB_NAME>?host=/cloudsql/<CONNECTION_NAME>
-echo -n "postgresql+asyncpg://hub_user:<STRONG_USER_PASSWORD>@/auto_hub?host=/cloudsql/${DB_CONNECTION_NAME}" | \
-  gcloud secrets create auto-hub-database-url \
-  --replication-policy=automatic \
-  --data-file=-
+export DATABASE_URL="postgresql+asyncpg://hub_user:<STRONG_USER_PASSWORD>@/auto_hub?host=/cloudsql/${DB_CONNECTION_NAME}"
+# Pass DATABASE_URL to the setup helper, or use --database-url directly.
 ```
 
 ---
@@ -190,8 +172,7 @@ gcloud run deploy "$SERVICE_NAME" \
   --memory=1Gi \
   --cpu=1 \
   --add-cloudsql-instances="$DB_CONNECTION_NAME" \
-  --set-env-vars="CONNECTOR_CREDENTIAL_KEY_SECRET=projects/${PROJECT_ID}/secrets/connector-credential-key,CONNECTOR_CREDENTIAL_KEY_VERSION=1" \
-  --set-secrets="APP_SECRET_KEY=auto-hub-app-secret:latest,DATABASE_URL=auto-hub-database-url:latest,GITHUB_WEBHOOK_SECRET=auto-hub-webhook-secret:latest"
+  --set-secrets="APP_SECRETS_JSON=auto-hub-secrets:latest"
 ```
 
 Record the deployed Service URL output (e.g. `https://auto-hub-xxxx-du.a.run.app`):
@@ -212,7 +193,7 @@ gcloud scheduler jobs create http auto-hub-dispatcher-tick \
   --schedule="* * * * *" \
   --uri="${SERVICE_URL}/api/v1/dispatchers/trigger" \
   --http-method=POST \
-  --headers="X-API-Key=$(gcloud secrets versions access latest --secret=auto-hub-app-secret)" \
+  --headers="X-API-Key=$(gcloud secrets versions access latest --secret=auto-hub-secrets | python3 -c 'import json,sys; print(json.load(sys.stdin)["APP_SECRET_KEY"])')" \
   --time-zone="UTC" \
   --attempt-deadline=300s
 ```
@@ -223,7 +204,7 @@ gcloud scheduler jobs create http auto-hub-dispatcher-tick \
 
 1. **Verify Web Browser Access**
    - Navigate to `${SERVICE_URL}/` and verify that the Hub UI dashboard loads properly.
-   - Enter your `auto-hub-app-secret` key in the top-right corner or login modal to authenticate.
+   - Enter the original plaintext API key supplied to `just setup-secrets` in the top-right corner or login modal to authenticate.
 2. **Verify Swagger Docs**
    - Access `${SERVICE_URL}/docs` and verify the OpenAPI interactive documentation responds.
 3. **Register GitHub Repository Webhook**
@@ -239,7 +220,7 @@ gcloud scheduler jobs create http auto-hub-dispatcher-tick \
    - Go to `Settings → Webhooks → Add webhook` on your target GitHub repository.
    - **Payload URL**: `${SERVICE_URL}/api/github/webhooks`
    - **Content type**: `application/json`
-   - **Secret**: Value of `auto-hub-webhook-secret`
+   - **Secret**: `GITHUB_WEBHOOK_SECRET` value from the `auto-hub-secrets` bundle
    - **Events**: Select `Let me select individual events` and check:
      - `Pull requests`
      - `Issue comments`

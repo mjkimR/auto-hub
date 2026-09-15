@@ -138,8 +138,7 @@ DEPLOY_ARGS=(
   --memory=1Gi
   --cpu=1
   --service-account="$SA_EMAIL"
-  --set-env-vars="CONNECTOR_CREDENTIAL_KEY_SECRET=projects/${PROJECT_ID}/secrets/connector-credential-key,CONNECTOR_CREDENTIAL_KEY_VERSION=1"
-  --set-secrets="APP_SECRET_KEY=auto-hub-app-secret:latest,DATABASE_URL=auto-hub-database-url:latest,GITHUB_WEBHOOK_SECRET=auto-hub-webhook-secret:latest"
+  --set-secrets="APP_SECRETS_JSON=auto-hub-secrets:latest"
 )
 
 if [[ -n "$DB_CONNECTION_NAME" ]]; then
@@ -158,7 +157,8 @@ if [[ "$SETUP_SCHEDULER" == "true" ]]; then
   JOB_NAME="${SERVICE_NAME}-dispatcher-tick"
   echo "==> Configuring Cloud Scheduler job: $JOB_NAME..."
 
-  APP_SECRET=$(gcloud secrets versions access latest --secret=auto-hub-app-secret --project="$PROJECT_ID" 2>/dev/null || true)
+  APP_SECRETS_JSON=$(gcloud secrets versions access latest --secret=auto-hub-secrets --project="$PROJECT_ID" 2>/dev/null || true)
+  APP_SECRET=$(APP_SECRETS_JSON="$APP_SECRETS_JSON" python3 -c 'import json, os; print(json.loads(os.environ["APP_SECRETS_JSON"])["APP_SECRET_KEY"])' 2>/dev/null || true)
   if [[ -n "$APP_SECRET" ]]; then
     if gcloud scheduler jobs describe "$JOB_NAME" --location="$REGION" --project="$PROJECT_ID" >/dev/null 2>&1; then
       gcloud scheduler jobs update http "$JOB_NAME" \
@@ -184,7 +184,7 @@ if [[ "$SETUP_SCHEDULER" == "true" ]]; then
       echo "  - Created new Cloud Scheduler job."
     fi
   else
-    echo "  - Warning: auto-hub-app-secret not found. Cloud Scheduler job skipped."
+    echo "  - Warning: auto-hub-secrets not found. Cloud Scheduler job skipped."
   fi
 fi
 
@@ -224,4 +224,3 @@ echo " - Health check: curl $SERVICE_URL/api/health"
 echo " - UI Access   : Open $SERVICE_URL in browser"
 echo " - Webhook URL : $SERVICE_URL/api/v1/webhooks/github"
 echo "================================================================="
-

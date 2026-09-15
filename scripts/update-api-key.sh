@@ -42,19 +42,16 @@ HASHED_KEY=$(hash_sha256 "$KEY")
 echo "==> Updating API key for project: $PROJECT_ID (Region: $REGION)"
 
 # 1. Update Secret Manager
-echo "==> [1/4] Updating Google Secret Manager ('auto-hub-app-secret')..."
-if gcloud secrets describe "auto-hub-app-secret" --project="$PROJECT_ID" >/dev/null 2>&1; then
-  echo -n "$HASHED_KEY" | gcloud secrets versions add "auto-hub-app-secret" \
-    --project="$PROJECT_ID" \
-    --data-file=- >/dev/null
-  echo "  ✓ Added new version to 'auto-hub-app-secret'."
-else
-  echo -n "$HASHED_KEY" | gcloud secrets create "auto-hub-app-secret" \
-    --project="$PROJECT_ID" \
-    --replication-policy=automatic \
-    --data-file=- >/dev/null
-  echo "  ✓ Created 'auto-hub-app-secret'."
+echo "==> [1/4] Updating Google Secret Manager ('auto-hub-secrets')..."
+CURRENT_JSON=$(gcloud secrets versions access latest --secret=auto-hub-secrets --project="$PROJECT_ID" 2>/dev/null || true)
+if [[ -z "$CURRENT_JSON" ]]; then
+  echo "Error: auto-hub-secrets does not exist. Run 'just setup-secrets' first." >&2
+  exit 1
 fi
+UPDATED_JSON=$(CURRENT_JSON="$CURRENT_JSON" HASHED_KEY="$HASHED_KEY" python3 -c 'import json, os; value=json.loads(os.environ["CURRENT_JSON"]); value["APP_SECRET_KEY"]=os.environ["HASHED_KEY"]; print(json.dumps(value, separators=(",", ":")))')
+echo -n "$UPDATED_JSON" | gcloud secrets versions add "auto-hub-secrets" \
+  --project="$PROJECT_ID" --data-file=- >/dev/null
+echo "  ✓ Added new version to 'auto-hub-secrets'."
 
 # 2. Update Cloud Scheduler trigger header
 echo "==> [2/4] Updating Cloud Scheduler job ('$JOB_NAME')..."
@@ -74,7 +71,7 @@ if gcloud run services describe "$SERVICE_NAME" --region="$REGION" --project="$P
   gcloud run services update "$SERVICE_NAME" \
     --region="$REGION" \
     --project="$PROJECT_ID" \
-    --update-secrets="APP_SECRET_KEY=auto-hub-app-secret:latest" >/dev/null
+    --update-secrets="APP_SECRETS_JSON=auto-hub-secrets:latest" >/dev/null
   echo "  ✓ Deployed new revision to reload latest secret."
 else
   echo "  - Notice: Cloud Run service '$SERVICE_NAME' not found in $REGION. (Run 'just deploy-cloud-run' to deploy it)"
