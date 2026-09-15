@@ -88,6 +88,10 @@ class AICatalogService:
         if catalog is None:
             return
         posted_at = _utc(posted_at)
+        if catalog.last_refreshed_at is not None and posted_at < _utc(catalog.last_refreshed_at):
+            # A reconciled mention posted before the latest hold ended or was cleared belongs to the old window;
+            # it can neither anchor the next window nor stand in for the probe.
+            return
         changed = False
         window_started_at = catalog.usage_window_started_at
         if window_started_at is None or posted_at >= _utc(window_started_at) + self._usage_window(catalog):
@@ -140,7 +144,8 @@ class AICatalogService:
         catalog.availability_note = None
         catalog.availability_updated_at = now
         catalog.probe_started_at = None
-        # The operator reports a reset, so the next delivery opens a new usage window.
+        # The operator reports a reset: older quota evidence is spent and the next delivery opens a new window.
+        catalog.last_refreshed_at = now
         catalog.usage_window_started_at = None
         catalog.revision += 1
         await session.flush()

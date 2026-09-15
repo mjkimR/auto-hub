@@ -191,3 +191,42 @@ async def test_disabled_catalog_keeps_its_hold_through_re_enabling():
     await service.set_enabled(session, "personal-codex", True, datetime.now(UTC))
     assert catalog.availability_state == AICatalogState.QUOTA_BLOCKED
     assert catalog.available_at == hold
+
+
+async def test_reconciled_mention_from_before_the_hold_neither_opens_a_window_nor_starts_the_probe():
+    catalog = make_catalog()
+    catalog.availability_state = AICatalogState.QUOTA_BLOCKED
+    catalog.available_at = T0
+    catalog.usage_window_started_at = T0 - timedelta(hours=5, minutes=10)
+    service = make_service(catalog)
+    session = AsyncMock()
+    catalog_id, run_id = uuid4(), uuid4()
+    await service.request_dispatch(session, catalog_id, run_id, T0)
+
+    # An uncertain post from before the hold is found by reconciliation after the probe was admitted.
+    await service.record_dispatch_delivered(session, catalog_id, T0 - timedelta(minutes=20))
+    assert catalog.usage_window_started_at is None
+    assert catalog.probe_started_at is None
+    await service.request_dispatch(session, catalog_id, run_id, T0 + timedelta(minutes=11))
+    assert catalog.availability_state == AICatalogState.PROBE
+
+    await service.record_dispatch_delivered(session, catalog_id, T0 + timedelta(minutes=12))
+    assert catalog.usage_window_started_at == T0 + timedelta(minutes=12)
+    assert catalog.probe_started_at == T0 + timedelta(minutes=12)
+
+
+async def test_clearing_a_hold_ignores_quota_evidence_from_before_the_clear():
+    catalog = make_catalog()
+    catalog.availability_state = AICatalogState.QUOTA_BLOCKED
+    catalog.available_at = T0 + timedelta(hours=5, minutes=10)
+    catalog.short_refresh_failure_count = 1
+    service = make_service(catalog)
+    run = make_run()
+
+    await service.clear_availability(AsyncMock(), "personal-codex", T0 + timedelta(minutes=5))
+    await service.record_quota_event(AsyncMock(), run, T0 + timedelta(seconds=20))
+
+    assert catalog.availability_state == AICatalogState.NORMAL
+    assert catalog.available_at is None
+    assert catalog.short_refresh_failure_count == 1
+    assert run.quota_block_count == 1

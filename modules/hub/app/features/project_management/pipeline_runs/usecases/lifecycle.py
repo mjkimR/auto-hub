@@ -63,6 +63,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 ACTIVE_RUN_CONFLICT = "This pull request already has an active pipeline run"
 DISPATCH_IO_SECONDS = 30
 DISPATCH_LEASE_SECONDS = 90
+PROJECT_CHANGED_BLOCK_REASON = (
+    "Project changed after this pipeline run was enrolled; cancel it and enroll the pull request again"
+)
 
 
 def _utc(value: datetime) -> datetime:
@@ -318,10 +321,13 @@ class PipelineRunUseCase:
             if run is None:
                 await self._raise_lease_conflict(session, run_id, "advance run")
             project = await self.projects.get(session, run.project_id)
-            if not project.enabled or project.revision != run.project_revision:
-                raise ProjectError(409, "Project changed after this pipeline run was acquired")
-            if project.github_repository is None or project.github_connector_id is None:
-                raise ProjectError(422, "Project missing GitHub connection for pipeline run")
+            if (
+                not project.enabled
+                or project.revision != run.project_revision
+                or project.github_repository is None
+                or project.github_connector_id is None
+            ):
+                return await self._block_for_project_change(session, run, now)
 
             # A planned delivery must be reconciled or posted before a run can advance.
             if run.state == PipelineRunState.IMPLEMENTING:
@@ -634,6 +640,23 @@ class PipelineRunUseCase:
             attempt.failure_detail = run.pause_reason
         await session.flush()
 
+    async def _block_for_project_change(
+        self, session: AsyncSession, run: PipelineRun, now: datetime
+    ) -> PipelineRunRead:
+        """A run pinned to an outdated project can never progress: release its catalog capacity and surface it."""
+        run.state = PipelineRunState.BLOCKED
+        run.pause_reason = PROJECT_CHANGED_BLOCK_REASON
+        run.next_action_at = None
+        run.revision += 1
+        attempt = await self.repo.active_attempt(session, run.id)
+        if attempt is not None:
+            attempt.state = ExecutionAttemptState.FAILED
+            attempt.finished_at = now
+            attempt.failure_code = "PROJECT_CHANGED"
+            attempt.failure_detail = PROJECT_CHANGED_BLOCK_REASON
+        await session.flush()
+        return PipelineRunRead.model_validate(run)
+
     async def _default_catalog(self, session: AsyncSession) -> AICatalog:
         """Return the seeded AI catalog; create it for metadata-only test databases."""
         catalogs = AICatalogRepository()
@@ -663,13 +686,17 @@ class PipelineRunUseCase:
                 return PipelineRunRead.model_validate(run)
             if run.next_action_at is not None and _utc(run.next_action_at) > now:
                 return PipelineRunRead.model_validate(run)
+            project = await self.projects.get(session, run.project_id)
+            if (
+                not project.enabled
+                or project.revision != run.project_revision
+                or project.github_connector_id is None
+                or project.github_repository is None
+            ):
+                # Checked before admission so a run that can never be delivered takes no catalog capacity.
+                return await self._block_for_project_change(session, run, now)
             if self.ai_catalogs is not None:
                 await self.ai_catalogs.request_dispatch(session, run.ai_catalog_id, run.id, now)
-            project = await self.projects.get(session, run.project_id)
-            if not project.enabled or project.revision != run.project_revision:
-                raise ProjectError(409, "Project changed after this pipeline run was enrolled")
-            if project.github_connector_id is None or project.github_repository is None:
-                raise ProjectError(422, "Project missing GitHub connection for pipeline run")
             attempt = await self.repo.active_attempt(session, run.id)
             if attempt is None:
                 raise ProjectError(409, "Pipeline run has no active implementation attempt")

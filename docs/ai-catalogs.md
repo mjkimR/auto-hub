@@ -46,7 +46,7 @@ AI Catalog Gateway ── adapter binding ── Codex GitHub mention / Jules / 
 | `long_refresh_cycle_minutes` | Configurable long-cycle interval after short retries are exhausted (default: 1 week) |
 | `refresh_jitter_minutes` | Fixed safety delay added to every calculated cycle boundary (default: 10 minutes) |
 | `usage_window_started_at` | Delivery time of the first task in the current provider usage window; the quota wait anchor |
-| `last_refreshed_at`, `short_refresh_failure_count` | End of the latest hold (older quota evidence is ignored) and consecutive short-cycle failure count |
+| `last_refreshed_at`, `short_refresh_failure_count` | End of the latest hold or manual clear (older quota evidence and mentions are ignored) and consecutive short-cycle failure count |
 | `availability_source`, `availability_note`, `availability_updated_at` | Safe operator-visible evidence and audit metadata |
 | `probe_started_at`, `probe_window_minutes` | Delivery time of the recovery probe and its observation window (10 minutes) |
 | `held_run_count`, `active_run_count` (read-only) | Runs queued/dispatching/implementing, and runs currently holding capacity |
@@ -72,7 +72,12 @@ set_availability(available_at) / clear_availability() -> shared gate
    `effective_concurrency`. A run holds capacity while it is `implementing`, or
    while it is `dispatching` with an admitted (possibly uncertain) mention
    post. A `dispatching` run that is only waiting for admission holds nothing,
-   so waiting runs never block each other.
+   so waiting runs never block each other. A dispatching or implementing run
+   whose project was disabled, edited, or lost its GitHub connection after
+   enrollment can never progress, so it is moved to `blocked` with a reason and
+   its active attempt fails with `PROJECT_CHANGED`; this releases its capacity.
+   The project is checked before admission, so such a run never takes capacity.
+   Cancel it and enroll the pull request again.
 2. A quota-blocked catalog rejects dispatch until `available_at`. It never asks
    individual runs to infer a reset time. Only dispatch is gated: the scheduler
    keeps observing CI, pushes, merges, and quota replies during a hold.
@@ -84,14 +89,18 @@ set_availability(available_at) / clear_availability() -> shared gate
    the catalog returns to `normal`, restores configured concurrency, and resets
    the short-cycle failure count. This is evaluated at the next admission or
    quota observation; waiting runs become eligible on the next scheduler tick.
-5. A quota event observed after the probe was delivered returns the catalog to
-   `quota_blocked` and starts a new hold.
+5. Any quota event observed at or after the end of the hold starts a new hold,
+   even one from a run dispatched before the hold whose reply arrives late. This
+   errs toward waiting longer; an operator can clear a hold that is too
+   conservative.
 6. Codex resets a usage window a fixed time (5 hours) after the window's first
    task, so an older refresh time says nothing about the next reset. Each
    delivered mention opens a new window when none is open or the previous one
    has already lasted a full window (the short cycle, or the long cycle when
    the short cycle is disabled); a recovery probe and a cleared hold always
-   start a new one. A quota reply waits `cycle + jitter` from
+   start a new one. A mention posted before `last_refreshed_at` (for example an
+   uncertain pre-hold post found by reconciliation) belongs to the old window:
+   it neither opens a window nor starts the probe window. A quota reply waits `cycle + jitter` from
    `usage_window_started_at`. If no window start is known, or the reply falls
    outside that window, the reply time is used instead: it is the latest
    possible window start, so the hold is never released early. When the short
@@ -99,8 +108,8 @@ set_availability(available_at) / clear_availability() -> shared gate
    consecutive failed refreshes use the short cycle; after that, the catalog
    uses the long cycle. With the short cycle disabled, every quota block uses
    the long cycle directly.
-7. A reply observed before the current hold or the latest refresh is already
-   accounted for. It increments the run's quota block count but neither
+7. A reply observed before the current hold ends, or before the latest
+   refresh or manual clear, is already accounted for. It increments the run's quota block count but neither
    consumes another short retry nor moves an existing hold earlier, so several
    runs hitting the same exhaustion produce one hold, and a verified reset time
    is never shortened by a late reply.
@@ -125,6 +134,10 @@ An explicit reset time replaces the catalog's `available_at`:
 - the catalog stores the new global time, even while disabled;
 - every run assigned to the catalog waits on that one shared gate;
 - the scheduler sees one shared gate rather than per-task timers.
+
+Clearing a hold records a refresh at that moment: quota evidence and mentions
+from before the clear are ignored, and the next delivered mention opens a new
+usage window.
 
 The optional `just sync-codex-quota` helper reads a signed-in local Codex
 account and sends the verified reset to this same catalog endpoint. It must not

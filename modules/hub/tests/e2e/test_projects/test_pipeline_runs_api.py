@@ -600,6 +600,38 @@ async def test_runs_waiting_for_admission_do_not_hold_catalog_capacity(client, p
     assert [item["active_run_count"] for item in listing.json()["items"]] == [1]
 
 
+@pytest.mark.parametrize(("run_state", "attempt_state"), [("dispatching", "dispatching"), ("implementing", "running")])
+async def test_project_change_blocks_a_stuck_run_and_releases_its_capacity(
+    client, project, github, session, run_state, attempt_state
+):
+    from app.features.project_management.pipeline_runs.models import ExecutionAttempt
+
+    run, attempt = await prepare_run(client, project)
+    await session.execute(update(PipelineRun).where(PipelineRun.id == UUID(run["id"])).values(state=run_state))
+    await session.execute(
+        update(ExecutionAttempt).where(ExecutionAttempt.id == UUID(attempt["id"])).values(state=attempt_state)
+    )
+    await session.execute(
+        update(ProjectConnection)
+        .where(ProjectConnection.id == UUID(project["id"]))
+        .values(revision=ProjectConnection.revision + 1)
+    )
+    await session.commit()
+    reads = len(github.paths)
+
+    response = await client.post(f"/api/v1/pipeline-runs/{run['id']}/advance")
+
+    assert_status_code(response, 200)
+    assert response.json()["state"] == "blocked"
+    assert response.json()["pause_reason"] == run_usecases.PROJECT_CHANGED_BLOCK_REASON
+    assert len(github.paths) == reads
+    attempts = (await client.get(f"/api/v1/pipeline-runs/{run['id']}/attempts")).json()["items"]
+    assert attempts[0]["state"] == "failed"
+    assert attempts[0]["failure_code"] == "PROJECT_CHANGED"
+    catalogs = (await client.get("/api/v1/ai-catalogs")).json()["items"]
+    assert [item["active_run_count"] for item in catalogs] == [0]
+
+
 @pytest.fixture
 def mention_github(github, monkeypatch):
     original = github.respond
