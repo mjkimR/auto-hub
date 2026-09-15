@@ -150,7 +150,7 @@ gen-ui-api:
 
 # Sync the local signed-in Codex quota reset time to the global personal-codex AI catalog.
 sync-codex-quota:
-    @python3 ./scripts/sync-codex-quota.py
+    @uv run python ./scripts/sync-codex-quota.py
 
 # Link or install agent skills from app-common
 link-skills +args="":

@@ -6,8 +6,9 @@ from app.features.ai_catalogs.schemas import (
     AICatalogList,
     AICatalogRead,
     SetAvailabilityRequest,
+    SetConnectorRequest,
     SetEnabledRequest,
-    UpdateRefreshPolicyRequest,
+    UpdatePolicyConfigRequest,
 )
 from app.features.ai_catalogs.services import AICatalogService
 from app_layer_base.core.database.transaction import AsyncTransaction
@@ -21,7 +22,7 @@ async def _read(catalog, repo, session) -> AICatalogRead:
     return AICatalogRead.model_validate(catalog).model_copy(
         update={
             "held_run_count": await repo.held_run_count(session, catalog.id, datetime.now(UTC)),
-            "active_run_count": await repo.active_run_count(session, catalog.id),
+            "active_dispatch_count": await repo.active_dispatch_count(session, catalog.id),
             "effective_concurrency": AICatalogService.effective_concurrency(catalog),
         }
     )
@@ -69,13 +70,25 @@ async def set_ai_catalog_enabled(
         return await _read(catalog, repo, session)
 
 
-@router.put("/{catalog_key}/refresh-policy", response_model=AICatalogRead)
-async def update_ai_catalog_refresh_policy(
+@router.put("/{catalog_key}/policy-config", response_model=AICatalogRead)
+async def update_ai_catalog_policy_config(
     catalog_key: str,
-    request: UpdateRefreshPolicyRequest,
+    request: UpdatePolicyConfigRequest,
     service: Annotated[AICatalogService, Depends()],
     repo: Annotated[AICatalogRepository, Depends()],
 ):
     async with AsyncTransaction() as session:
-        catalog = await service.update_refresh_policy(session, catalog_key, request)
+        catalog = await service.update_policy_config(session, catalog_key, request)
+        return await _read(catalog, repo, session)
+
+
+@router.put("/{catalog_key}/connector", response_model=AICatalogRead)
+async def set_ai_catalog_connector(
+    catalog_key: str,
+    request: SetConnectorRequest,
+    service: Annotated[AICatalogService, Depends()],
+    repo: Annotated[AICatalogRepository, Depends()],
+):
+    async with AsyncTransaction() as session:
+        catalog = await service.set_connector(session, catalog_key, request.connector_id)
         return await _read(catalog, repo, session)

@@ -621,7 +621,7 @@ export interface paths {
 		patch?: never;
 		trace?: never;
 	};
-	'/api/v1/ai-catalogs/{catalog_key}/refresh-policy': {
+	'/api/v1/ai-catalogs/{catalog_key}/policy-config': {
 		parameters: {
 			query?: never;
 			header?: never;
@@ -629,8 +629,25 @@ export interface paths {
 			cookie?: never;
 		};
 		get?: never;
-		/** Update Ai Catalog Refresh Policy */
-		put: operations['update_ai_catalog_refresh_policy_api_v1_ai_catalogs__catalog_key__refresh_policy_put'];
+		/** Update Ai Catalog Policy Config */
+		put: operations['update_ai_catalog_policy_config_api_v1_ai_catalogs__catalog_key__policy_config_put'];
+		post?: never;
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/api/v1/ai-catalogs/{catalog_key}/connector': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		get?: never;
+		/** Set Ai Catalog Connector */
+		put: operations['set_ai_catalog_connector_api_v1_ai_catalogs__catalog_key__connector_put'];
 		post?: never;
 		delete?: never;
 		options?: never;
@@ -759,7 +776,7 @@ export interface components {
 		 * AICatalogKind
 		 * @enum {string}
 		 */
-		AICatalogKind: 'codex' | 'jules' | 'openai-api';
+		AICatalogKind: 'codex' | 'jules';
 		/** AICatalogList */
 		AICatalogList: {
 			/** Items */
@@ -789,6 +806,8 @@ export interface components {
 			kind: components['schemas']['AICatalogKind'];
 			/** Adapter */
 			adapter: string;
+			/** Connector Id */
+			connector_id: string | null;
 			/** Enabled */
 			enabled: boolean;
 			availability_state: components['schemas']['AICatalogState'];
@@ -807,18 +826,14 @@ export interface components {
 			 * @default 0
 			 */
 			effective_concurrency: number;
-			/** Probe Started At */
-			probe_started_at: string | null;
-			/** Probe Window Minutes */
-			probe_window_minutes: number;
-			/** Short Refresh Enabled */
-			short_refresh_enabled: boolean;
-			/** Short Refresh Cycle Minutes */
-			short_refresh_cycle_minutes: number;
-			/** Long Refresh Cycle Minutes */
-			long_refresh_cycle_minutes: number;
 			/** Refresh Jitter Minutes */
 			refresh_jitter_minutes: number;
+			/** Policy Config */
+			policy_config?: {
+				[key: string]: unknown;
+			};
+			/** Probe Started At */
+			probe_started_at: string | null;
 			/** Short Refresh Failure Count */
 			short_refresh_failure_count: number;
 			/** Last Refreshed At */
@@ -833,10 +848,10 @@ export interface components {
 			 */
 			held_run_count: number;
 			/**
-			 * Active Run Count
+			 * Active Dispatch Count
 			 * @default 0
 			 */
-			active_run_count: number;
+			active_dispatch_count: number;
 		};
 		/**
 		 * AICatalogState
@@ -937,7 +952,7 @@ export interface components {
 		 * ConnectorProvider
 		 * @enum {string}
 		 */
-		ConnectorProvider: 'github';
+		ConnectorProvider: 'github' | 'jules' | 'linear';
 		/** ConnectorPut */
 		ConnectorPut: {
 			/** Name */
@@ -2140,6 +2155,11 @@ export interface components {
 			 */
 			source: string;
 		};
+		/** SetConnectorRequest */
+		SetConnectorRequest: {
+			/** Connector Id */
+			connector_id: string | null;
+		};
 		/** SetEnabledRequest */
 		SetEnabledRequest: {
 			/** Enabled */
@@ -2251,14 +2271,15 @@ export interface components {
 			/** Content */
 			content: string;
 		};
-		/** UpdateRefreshPolicyRequest */
-		UpdateRefreshPolicyRequest: {
-			/** Short Refresh Enabled */
-			short_refresh_enabled: boolean;
-			/** Short Refresh Cycle Minutes */
-			short_refresh_cycle_minutes: number;
-			/** Long Refresh Cycle Minutes */
-			long_refresh_cycle_minutes: number;
+		/**
+		 * UpdatePolicyConfigRequest
+		 * @description Kind-specific quota settings; the catalog's quota policy validates and normalizes them.
+		 */
+		UpdatePolicyConfigRequest: {
+			/** Policy Config */
+			policy_config: {
+				[key: string]: unknown;
+			};
 		};
 		/** ValidationError */
 		ValidationError: {
@@ -3975,7 +3996,7 @@ export interface operations {
 			};
 		};
 	};
-	update_ai_catalog_refresh_policy_api_v1_ai_catalogs__catalog_key__refresh_policy_put: {
+	update_ai_catalog_policy_config_api_v1_ai_catalogs__catalog_key__policy_config_put: {
 		parameters: {
 			query?: never;
 			header?: never;
@@ -3986,7 +4007,42 @@ export interface operations {
 		};
 		requestBody: {
 			content: {
-				'application/json': components['schemas']['UpdateRefreshPolicyRequest'];
+				'application/json': components['schemas']['UpdatePolicyConfigRequest'];
+			};
+		};
+		responses: {
+			/** @description Successful Response */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json': components['schemas']['AICatalogRead'];
+				};
+			};
+			/** @description Validation Error */
+			422: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json': components['schemas']['HTTPValidationError'];
+				};
+			};
+		};
+	};
+	set_ai_catalog_connector_api_v1_ai_catalogs__catalog_key__connector_put: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				catalog_key: string;
+			};
+			cookie?: never;
+		};
+		requestBody: {
+			content: {
+				'application/json': components['schemas']['SetConnectorRequest'];
 			};
 		};
 		responses: {

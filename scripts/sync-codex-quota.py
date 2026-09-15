@@ -38,8 +38,25 @@ def hub_url() -> str:
 
 
 def blocking_reset(rate_limits: dict) -> int:
-    windows = rate_limits.get("rateLimitsByLimitId", {}).get("codex", {})
-    blocking = [window for window in windows.values() if window.get("resetsAt") and window.get("usedPercent", 0) >= 100]
+    buckets = rate_limits.get("rateLimitsByLimitId")
+    windows = buckets.get("codex") if isinstance(buckets, dict) else rate_limits.get("rateLimits")
+    if not isinstance(windows, dict) or windows.get("limitId") not in (None, "codex"):
+        raise RuntimeError("Codex did not report its quota bucket; use the UI to set the time explicitly")
+    blocking = []
+    for key in ("primary", "secondary"):
+        window = windows.get(key)
+        if window is None:
+            continue
+        if not isinstance(window, dict):
+            raise RuntimeError("Codex reported an invalid quota window")
+        used = window.get("usedPercent")
+        reset = window.get("resetsAt")
+        if not isinstance(used, (int, float)) or isinstance(used, bool):
+            raise RuntimeError("Codex reported an invalid quota usage")
+        if used >= 100:
+            if not isinstance(reset, int) or isinstance(reset, bool) or reset <= 0:
+                raise RuntimeError("Codex did not report a valid blocking reset time")
+            blocking.append(window)
     if len(blocking) != 1:
         raise RuntimeError("Codex did not report exactly one blocking reset window; use the UI to set the time explicitly")
     return int(blocking[0]["resetsAt"])

@@ -2,7 +2,53 @@ import { api, type components } from '$lib/api';
 import { SvelteDate } from 'svelte/reactivity';
 import { toast } from 'svelte-sonner';
 
-type AICatalog = components['schemas']['AICatalogRead'];
+export type AICatalog = components['schemas']['AICatalogRead'];
+
+export type CatalogConnector = { id: string; name: string; provider: string; enabled: boolean };
+
+export type CodexWindowConfig = {
+	short_refresh_enabled: boolean;
+	short_refresh_cycle_minutes: number;
+	long_refresh_cycle_minutes: number;
+	probe_window_minutes: number;
+};
+
+export type DailyQuotaConfig = {
+	daily_task_limit: number;
+	window: 'rolling' | 'calendar';
+	timezone: string;
+};
+
+/** A Codex catalog's refresh policy, with the backend defaults filled in for settings it has never saved. */
+export function codexWindowConfig(catalog: AICatalog): CodexWindowConfig {
+	const config = (catalog.policy_config ?? {}) as Partial<CodexWindowConfig>;
+	return {
+		short_refresh_enabled: config.short_refresh_enabled ?? true,
+		short_refresh_cycle_minutes: config.short_refresh_cycle_minutes ?? 300,
+		long_refresh_cycle_minutes: config.long_refresh_cycle_minutes ?? 10080,
+		probe_window_minutes: config.probe_window_minutes ?? 10
+	};
+}
+
+/** The daily quota settings of a catalog whose kind counts tasks per day, or null when none are saved yet. */
+export function dailyQuotaConfig(catalog: AICatalog): DailyQuotaConfig | null {
+	const config = (catalog.policy_config ?? {}) as Partial<DailyQuotaConfig>;
+	if (typeof config.daily_task_limit !== 'number') return null;
+	return {
+		daily_task_limit: config.daily_task_limit,
+		window: config.window === 'calendar' ? 'calendar' : 'rolling',
+		timezone: config.timezone ?? 'UTC'
+	};
+}
+
+export function isKnownTimezone(timezone: string): boolean {
+	try {
+		Intl.DateTimeFormat('en-US', { timeZone: timezone }).resolvedOptions();
+		return true;
+	} catch {
+		return false;
+	}
+}
 
 function detail(error: unknown, fallback: string): string {
 	return (error as { detail?: string } | undefined)?.detail ?? fallback;
@@ -10,14 +56,24 @@ function detail(error: unknown, fallback: string): string {
 
 export class AICatalogsState {
 	items = $state<AICatalog[]>([]);
+	connectors = $state<CatalogConnector[]>([]);
 	loading = $state(false);
 	saving = $state(false);
 
 	async load() {
 		this.loading = true;
 		try {
-			const res = await api.GET('/api/v1/ai-catalogs');
-			this.items = res.data?.items ?? [];
+			const [catalogs, connectors] = await Promise.all([
+				api.GET('/api/v1/ai-catalogs'),
+				api.GET('/api/v1/connectors', { params: { query: { limit: 100 } } })
+			]);
+			this.items = catalogs.data?.items ?? [];
+			this.connectors = (connectors.data?.items ?? []).map(({ id, name, provider, enabled }) => ({
+				id,
+				name,
+				provider,
+				enabled
+			}));
 		} catch {
 			toast.error('Failed to load AI catalogs');
 		} finally {
@@ -41,7 +97,7 @@ export class AICatalogsState {
 				toast.error(detail(res.error, 'Failed to set AI catalog availability'));
 				return false;
 			}
-			toast.success('AI catalog availability updated for every assigned run');
+			toast.success('AI catalog availability updated for all of its work');
 			await this.load();
 			return true;
 		} finally {
@@ -84,27 +140,37 @@ export class AICatalogsState {
 		}
 	}
 
-	async updateRefreshPolicy(
-		key: string,
-		shortRefreshEnabled: boolean,
-		shortRefreshCycleMinutes: number,
-		longRefreshCycleMinutes: number
-	) {
+	async updatePolicyConfig(key: string, policyConfig: CodexWindowConfig | DailyQuotaConfig) {
 		this.saving = true;
 		try {
-			const res = await api.PUT('/api/v1/ai-catalogs/{catalog_key}/refresh-policy', {
+			const res = await api.PUT('/api/v1/ai-catalogs/{catalog_key}/policy-config', {
 				params: { path: { catalog_key: key } },
-				body: {
-					short_refresh_enabled: shortRefreshEnabled,
-					short_refresh_cycle_minutes: shortRefreshCycleMinutes,
-					long_refresh_cycle_minutes: longRefreshCycleMinutes
-				}
+				body: { policy_config: policyConfig }
 			});
 			if (res.error) {
-				toast.error(detail(res.error, 'Failed to update refresh policy'));
+				toast.error(detail(res.error, 'Failed to update quota policy'));
 				return false;
 			}
-			toast.success('AI catalog refresh policy updated');
+			toast.success('AI catalog quota policy updated');
+			await this.load();
+			return true;
+		} finally {
+			this.saving = false;
+		}
+	}
+
+	async setConnector(key: string, connectorId: string | null) {
+		this.saving = true;
+		try {
+			const res = await api.PUT('/api/v1/ai-catalogs/{catalog_key}/connector', {
+				params: { path: { catalog_key: key } },
+				body: { connector_id: connectorId }
+			});
+			if (res.error) {
+				toast.error(detail(res.error, 'Failed to update catalog connector'));
+				return false;
+			}
+			toast.success(connectorId ? 'AI catalog connector assigned' : 'AI catalog connector removed');
 			await this.load();
 			return true;
 		} finally {

@@ -69,6 +69,9 @@ class PipelineRun(Base, UUIDMixin, TimestampMixin):
         ForeignKey("ai_catalogs.id", ondelete="RESTRICT"), nullable=False, index=True
     )
     project_revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    # The GitHub binding captured at enrollment; a resume may adopt newer project settings only while it still holds.
+    github_repository: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    github_connector_id: Mapped[UUID | None] = mapped_column(nullable=True)
     pull_number: Mapped[int] = mapped_column(Integer, nullable=False)
     pull_url: Mapped[str] = mapped_column(String(2048), nullable=False)
     pull_snapshot: Mapped[dict] = mapped_column(
@@ -114,7 +117,7 @@ class ExecutionAttempt(Base, UUIDMixin, TimestampMixin):
 
 
 class ExecutionDelivery(Base, UUIDMixin, TimestampMixin):
-    """A durable, reconcilable request to post one Codex mention."""
+    """A durable, reconcilable request to deliver one attempt through its catalog's adapter."""
 
     __tablename__ = "execution_deliveries"
     __table_args__ = (
@@ -132,7 +135,7 @@ class ExecutionDelivery(Base, UUIDMixin, TimestampMixin):
 
 
 class ExecutionReply(Base, UUIDMixin, TimestampMixin):
-    """A trusted Codex reply observed after a mention delivery.
+    """A trusted agent reply observed after a delivery.
 
     Replies are evidence, not a completion signal.  Keeping only a bounded,
     sanitized excerpt avoids retaining arbitrary GitHub comment bodies.

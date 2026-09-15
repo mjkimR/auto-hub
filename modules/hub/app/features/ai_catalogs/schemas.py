@@ -1,4 +1,5 @@
 from datetime import datetime
+from uuid import UUID
 
 from app.features.ai_catalogs.models import AICatalogKind, AICatalogState
 from app_layer_base.base.schemas.mixin import TimestampSchemaMixin, UUIDSchemaMixin
@@ -12,6 +13,7 @@ class AICatalogRead(UUIDSchemaMixin, TimestampSchemaMixin):
     name: str
     kind: AICatalogKind
     adapter: str
+    connector_id: UUID | None
     enabled: bool
     availability_state: AICatalogState
     available_at: datetime | None
@@ -20,18 +22,15 @@ class AICatalogRead(UUIDSchemaMixin, TimestampSchemaMixin):
     availability_note: str | None
     configured_concurrency: int
     effective_concurrency: int = 0
-    probe_started_at: datetime | None
-    probe_window_minutes: int
-    short_refresh_enabled: bool
-    short_refresh_cycle_minutes: int
-    long_refresh_cycle_minutes: int
     refresh_jitter_minutes: int
+    policy_config: dict = Field(default_factory=dict)
+    probe_started_at: datetime | None
     short_refresh_failure_count: int
     last_refreshed_at: datetime | None
     usage_window_started_at: datetime | None
     revision: int
     held_run_count: int = 0
-    active_run_count: int = 0
+    active_dispatch_count: int = 0
 
 
 class AICatalogList(BaseModel):
@@ -48,7 +47,11 @@ class SetEnabledRequest(BaseModel):
     enabled: bool
 
 
-class UpdateRefreshPolicyRequest(BaseModel):
-    short_refresh_enabled: bool
-    short_refresh_cycle_minutes: int = Field(ge=1, le=43_200)
-    long_refresh_cycle_minutes: int = Field(ge=1, le=525_600)
+class UpdatePolicyConfigRequest(BaseModel):
+    """Kind-specific quota settings; the catalog's quota policy validates and normalizes them."""
+
+    policy_config: dict
+
+
+class SetConnectorRequest(BaseModel):
+    connector_id: UUID | None

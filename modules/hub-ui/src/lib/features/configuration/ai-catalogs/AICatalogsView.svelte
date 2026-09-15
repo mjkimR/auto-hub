@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { toast } from 'svelte-sonner';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 	import { Card, CardContent, CardHeader, CardTitle } from '$lib/components/ui/card';
@@ -13,7 +14,16 @@
 	} from '$lib/components/ui/dialog';
 	import { Input } from '$lib/components/ui/input';
 	import { Bot, Clock3, RefreshCw, ShieldAlert } from '@lucide/svelte';
-	import { AICatalogsState } from './ai-catalogs.svelte';
+	import {
+		AICatalogsState,
+		codexWindowConfig,
+		dailyQuotaConfig,
+		isKnownTimezone,
+		type AICatalog,
+		type DailyQuotaConfig
+	} from './ai-catalogs.svelte';
+
+	const selectClass = 'h-9 rounded-md border border-input bg-transparent px-3 text-sm';
 
 	const catalogs = new AICatalogsState();
 	let selectedKey = $state<string | null>(null);
@@ -24,7 +34,18 @@
 	let shortRefreshEnabled = $state(true);
 	let shortRefreshHours = $state('5');
 	let longRefreshDays = $state('7');
+	let probeWindowMinutes = $state(10);
 	let policyDialogOpen = $state(false);
+	let quotaKey = $state<string | null>(null);
+	let dailyTaskLimit = $state('100');
+	let quotaWindow = $state<DailyQuotaConfig['window']>('rolling');
+	let quotaTimezone = $state('UTC');
+	let quotaDialogOpen = $state(false);
+	let connectorKey = $state<string | null>(null);
+	let connectorId = $state('');
+	let connectorDialogOpen = $state(false);
+
+	const julesConnectors = $derived(catalogs.connectors.filter((item) => item.provider === 'jules'));
 
 	function openAvailability(key: string) {
 		selectedKey = key;
@@ -33,12 +54,29 @@
 		dialogOpen = true;
 	}
 
-	function openRefreshPolicy(catalog: (typeof catalogs.items)[number]) {
+	function openRefreshPolicy(catalog: AICatalog) {
+		const config = codexWindowConfig(catalog);
 		policyKey = catalog.key;
-		shortRefreshEnabled = catalog.short_refresh_enabled;
-		shortRefreshHours = String(catalog.short_refresh_cycle_minutes / 60);
-		longRefreshDays = String(catalog.long_refresh_cycle_minutes / (60 * 24));
+		shortRefreshEnabled = config.short_refresh_enabled;
+		shortRefreshHours = String(config.short_refresh_cycle_minutes / 60);
+		longRefreshDays = String(config.long_refresh_cycle_minutes / (60 * 24));
+		probeWindowMinutes = config.probe_window_minutes;
 		policyDialogOpen = true;
+	}
+
+	function openDailyQuota(catalog: AICatalog) {
+		const config = dailyQuotaConfig(catalog);
+		quotaKey = catalog.key;
+		dailyTaskLimit = String(config?.daily_task_limit ?? 100);
+		quotaWindow = config?.window ?? 'rolling';
+		quotaTimezone = config?.timezone ?? 'UTC';
+		quotaDialogOpen = true;
+	}
+
+	function openConnector(catalog: AICatalog) {
+		connectorKey = catalog.key;
+		connectorId = catalog.connector_id ?? '';
+		connectorDialogOpen = true;
 	}
 
 	async function saveAvailability(event: SubmitEvent) {
@@ -60,15 +98,46 @@
 		) {
 			return;
 		}
-		if (
-			await catalogs.updateRefreshPolicy(
-				policyKey,
-				shortRefreshEnabled,
-				Math.round(shortHours * 60),
-				Math.round(longDays * 24 * 60)
-			)
-		)
-			policyDialogOpen = false;
+		const config = {
+			short_refresh_enabled: shortRefreshEnabled,
+			short_refresh_cycle_minutes: Math.round(shortHours * 60),
+			long_refresh_cycle_minutes: Math.round(longDays * 24 * 60),
+			probe_window_minutes: probeWindowMinutes
+		};
+		if (await catalogs.updatePolicyConfig(policyKey, config)) policyDialogOpen = false;
+	}
+
+	async function saveDailyQuota(event: SubmitEvent) {
+		event.preventDefault();
+		const limit = Number(dailyTaskLimit);
+		if (!quotaKey || !Number.isInteger(limit) || limit < 1) return;
+		const timezone = quotaTimezone.trim() || 'UTC';
+		if (quotaWindow === 'calendar' && !isKnownTimezone(timezone)) {
+			toast.error(`Unknown timezone: ${timezone}`);
+			return;
+		}
+		const config = { daily_task_limit: limit, window: quotaWindow, timezone };
+		if (await catalogs.updatePolicyConfig(quotaKey, config)) quotaDialogOpen = false;
+	}
+
+	async function saveConnector(event: SubmitEvent) {
+		event.preventDefault();
+		if (connectorKey && (await catalogs.setConnector(connectorKey, connectorId || null)))
+			connectorDialogOpen = false;
+	}
+
+	function dailyQuotaSummary(catalog: AICatalog) {
+		const config = dailyQuotaConfig(catalog);
+		if (!config) return 'Daily quota: not configured — dispatch is blocked until it is set';
+		const reset =
+			config.window === 'calendar' ? `resets at midnight ${config.timezone}` : 'rolling 24 hours';
+		return `Daily quota: ${config.daily_task_limit} tasks · ${reset}`;
+	}
+
+	function connectorSummary(catalog: AICatalog) {
+		if (!catalog.connector_id) return 'Connector: not assigned — sessions cannot start';
+		const connector = catalogs.connectors.find((item) => item.id === catalog.connector_id);
+		return `Connector: ${connector?.name ?? 'unknown connector'}`;
 	}
 
 	function stateLabel(value: string) {
@@ -83,7 +152,8 @@
 		<div>
 			<h1 class="text-3xl font-bold tracking-tight">AI Catalogs</h1>
 			<p class="text-sm text-muted-foreground">
-				Each catalog is a global AI gateway: it owns quota holds, recovery probes, and concurrency.
+				Each catalog is a global AI gateway: it owns quota holds and concurrency for all of its
+				work.
 			</p>
 		</div>
 		<Button
@@ -138,10 +208,14 @@
 								dispatching, or implementing run(s)
 							</p>
 							<p class="mt-1 text-xs text-muted-foreground">
-								Concurrency: {catalog.active_run_count} in use / {catalog.effective_concurrency} allowed
-								({catalog.configured_concurrency}
+								Concurrency: {catalog.active_dispatch_count} in use / {catalog.effective_concurrency}
+								allowed ({catalog.configured_concurrency}
 								configured){catalog.availability_state === 'probe' ? ' · recovery probe' : ''}
 							</p>
+							{#if catalog.kind === 'jules'}
+								<p class="mt-1 text-xs text-muted-foreground">{dailyQuotaSummary(catalog)}</p>
+								<p class="mt-1 text-xs text-muted-foreground">{connectorSummary(catalog)}</p>
+							{/if}
 							{#if catalog.availability_note}<p class="mt-2 text-xs text-muted-foreground">
 									{catalog.availability_note}
 								</p>{/if}
@@ -152,12 +226,27 @@
 								onclick={() => openAvailability(catalog.key)}
 								disabled={catalogs.saving}>Set refresh time</Button
 							>
-							<Button
-								size="sm"
-								variant="outline"
-								onclick={() => openRefreshPolicy(catalog)}
-								disabled={catalogs.saving}>Refresh policy</Button
-							>
+							{#if catalog.kind === 'codex'}
+								<Button
+									size="sm"
+									variant="outline"
+									onclick={() => openRefreshPolicy(catalog)}
+									disabled={catalogs.saving}>Refresh policy</Button
+								>
+							{:else if catalog.kind === 'jules'}
+								<Button
+									size="sm"
+									variant="outline"
+									onclick={() => openDailyQuota(catalog)}
+									disabled={catalogs.saving}>Quota policy</Button
+								>
+								<Button
+									size="sm"
+									variant="outline"
+									onclick={() => openConnector(catalog)}
+									disabled={catalogs.saving}>Connector</Button
+								>
+							{/if}
 							{#if catalog.available_at}<Button
 									size="sm"
 									variant="outline"
@@ -185,8 +274,8 @@
 	<DialogContent>
 		<DialogHeader
 			><DialogTitle>Set catalog refresh time</DialogTitle><DialogDescription
-				>This global hold affects every pipeline run assigned to this catalog. Enter the reset time
-				in your local timezone.</DialogDescription
+				>This global hold affects all work assigned to this catalog. Enter the reset time in your
+				local timezone.</DialogDescription
 			></DialogHeader
 		>
 		<form onsubmit={saveAvailability} class="space-y-4">
@@ -205,8 +294,8 @@
 		<DialogHeader>
 			<DialogTitle>Refresh policy</DialogTitle>
 			<DialogDescription>
-				A quota block waits one cycle from the first task of the current usage window, plus a fixed
-				10-minute safety jitter; after two failed short cycles, the long cycle is used.
+				A quota block waits one cycle from the first task of the current usage window, plus the
+				catalog's safety jitter; after two failed short cycles, the long cycle is used.
 			</DialogDescription>
 		</DialogHeader>
 		<form onsubmit={saveRefreshPolicy} class="space-y-4">
@@ -234,6 +323,77 @@
 					>Cancel</Button
 				>
 				<Button type="submit" disabled={catalogs.saving}>Save policy</Button>
+			</DialogFooter>
+		</form>
+	</DialogContent>
+</Dialog>
+
+<Dialog bind:open={quotaDialogOpen}>
+	<DialogContent>
+		<DialogHeader>
+			<DialogTitle>Quota policy</DialogTitle>
+			<DialogDescription>
+				The hub counts every admitted task. When the day's limit is reached it holds the catalog
+				until the window has room again, plus the catalog's safety jitter. Concurrency uses the
+				configured limit.
+			</DialogDescription>
+		</DialogHeader>
+		<form onsubmit={saveDailyQuota} class="space-y-4">
+			<label class="grid gap-1 text-sm font-medium">
+				Daily task limit
+				<Input type="number" min="1" step="1" bind:value={dailyTaskLimit} required />
+			</label>
+			<label class="grid gap-1 text-sm font-medium">
+				Daily window
+				<select bind:value={quotaWindow} class={selectClass}>
+					<option value="rolling">Rolling 24 hours</option>
+					<option value="calendar">Calendar day</option>
+				</select>
+			</label>
+			{#if quotaWindow === 'calendar'}
+				<label class="grid gap-1 text-sm font-medium">
+					Reset timezone
+					<Input
+						bind:value={quotaTimezone}
+						placeholder="UTC or an IANA name like America/Los_Angeles"
+					/>
+				</label>
+			{/if}
+			<DialogFooter>
+				<Button type="button" variant="outline" onclick={() => (quotaDialogOpen = false)}
+					>Cancel</Button
+				>
+				<Button type="submit" disabled={catalogs.saving}>Save quota policy</Button>
+			</DialogFooter>
+		</form>
+	</DialogContent>
+</Dialog>
+
+<Dialog bind:open={connectorDialogOpen}>
+	<DialogContent>
+		<DialogHeader>
+			<DialogTitle>Catalog connector</DialogTitle>
+			<DialogDescription>
+				Sessions on this catalog authenticate with the selected Jules connector's API key.
+			</DialogDescription>
+		</DialogHeader>
+		<form onsubmit={saveConnector} class="space-y-4">
+			<label class="grid gap-1 text-sm font-medium">
+				Jules connector
+				<select bind:value={connectorId} class={selectClass}>
+					<option value="">No connector</option>
+					{#each julesConnectors as connector (connector.id)}
+						<option value={connector.id}
+							>{connector.name}{connector.enabled ? '' : ' (disabled)'}</option
+						>
+					{/each}
+				</select>
+			</label>
+			<DialogFooter>
+				<Button type="button" variant="outline" onclick={() => (connectorDialogOpen = false)}
+					>Cancel</Button
+				>
+				<Button type="submit" disabled={catalogs.saving}>Save connector</Button>
 			</DialogFooter>
 		</form>
 	</DialogContent>

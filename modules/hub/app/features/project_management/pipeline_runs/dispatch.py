@@ -1,28 +1,14 @@
-"""Codex PR mention payloads (docs/codex-pr-mention.md). Posting and reconciliation belong to an adapter."""
+"""Codex PR mention payloads (docs/codex-pr-mention.md). Posting and reconciliation belong to
+``adapters.codex_github_mention``."""
 
 import re
-from typing import Protocol
 
 from app.features.project_management.pipeline_runs.schemas import ImplementationRequest
-from pydantic import BaseModel
 
 CODEX_MENTION = re.compile(r"@codex\b", re.IGNORECASE)
 CODEX_CONNECTOR_LOGIN = "chatgpt-codex-connector"
 CODEX_QUOTA_REPLY = re.compile(r"(?:usage|rate) limit|usage settings", re.IGNORECASE)
 _HTML_COMMENT = re.compile(r"<!--.*?-->", re.DOTALL)
-
-
-class DispatchObservation(BaseModel):
-    correlation_marker: str
-    external_correlation_id: str | None = None
-    external_status: str | None = None
-    conversation_url: str | None = None
-
-
-class ExecutionAdapter(Protocol):
-    async def reconcile(self, request: ImplementationRequest, delivery: int) -> DispatchObservation | None: ...
-
-    async def dispatch(self, request: ImplementationRequest, delivery: int, body: str) -> DispatchObservation: ...
 
 
 def is_codex_quota_reply(author: str | None, body: str | None) -> bool:

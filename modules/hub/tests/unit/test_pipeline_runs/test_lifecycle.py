@@ -1,8 +1,12 @@
 from datetime import UTC, datetime, timedelta
+from types import SimpleNamespace
 from unittest.mock import ANY, AsyncMock, MagicMock
 from uuid import uuid4
 
 import pytest
+from app.features.ai_catalogs.services import Admission
+from app.features.project_management.pipeline_runs.adapters.codex_github_mention import CodexGithubMentionAdapter
+from app.features.project_management.pipeline_runs.adapters.registry import resolve_execution_adapter
 from app.features.project_management.pipeline_runs.models import (
     ExecutionAttempt,
     ExecutionAttemptState,
@@ -17,8 +21,57 @@ from app.features.project_management.pipeline_runs.schemas import (
     PauseRunRequest,
 )
 from app.features.project_management.pipeline_runs.usecases.lifecycle import PipelineRunUseCase
+from app.features.project_management.projects.services import ProjectError
 
 pytestmark = pytest.mark.unit
+LIFECYCLE = "app.features.project_management.pipeline_runs.usecases.lifecycle"
+
+
+@pytest.mark.parametrize(("adapter", "status_code"), [("jules-api", 501), ("unknown-adapter", 409)])
+async def test_catalog_adapter_without_a_pipeline_implementation_is_rejected(adapter, status_code):
+    session = AsyncMock()
+    session.get = AsyncMock(return_value=SimpleNamespace(adapter=adapter))
+
+    with pytest.raises(ProjectError) as rejected:
+        await resolve_execution_adapter(session, uuid4())
+
+    assert rejected.value.status_code == status_code
+
+
+async def test_rejected_admission_commits_catalog_transitions_before_raising(monkeypatch):
+    run = create_mock_run(state=PipelineRunState.DISPATCHING)
+    repo, projects, observer, catalogs = MagicMock(), MagicMock(), MagicMock(), MagicMock()
+    repo.get_leased = AsyncMock(return_value=run)
+    repo.create_delivery = AsyncMock()
+    attempt = MagicMock(spec=ExecutionAttempt)
+    attempt.id, attempt.state = uuid4(), ExecutionAttemptState.PLANNED
+    repo.active_attempt = AsyncMock(return_value=attempt)
+    delivery = MagicMock(spec=ExecutionDelivery)
+    delivery.id, delivery.comment_id = uuid4(), None
+    repo.latest_delivery = AsyncMock(return_value=delivery)
+    projects.get = AsyncMock(
+        return_value=MagicMock(enabled=True, revision=1, github_repository="owner/repo", github_connector_id=uuid4())
+    )
+    catalogs.request_dispatch = AsyncMock(
+        return_value=Admission(MagicMock(), "AI catalog has reached its concurrency limit")
+    )
+    session = AsyncMock()
+    tx = MagicMock()
+    tx.__aenter__ = AsyncMock(return_value=session)
+    tx.__aexit__ = AsyncMock(return_value=None)
+    monkeypatch.setattr(f"{LIFECYCLE}.AsyncTransaction", lambda: tx)
+    monkeypatch.setattr(f"{LIFECYCLE}.resolve_execution_adapter", AsyncMock(return_value=CodexGithubMentionAdapter()))
+
+    with pytest.raises(ProjectError):
+        await PipelineRunUseCase(repo, projects, observer, catalogs).dispatch_implementation(
+            run.id, owner="worker-1", token=run.lease_token
+        )
+
+    # The planned delivery is what the ledger would count, so admission is asked about that exact delivery.
+    catalogs.request_dispatch.assert_awaited_once_with(ANY, run.ai_catalog_id, run.id, f"delivery:{delivery.id}", ANY)
+    session.commit.assert_awaited_once()
+    assert attempt.state == ExecutionAttemptState.PLANNED
+    repo.create_delivery.assert_not_awaited()
 
 
 def create_mock_run(
@@ -97,13 +150,15 @@ async def test_quota_reply_sets_a_global_catalog_hold_without_a_run_retry_cap(de
     mock_tx.__aenter__ = AsyncMock(return_value=mock_session)
     mock_tx.__aexit__ = AsyncMock(return_value=None)
     with pytest.MonkeyPatch.context() as mp:
-        mp.setattr("app.features.project_management.pipeline_runs.usecases.lifecycle.AsyncTransaction", lambda: mock_tx)
+        mp.setattr(f"{LIFECYCLE}.AsyncTransaction", lambda: mock_tx)
+        mp.setattr(f"{LIFECYCLE}.resolve_execution_adapter", AsyncMock(return_value=CodexGithubMentionAdapter()))
         result = await use_case.advance_run(run.id, owner="worker-1", token=run.lease_token, observer=observer)
 
     assert result.state == PipelineRunState.DISPATCHING
     assert run.next_action_at is None
     assert run.pause_reason is None
-    catalogs.record_quota_event.assert_awaited_once()
+    catalogs.record_quota_event.assert_awaited_once_with(ANY, run.ai_catalog_id, ANY)
+    assert run.quota_block_count == 1
 
 
 async def test_manual_advance_dispatches_a_prepared_implementation():
@@ -485,6 +540,7 @@ async def test_silent_watchdog_uses_an_exact_fixed_clock(monkeypatch, elapsed, e
     tx.__aexit__ = AsyncMock(return_value=None)
     monkeypatch.setattr(lifecycle, "datetime", FrozenDateTime)
     monkeypatch.setattr(lifecycle, "AsyncTransaction", lambda: tx)
+    monkeypatch.setattr(lifecycle, "resolve_execution_adapter", AsyncMock(return_value=CodexGithubMentionAdapter()))
 
     result = await PipelineRunUseCase(repo, projects, observer).advance_run(
         run.id, owner="worker-1", token=run.lease_token, observer=observer

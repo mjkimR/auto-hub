@@ -587,22 +587,25 @@ async def test_runs_waiting_for_admission_do_not_hold_catalog_capacity(client, p
     catalog_id, repo = UUID(first["ai_catalog_id"]), AICatalogRepository()
 
     # Two planned dispatches at concurrency 1 must not see each other as capacity holders.
-    assert await repo.active_run_count(session, catalog_id, UUID(first["id"])) == 0
-    assert await repo.active_run_count(session, catalog_id, UUID(second["id"])) == 0
+    assert await repo.active_dispatch_count(session, catalog_id, UUID(first["id"])) == 0
+    assert await repo.active_dispatch_count(session, catalog_id, UUID(second["id"])) == 0
 
     await session.execute(
         update(ExecutionAttempt).where(ExecutionAttempt.id == UUID(attempt["id"])).values(state="dispatching")
     )
     await session.commit()
 
-    assert await repo.active_run_count(session, catalog_id, UUID(second["id"])) == 1
+    assert await repo.active_dispatch_count(session, catalog_id, UUID(second["id"])) == 1
     listing = await client.get("/api/v1/ai-catalogs")
-    assert [item["active_run_count"] for item in listing.json()["items"]] == [1]
+    assert [item["active_dispatch_count"] for item in listing.json()["items"]] == [1]
 
 
-@pytest.mark.parametrize(("run_state", "attempt_state"), [("dispatching", "dispatching"), ("implementing", "running")])
-async def test_project_change_blocks_a_stuck_run_and_releases_its_capacity(
-    client, project, github, session, run_state, attempt_state
+@pytest.mark.parametrize(
+    ("run_state", "attempt_state", "in_flight"),
+    [("dispatching", "planned", False), ("dispatching", "dispatching", True), ("implementing", "running", True)],
+)
+async def test_project_change_blocks_a_stuck_run_and_a_settings_only_resume_continues(
+    client, project, github, session, run_state, attempt_state, in_flight
 ):
     from app.features.project_management.pipeline_runs.models import ExecutionAttempt
 
@@ -623,13 +626,48 @@ async def test_project_change_blocks_a_stuck_run_and_releases_its_capacity(
 
     assert_status_code(response, 200)
     assert response.json()["state"] == "blocked"
-    assert response.json()["pause_reason"] == run_usecases.PROJECT_CHANGED_BLOCK_REASON
+    assert response.json()["pause_reason"] == run_usecases.PROJECT_CHANGED_BLOCK_REASON + (
+        run_usecases.IN_FLIGHT_RESUME_WARNING if in_flight else ""
+    )
     assert len(github.paths) == reads
     attempts = (await client.get(f"/api/v1/pipeline-runs/{run['id']}/attempts")).json()["items"]
     assert attempts[0]["state"] == "failed"
     assert attempts[0]["failure_code"] == "PROJECT_CHANGED"
     catalogs = (await client.get("/api/v1/ai-catalogs")).json()["items"]
-    assert [item["active_run_count"] for item in catalogs] == [0]
+    assert [item["active_dispatch_count"] for item in catalogs] == [0]
+
+    # The repository and GitHub connection are unchanged, so a resume adopts the new project revision.
+    resumed = await client.post(f"/api/v1/pipeline-runs/{run['id']}/resume")
+    assert_status_code(resumed, 200)
+    assert resumed.json()["state"] == "dispatching"
+    assert resumed.json()["project_revision"] == run["project_revision"] + 1
+
+
+@pytest.mark.parametrize("changed", ["repository", "connector"])
+async def test_resume_requires_enrolling_again_when_the_github_binding_changed(
+    client, project, github, session, changed
+):
+    run, _ = await prepare_run(client, project)
+    values: dict = {"revision": ProjectConnection.revision + 1}
+    if changed == "repository":
+        values["github_repository"] = "owner/other"
+    else:
+        connector = await client.post(
+            "/api/v1/connectors",
+            json={"name": "other-account", "provider": "github", "credentials": {"token": "other-token"}},
+        )
+        assert_status_code(connector, 201)
+        values["github_connector_id"] = UUID(connector.json()["id"])
+    await session.execute(update(ProjectConnection).where(ProjectConnection.id == UUID(project["id"])).values(**values))
+    await session.execute(update(PipelineRun).where(PipelineRun.id == UUID(run["id"])).values(state="blocked"))
+    await session.commit()
+    reads = len(github.paths)
+
+    response = await client.post(f"/api/v1/pipeline-runs/{run['id']}/resume")
+
+    assert_status_code(response, 409)
+    assert response.json()["detail"] == run_usecases.GITHUB_BINDING_CHANGED_CONFLICT
+    assert len(github.paths) == reads
 
 
 @pytest.fixture
@@ -751,6 +789,32 @@ async def test_probe_window_starts_when_the_probe_mention_is_delivered(client, p
     assert catalog["effective_concurrency"] == 1
     probe_started_at = datetime.fromisoformat(catalog["probe_started_at"].replace("Z", "+00:00")).replace(tzinfo=UTC)
     assert probe_started_at == datetime.fromisoformat(mention_github[0]["created_at"])
+
+
+async def test_a_retried_delivery_is_counted_once_in_the_catalog_ledger(
+    client, project, mention_github, session, monkeypatch
+):
+    import asyncio
+
+    from app.features.ai_catalogs.models import AICatalogDispatch
+    from app.features.project_management.pipelines.github import GitHubActionsReader
+    from sqlalchemy import select
+
+    run, attempt = await prepare_run(client, project)
+    root = f"/api/v1/pipeline-runs/{run['id']}"
+
+    async def stall(*args):
+        await asyncio.Event().wait()
+
+    with monkeypatch.context() as patched:
+        patched.setattr(run_usecases, "DISPATCH_IO_SECONDS", 0.05)
+        patched.setattr(GitHubActionsReader, "reconcile_issue_comment", stall)
+        assert_status_code(await client.post(f"{root}/advance"), 504)
+    assert (await client.post(f"{root}/advance")).json()["state"] == "implementing"
+
+    deliveries = (await client.get(f"{root}/attempts/{attempt['id']}/deliveries")).json()
+    ledger = (await session.scalars(select(AICatalogDispatch))).all()
+    assert [entry.dispatch_key for entry in ledger] == [f"delivery:{deliveries[0]['id']}"]
 
 
 async def test_expired_dispatcher_cannot_post_after_another_worker_takes_over(

@@ -211,7 +211,15 @@
 		}
 	}
 
-	async function handleResume(runId: string) {
+	async function handleResume(run: PipelineRun) {
+		// A blocked run's reason can warn that resuming would duplicate work still running at Codex.
+		if (
+			run.state === 'blocked' &&
+			run.pause_reason &&
+			!confirm(`${run.pause_reason}\n\nResume this run?`)
+		)
+			return;
+		const runId = run.id;
 		operatingRunId = runId;
 		try {
 			const res = await api.POST('/api/v1/pipeline-runs/{run_id}/resume', {
@@ -534,7 +542,7 @@
 											<Button
 												variant="ghost"
 												size="icon"
-												onclick={() => handleResume(run.id)}
+												onclick={() => handleResume(run)}
 												disabled={operatingRunId === run.id}
 												class="size-8 text-amber-500 hover:text-amber-600"
 												title="Resume Run"

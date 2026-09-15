@@ -54,7 +54,7 @@ async def observe_project_task(payload: ProjectObservationPayload) -> None:
 
 @task(name=PROJECT_DISPATCH_TASK)
 async def dispatch_project_task(payload: ProjectDispatchPayload) -> None:
-    """Advance ready PR runs for one project in a bounded parallel batch."""
+    """Observe ready PR runs, then admit a separate bounded batch of dispatches."""
     meta = get_task_meta()
     if meta is None:
         raise RuntimeError(f"{PROJECT_DISPATCH_TASK} requires a schedule task context")
@@ -65,18 +65,8 @@ async def dispatch_project_task(payload: ProjectDispatchPayload) -> None:
     run_repo = PipelineRunRepository()
     run_use_case = PipelineRunUseCase(run_repo, project_service, observer, AICatalogService(AICatalogRepository()))
 
-    async with AsyncTransaction() as session:
-        runs = await run_repo.list_active(
-            session,
-            payload.project_id,
-            limit=get_scheduler_defaults().MAX_CONCURRENT_TASKS,
-            ready_at=datetime.now(UTC),
-        )
-    ready = runs
-    if not ready:
-        return
-
-    semaphore = asyncio.Semaphore(get_scheduler_defaults().MAX_CONCURRENT_TASKS)
+    batch_limit = get_scheduler_defaults().MAX_CONCURRENT_TASKS
+    semaphore = asyncio.Semaphore(batch_limit)
 
     async def advance_one(run) -> None:
         async with semaphore:
@@ -108,4 +98,23 @@ async def dispatch_project_task(payload: ProjectDispatchPayload) -> None:
                 finally:
                     await run_use_case.release_lease(run.id, LeaseMutation(owner=owner, token=lease.token))
 
-    await asyncio.gather(*(advance_one(run) for run in ready))
+    # Each phase has its own selection budget. Query dispatch only after observation
+    # commits, so a full observation batch cannot starve it or hide newly ready runs.
+    results = []
+    for states in (
+        (PipelineRunState.IMPLEMENTING, PipelineRunState.AWAITING_CI),
+        (PipelineRunState.QUEUED, PipelineRunState.DISPATCHING),
+    ):
+        async with AsyncTransaction() as session:
+            runs = await run_repo.list_active(
+                session,
+                payload.project_id,
+                limit=batch_limit,
+                ready_at=datetime.now(UTC),
+                states=states,
+            )
+        # Finish every worker and its lease cleanup even when another worker fails.
+        results.extend(await asyncio.gather(*(advance_one(run) for run in runs), return_exceptions=True))
+    for result in results:
+        if isinstance(result, BaseException):
+            raise result

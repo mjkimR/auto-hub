@@ -295,6 +295,8 @@
 										<Layers class="size-3" />
 										Linear
 									</Badge>
+								{:else if connector.provider === 'jules'}
+									<Badge variant="outline" class="gap-1.5">Jules</Badge>
 								{:else}
 									<Badge variant="secondary">{connector.provider}</Badge>
 								{/if}
@@ -387,6 +389,7 @@
 					>
 						<option value="github">GitHub (Personal Access Token / App Token)</option>
 						<option value="linear">Linear (API Key)</option>
+						<option value="jules">Jules (API Key)</option>
 					</select>
 				</div>
 
@@ -398,7 +401,11 @@
 						<Input
 							id="cToken"
 							type={showNewToken ? 'text' : 'password'}
-							placeholder={newProvider === 'github' ? 'ghp_...' : 'lin_api_...'}
+							placeholder={newProvider === 'github'
+								? 'ghp_...'
+								: newProvider === 'jules'
+									? 'Jules API key'
+									: 'lin_api_...'}
 							bind:value={newToken}
 							required
 							class="pr-10"

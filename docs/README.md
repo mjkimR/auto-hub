@@ -7,8 +7,9 @@ These documents explicitly distinguish between design goals and current function
 2. [CI Connection Contract](ci-contract.md): Configuration required when connecting a repository and current observation APIs.
 3. [Codex PR Mention Protocol](codex-pr-mention.md): Design contract for dispatching Codex cloud work through PR comments.
 4. [Delivery Status](delivery-status.md): Delivered capabilities, verification record, and optional follow-ups.
-5. [AI Catalog Gateway](ai-catalogs.md): Global Codex availability implementation and provider/adapter expansion contract.
-6. [Development & Operations](development.md): Commands, testing, and constraints of the existing scheduler foundation.
+5. [AI Catalog Gateway](ai-catalogs.md): Per-kind quota policies (Codex, Jules), dispatch ledger, execution adapters, and scheduled Jules sessions.
+6. [AI Catalog Generalization Worklog (2026-09-15, Korean)](ai-catalogs-worklog-2026-09-15.md): What changed, behavior changes, verification, setup steps, and remaining work.
+7. [Development & Operations](development.md): Commands, testing, and constraints of the existing scheduler foundation.
 
 [CI Template Usage](../templates/github-actions/README.md) covers CI setup in target repositories.
 The root `justfile` is the single source of truth for commands, and connector credential encryption details are documented in the [Hub module documentation](../modules/hub/README.md#connector-credential-encryption).

@@ -3,7 +3,8 @@ from __future__ import annotations
 from datetime import datetime
 from uuid import UUID
 
-from app.features.ai_catalogs.models import AICatalog, AICatalogState
+from app.features.ai_catalogs.models import AICatalog
+from app.features.ai_catalogs.repos import AICatalogRepository
 from app.features.project_management.pipeline_runs.models import (
     ACTIVE_RUN_STATES,
     ExecutionAttempt,
@@ -13,7 +14,7 @@ from app.features.project_management.pipeline_runs.models import (
     PipelineRun,
     PipelineRunState,
 )
-from sqlalchemy import ColumnElement, func, or_, select, update
+from sqlalchemy import case, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
@@ -56,24 +57,35 @@ class PipelineRunRepository:
         return (await session.execute(stmt)).scalar_one_or_none()
 
     async def list_active(
-        self, session: AsyncSession, project_id: UUID, *, limit: int, ready_at: datetime | None = None
+        self,
+        session: AsyncSession,
+        project_id: UUID,
+        *,
+        limit: int,
+        ready_at: datetime | None = None,
+        states: tuple[PipelineRunState, ...] | None = None,
     ) -> list[PipelineRun]:
-        admitting_states: list[ColumnElement[bool]] = [
-            AICatalog.availability_state.in_((AICatalogState.NORMAL, AICatalogState.PROBE))
-        ]
-        if ready_at is not None:
-            admitting_states.append(
-                (AICatalog.availability_state == AICatalogState.QUOTA_BLOCKED) & (AICatalog.available_at <= ready_at)
+        uncertain_delivery = (
+            select(ExecutionAttempt.id)
+            .where(
+                ExecutionAttempt.pipeline_run_id == PipelineRun.id,
+                ExecutionAttempt.state == ExecutionAttemptState.DISPATCHING,
             )
+            .exists()
+        )
+        observing = PipelineRun.state.in_((PipelineRunState.IMPLEMENTING, PipelineRunState.AWAITING_CI))
         filters = [
             PipelineRun.project_id == project_id,
             PipelineRun.state.in_(ACTIVE_RUN_STATES),
             # Only dispatch needs catalog admission; CI, push, and quota-reply observation continue during a hold.
             or_(
                 PipelineRun.state != PipelineRunState.DISPATCHING,
-                AICatalog.enabled.is_(True) & or_(*admitting_states),
+                uncertain_delivery,
+                AICatalogRepository.admits_dispatch(ready_at),
             ),
         ]
+        if states is not None:
+            filters.append(PipelineRun.state.in_(states))
         if ready_at is not None:
             filters.extend(
                 [
@@ -93,7 +105,14 @@ class PipelineRunRepository:
             select(PipelineRun)
             .join(AICatalog, PipelineRun.ai_catalog_id == AICatalog.id)
             .where(*filters)
-            .order_by(PipelineRun.next_action_at.nullsfirst(), PipelineRun.created_at, PipelineRun.id)
+            .order_by(
+                # Observe first to release capacity before admitting more work. Lease updates rotate
+                # observed runs, so a batch smaller than the observing population still makes progress.
+                case((observing, 0), (uncertain_delivery, 1), else_=2),
+                case((or_(observing, uncertain_delivery), PipelineRun.updated_at), else_=PipelineRun.created_at),
+                PipelineRun.next_action_at.nullsfirst(),
+                PipelineRun.id,
+            )
             .limit(limit)
         )
         return list(rows)
@@ -270,7 +289,7 @@ class PipelineRunRepository:
                 PipelineRun.lease_token == token,
                 PipelineRun.lease_expires_at > now,
             )
-            .values(lease_owner=None, lease_token=None, lease_expires_at=None)
+            .values(lease_owner=None, lease_token=None, lease_expires_at=None, updated_at=now)
             .returning(PipelineRun)
         )
         return result.scalar_one_or_none()

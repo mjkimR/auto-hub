@@ -17,9 +17,10 @@ just gen-ui-api
 
 `just lint` automatically fixes Python formatting and lints.
 `just check` runs Python type checking and the Frontend production build.
-Default tests use SQLite; `just test-pg` uses PostgreSQL testcontainers.
+Default tests use SQLite; `just test-pg` uses PostgreSQL testcontainers and needs a running Docker daemon.
 `just test-ui` runs the frontend component test suite.
 When API definitions change, run `just gen-ui-api` to regenerate the client SDK.
+Frontend commands activate the Node version in `.nvmrc` through nvm; if that version is not installed, `nvm use` fails and `just gen-ui-api` exits with status 3 without further output.
 The Frontend strictly consumes the generated SDK.
 
 ## Existing Scheduler Foundation

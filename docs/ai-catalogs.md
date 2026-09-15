@@ -2,173 +2,208 @@
 
 ## Status
 
-The seeded `personal-codex` record is the initial **AI Catalog gateway**. It
-owns dispatch admission, quota block state, probe recovery, and per-run quota
-block counts. The persistence table, API, run reference, and UI are all named
-AI Catalog. A separate adapter/credential-binding entity (for example
-`connector_ids`) remains a future extraction once a second adapter is
-introduced.
+An AI catalog is the gateway for one AI account or plan. Every AI-bound unit of
+work asks exactly one catalog for admission, and the catalog owns quota holds,
+recovery, and concurrency for all of its work.
+
+Two catalogs are seeded:
+
+| Key | Kind | Adapter | Used by |
+| --- | --- | --- | --- |
+| `personal-codex` | `codex` | `codex-github-mention` | The pull request pipeline (every enrolled run) |
+| `personal-jules` | `jules` | `jules-api` | Scheduled Jules sessions (`jules.session`); pull request delivery is not implemented (501) |
+
+The change history and open work for this design are summarized in
+[AI Catalog generalization worklog (2026-09-15, Korean)](ai-catalogs-worklog-2026-09-15.md).
 
 ## Why a catalog is the gateway
 
 A quota is attached to an AI account and its capacity, not to a pipeline run.
-Likewise, a concurrency limit is meaningful only across every task sharing the
-same account/model route. If runs own their own retry timestamps they can race,
-retry together after a reset, and defeat the intended safety limit.
+Likewise, a concurrency limit is meaningful only across all work sharing the
+same account. If runs owned their own retry timestamps they could race, retry
+together after a reset, and defeat the intended safety limit.
 
-Every AI-bound task therefore submits a dispatch request to exactly one
-catalog. The catalog decides whether to dispatch now or reject the request
-until its shared gate opens. Tasks do not calculate quota retry times.
+Work therefore never calculates quota retry times. It submits an admission
+request, and the catalog either admits it or returns a rejection until its
+shared gate opens.
 
 ```text
-Pipeline run / attempt
-        │ request dispatch
-        ▼
-AI Catalog Gateway ── adapter binding ── Codex GitHub mention / Jules / API model
-  capacity leases
-  global block window
-  recovery probe
-  per-run quota block count
+Pipeline delivery ("delivery:<id>") ─┐
+                                     ├─► AI Catalog gateway ─► quota policy (by kind)
+Jules session     ("session:<id>")  ─┘     shared checks        codex → CodexWindowPolicy
+                                           concurrency           jules → DailyQuotaPolicy
+                                           dispatch ledger
 ```
+
+## Two independent axes
+
+| Axis | Selected by | Contract | Implementations |
+| --- | --- | --- | --- |
+| Quota policy | `kind` | `ai_catalogs/policies/base.py` `QuotaPolicy` | `CodexWindowPolicy`, `DailyQuotaPolicy` |
+| Execution adapter (pipeline) | `adapter` | `pipeline_runs/adapters/base.py` `ExecutionAdapter` | `CodexGithubMentionAdapter`; `jules-api` is reserved and returns 501 |
+
+A policy decides when work may start and how quota recovers. An adapter
+delivers a pipeline request and reads the agent's replies. Neither mutates the
+other's state; the pipeline lifecycle owns run state and persistence.
 
 ## Catalog model
 
 | Field | Responsibility |
 | --- | --- |
-| `id`, `key`, `name` | Stable catalog identity and operator-facing label |
-| `kind`, `adapter` | Execution integration selected by the catalog |
-| `enabled` | Operator switch; a disabled catalog admits no dispatch |
-| `configured_concurrency` | Normal maximum concurrent external executions |
-| `effective_concurrency` (read-only) | Current maximum, reduced to `1` in recovery probe mode |
+| `id`, `key`, `name` | Stable identity and operator-facing label |
+| `kind`, `adapter` | Quota policy and execution adapter |
+| `connector_id` | Credentials for a provider the hub calls directly (a `jules` connector); Codex uses each project's GitHub connection |
+| `enabled` | Operator switch; a disabled catalog admits nothing |
+| `configured_concurrency` | Normal maximum concurrent work |
+| `effective_concurrency` (read-only) | Current maximum from the policy (Codex: `1` in probe; a kind without a policy: `0`) |
 | `availability_state` | `normal`, `quota_blocked`, `probe`, `disabled`, or `unknown` |
-| `available_at` | Earliest UTC dispatch time of the current hold; kept while disabled |
-| `short_refresh_enabled`, `short_refresh_cycle_minutes` | Whether to use the short cycle and its configurable interval (default: 5 hours) |
-| `long_refresh_cycle_minutes` | Configurable long-cycle interval after short retries are exhausted (default: 1 week) |
-| `refresh_jitter_minutes` | Fixed safety delay added to every calculated cycle boundary (default: 10 minutes) |
-| `usage_window_started_at` | Delivery time of the first task in the current provider usage window; the quota wait anchor |
-| `last_refreshed_at`, `short_refresh_failure_count` | End of the latest hold or manual clear (older quota evidence and mentions are ignored) and consecutive short-cycle failure count |
-| `availability_source`, `availability_note`, `availability_updated_at` | Safe operator-visible evidence and audit metadata |
-| `probe_started_at`, `probe_window_minutes` | Delivery time of the recovery probe and its observation window (10 minutes) |
-| `held_run_count`, `active_run_count` (read-only) | Runs queued/dispatching/implementing, and runs currently holding capacity |
+| `available_at` | Earliest UTC admission time of the current hold; kept while disabled |
+| `availability_source`, `availability_note`, `availability_updated_at` | Operator-visible evidence and audit metadata |
+| `refresh_jitter_minutes` | Safety delay added to every calculated reset (default 10) |
+| `policy_config` | Kind-specific quota settings, validated and normalized by the kind's policy |
+| `probe_started_at`, `short_refresh_failure_count`, `last_refreshed_at`, `usage_window_started_at` | Codex usage-window runtime state |
+| `held_run_count`, `active_dispatch_count` (read-only) | Pipeline runs queued/dispatching/implementing; runs and sessions currently holding capacity |
 | `revision` | Optimistic state/configuration revision |
 
-Catalog state is global. A pipeline run records only its `ai_catalog_id` and
-`quota_block_count`. It does not own a quota-derived retry timestamp, and the
-reason a dispatch was rejected is returned to the caller rather than stored on
-the run.
+A pipeline run records only its `ai_catalog_id` and `quota_block_count`.
 
 ## Gateway decisions
 
-The catalog service exposes these operations to the scheduler and adapters:
-
 ```text
-request_dispatch(run) -> grant | 409 (unavailable, quota-blocked, or at capacity)
-record_dispatch_delivered(run, posted_at) -> starts a pending probe window
-record_quota_event(run, observed_at) -> catalog hold + run quota block count
-set_availability(available_at) / clear_availability() -> shared gate
+request_dispatch(catalog_id, run_id | None, dispatch_key, now) -> Admission(catalog, rejection | None)
+record_dispatch_delivered(catalog_id, posted_at)
+record_quota_event(catalog_id, observed_at)
+set_availability / clear_availability / set_enabled / update_policy_config / set_connector
 ```
 
-1. A catalog grants a dispatch only when the runs holding capacity are below
-   `effective_concurrency`. A run holds capacity while it is `implementing`, or
-   while it is `dispatching` with an admitted (possibly uncertain) mention
-   post. A `dispatching` run that is only waiting for admission holds nothing,
-   so waiting runs never block each other. A dispatching or implementing run
-   whose project was disabled, edited, or lost its GitHub connection after
-   enrollment can never progress, so it is moved to `blocked` with a reason and
-   its active attempt fails with `PROJECT_CHANGED`; this releases its capacity.
-   The project is checked before admission, so such a run never takes capacity.
-   Cancel it and enroll the pull request again.
-2. A quota-blocked catalog rejects dispatch until `available_at`. It never asks
-   individual runs to infer a reset time. Only dispatch is gated: the scheduler
-   keeps observing CI, pushes, merges, and quota replies during a hold.
-3. When `available_at` passes, the next admission enters `probe`, sets
-   `last_refreshed_at` to that time, limits effective concurrency to one, and
-   dispatches one eligible run. The probe window starts only when that mention
-   is actually delivered.
-4. Once a delivered probe has run for 10 minutes without another quota event,
-   the catalog returns to `normal`, restores configured concurrency, and resets
-   the short-cycle failure count. This is evaluated at the next admission or
-   quota observation; waiting runs become eligible on the next scheduler tick.
-5. Any quota event observed at or after the end of the hold starts a new hold,
-   even one from a run dispatched before the hold whose reply arrives late. This
-   errs toward waiting longer; an operator can clear a hold that is too
-   conservative.
-6. Codex resets a usage window a fixed time (5 hours) after the window's first
-   task, so an older refresh time says nothing about the next reset. Each
+1. **Shared checks.** A catalog that is disabled, `disabled`, `unknown`, or
+   holding an unexpired `quota_blocked` hold rejects the request. The same rule
+   is expressed in SQL (`AICatalogRepository.admits_dispatch`) so the scheduler
+   does not select dispatching runs whose catalog cannot admit them. Only
+   dispatch is gated: CI, pushes, merges, and quota replies keep being observed
+   during a hold.
+2. **Policy.** `policy.admit()` applies recovery transitions and may return a
+   rejection (for example a daily cap just reached).
+3. **Capacity.** Work holding capacity must be below `effective_concurrency`.
+   A pipeline run holds capacity while `implementing`, or while `dispatching`
+   with an admitted (possibly uncertain) delivery; a run only waiting for
+   admission holds nothing. A tracked session holds capacity until it is
+   `completed` or `failed`.
+4. **Ledger.** Admitted work is recorded once in `ai_catalog_dispatches` under
+   its `dispatch_key`; a retry keeps the first entry and a policy never counts a
+   key against itself. Entries older than 30 days are pruned when the catalog
+   records new work.
+5. **Rejections are returned, not raised.** The caller commits what the policy
+   recorded while rejecting (a new hold, a probe transition) and then answers
+   409. Pipeline deliveries are settled before admission so the ledger key is
+   stable across retries.
+6. **No silent failover.** A disabled or unknown catalog never falls back to a
+   different model or account.
+
+A pipeline run on a project that was disabled, edited, or lost its GitHub
+connection after enrollment is moved to `blocked` before admission and takes no
+capacity.
+
+## Codex policy (`CodexWindowPolicy`)
+
+`policy_config` (defaults filled on save):
+
+```json
+{"short_refresh_enabled": true, "short_refresh_cycle_minutes": 300,
+ "long_refresh_cycle_minutes": 10080, "probe_window_minutes": 10}
+```
+
+1. When an expired hold is admitted, the catalog enters `probe`, sets
+   `last_refreshed_at` to the hold end, and limits effective concurrency to one.
+   The probe window starts only when that mention is delivered.
+2. A delivered probe that runs `probe_window_minutes` without a quota event
+   returns the catalog to `normal` and resets the short-cycle failure count,
+   evaluated at the next admission or quota observation.
+3. Codex resets a usage window a fixed time after its first task. Each
    delivered mention opens a new window when none is open or the previous one
-   has already lasted a full window (the short cycle, or the long cycle when
-   the short cycle is disabled); a recovery probe and a cleared hold always
-   start a new one. A mention posted before `last_refreshed_at` (for example an
-   uncertain pre-hold post found by reconciliation) belongs to the old window:
-   it neither opens a window nor starts the probe window. A quota reply waits `cycle + jitter` from
-   `usage_window_started_at`. If no window start is known, or the reply falls
-   outside that window, the reply time is used instead: it is the latest
-   possible window start, so the hold is never released early. When the short
-   cycle is enabled, the first two
-   consecutive failed refreshes use the short cycle; after that, the catalog
-   uses the long cycle. With the short cycle disabled, every quota block uses
-   the long cycle directly.
-7. A reply observed before the current hold ends, or before the latest
-   refresh or manual clear, is already accounted for. It increments the run's quota block count but neither
-   consumes another short retry nor moves an existing hold earlier, so several
-   runs hitting the same exhaustion produce one hold, and a verified reset time
-   is never shortened by a late reply.
-8. Disabled or unknown catalogs never silently fail over to a different model
-   or account. Disabling keeps a pending hold; re-enabling restores it, and an
-   expired hold resumes through a recovery probe.
+   has lasted a full window; a probe and a cleared hold always start a new one.
+   A mention posted before `last_refreshed_at` belongs to the old window.
+4. A quota reply waits `cycle + jitter` from `usage_window_started_at`, or from
+   the reply time when no window start inside the current window is known, so a
+   hold is never released early. With the short cycle enabled, the first two
+   consecutive failed refreshes use the short cycle and later ones the long
+   cycle; with it disabled, every hold uses the long cycle.
+5. A reply observed before the current hold ends, or before the latest refresh
+   or manual clear, is already accounted for: it neither consumes a short retry
+   nor moves a hold earlier.
+6. Codex never rejects before capacity is checked; its exhaustion is known only
+   from replies.
 
-The default policy is a 5-hour short cycle, a 1-week long cycle, and a 10-minute
-safety jitter. These values are catalog configuration, not run-level constants.
+## Daily quota policy (`DailyQuotaPolicy`, Jules)
 
-## Manual and local refresh
+`policy_config`:
 
-**Settings → AI Catalogs** is the authoritative UI. Operators can set a
-specific local reset time, clear a hold, enable/disable a catalog, and inspect
-the assigned and in-use run counts. The refresh policy dialog lets them turn
-the short cycle on or off and set both short-cycle hours and long-cycle days.
-This allows plans such as GPT Pro, which only need the long cycle. Input is
-converted to UTC; the server rejects past times.
+```json
+{"daily_task_limit": 100, "window": "rolling", "timezone": "UTC"}
+```
 
-An explicit reset time replaces the catalog's `available_at`:
+- `rolling` counts ledger entries in the last 24 hours. This matches Jules'
+  documented "rolling 24 hour window" (Pro: 100 tasks per day, 15 concurrent).
+  `calendar` counts from local midnight in `timezone`, for providers that reset
+  by day.
+- When the count reaches the limit, admission records a `quota_blocked` hold
+  until the window next has room (plus jitter) and rejects. An expired hold
+  resumes directly to `normal` when the window has room; there is no probe.
+- `configured_concurrency` is the parallel cap.
+- A provider refusal (`record_quota_event`) holds for a full window from the
+  refusal on `rolling` (tasks started outside the hub are invisible to the
+  ledger), or until the next midnight on `calendar`.
+- A catalog without a valid `policy_config` is not admitted (409).
 
-- the catalog stores the new global time, even while disabled;
-- every run assigned to the catalog waits on that one shared gate;
-- the scheduler sees one shared gate rather than per-task timers.
+## Jules scheduled sessions
 
-Clearing a hold records a refresh at that moment: quota evidence and mentions
-from before the clear are ignored, and the next delivered mention opens a new
-usage window.
+Jules cannot push to an existing pull request branch, so it runs scheduled
+report and hygiene sessions instead of pipeline work. The hub tracks only
+session state and links in `ai_catalog_sessions`; results stay in Jules or in
+the pull requests it opens.
+
+| Task | Payload | Behavior |
+| --- | --- | --- |
+| `jules.session` | `catalog_key`, `repository` (`owner/repo`), `starting_branch`, `title`, `prompt`, `auto_create_pr` | Refreshes unfinished sessions, asks for admission under `session:<id>`, then creates one Jules session |
+| `jules.sync_sessions` | `catalog_key` | Refreshes unfinished sessions so finished ones release concurrency |
+
+- The catalog needs an enabled `jules` connector whose credentials hold the API
+  key as `token`.
+- Session creation has no idempotency key. The hub titles each session
+  `<title> [hub-session:<id>]`. An unconfirmed create (network or 5xx failure)
+  stays `dispatching` and is adopted by title on a later run; one not found
+  after an hour is marked `failed`.
+- A 429 on create marks the session `failed` and is recorded as a quota event.
+  Jules does not document its limit error, so this is conservative.
+- Any other 4xx marks the session `failed`.
+
+## Operator controls
+
+**Settings → AI Catalogs** is the authoritative UI:
+
+- set a local reset time, clear a hold, and enable or disable a catalog;
+- edit the Codex refresh policy or the Jules quota policy (both saved through
+  `PUT /api/v1/ai-catalogs/{key}/policy-config`);
+- assign a Jules connector (`PUT /api/v1/ai-catalogs/{key}/connector`).
+
+An explicit reset time replaces `available_at` for every piece of work on the
+catalog, even while disabled. Clearing a hold records a refresh at that moment;
+for Codex, older quota evidence and mentions are ignored and the next delivery
+opens a new usage window.
 
 The optional `just sync-codex-quota` helper reads a signed-in local Codex
-account and sends the verified reset to this same catalog endpoint. It must not
-send credentials, raw account payloads, or a pipeline-run identifier. If it
-cannot identify one blocking window, it fails closed and the UI remains the
-fallback.
+account and sends the verified reset to the `personal-codex` availability
+endpoint. It never sends credentials, raw account payloads, or run identifiers,
+and fails closed when it cannot identify one blocking window.
 
-## Adapter boundary
+## Adding a kind or adapter
 
-Adapters report observations but do not mutate task scheduling fields.
-
-```text
-validate_catalog(catalog) -> health
-dispatch(request) -> observation
-reconcile(request) -> observation
-classify_observation(observation) -> success | quota_limited | failed | unknown
-```
-
-The Catalog service converts `quota_limited` into a global block and task-level
-block-count decision. This keeps Codex, Jules, and API-key-based adapters
-behind one capacity and recovery policy.
-
-## Rollout
-
-1. Introduce the Catalog gateway model while preserving the seeded
-   `personal-codex` binding.
-2. Bind existing runs/attempts to that catalog.
-3. Move dispatch admission and external-I/O rechecks behind catalog leases.
-4. Move quota-event handling, task block counts, and fallback block duration
-   into the Catalog service.
-5. Add probe recovery and refresh/replanning.
-6. Deliver the Settings AI Catalogs page.
-7. Add Jules or API-key adapters only after they implement the adapter
-   contract and catalog integration tests.
+1. Implement `QuotaPolicy` (including `validate_config`) and register it in
+   `ai_catalogs/policies/registry.py`.
+2. For pipeline work, implement `ExecutionAdapter` and register it in
+   `pipeline_runs/adapters/registry.py`. Leave unfinished adapters in
+   `_NOT_IMPLEMENTED` so they fail before admission.
+3. If the hub calls the provider directly, map the kind to a connector provider
+   in `CATALOG_CONNECTOR_PROVIDERS`.
+4. Seed or create the catalog, add its settings form to the AI Catalogs view,
+   and cover the policy with unit tests and the integration with e2e tests.
