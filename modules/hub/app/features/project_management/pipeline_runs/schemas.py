@@ -83,7 +83,7 @@ class ExecutionDeliveryRead(UUIDSchemaMixin, TimestampSchemaMixin):
     execution_attempt_id: UUID
     delivery_number: int = Field(ge=1)
     cause: Literal["initial", "silent", "quota", "resume"]
-    comment_id: str | None
+    external_id: str | None
     posted_at: datetime | None
 
 
@@ -91,7 +91,7 @@ class ExecutionReplyRead(UUIDSchemaMixin, TimestampSchemaMixin):
     model_config = ConfigDict(from_attributes=True)
 
     execution_attempt_id: UUID
-    comment_id: str
+    external_id: str
     author: str
     replied_at: datetime
     excerpt: str | None

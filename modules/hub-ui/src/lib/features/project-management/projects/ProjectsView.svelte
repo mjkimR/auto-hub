@@ -43,9 +43,11 @@
 	type Project = components['schemas']['ProjectRead'];
 	type Connector = components['schemas']['ConnectorRead'];
 	type ConnectionCheck = components['schemas']['ConnectionCheck'];
+	type AICatalog = components['schemas']['AICatalogRead'];
 
 	let projects = $state<Project[]>([]);
 	let connectors = $state<Connector[]>([]);
+	let catalogs = $state<AICatalog[]>([]);
 	let loading = $state(true);
 	let searchQuery = $state('');
 
@@ -71,6 +73,7 @@
 	let autoFixConflicts = $state(true);
 	let autoEnrollOnTrigger = $state(true);
 	let dispatchIntervalSeconds = $state('60');
+	let aiCatalogId = $state('');
 
 	// Connection Check dialog
 	let isCheckOpen = $state(false);
@@ -94,6 +97,7 @@
 	let scheduleCronExpression = $state('*/5 * * * *');
 
 	let githubConnectors = $derived(connectors.filter((c) => c.provider === 'github'));
+	let pipelineCatalogs = $derived(catalogs.filter((c) => c.pipeline_delivery));
 
 	let filteredProjects = $derived(
 		projects.filter(
@@ -112,6 +116,8 @@
 			if (res.data?.items) {
 				connectors = res.data.items;
 			}
+			const catalogRes = await api.GET('/api/v1/ai-catalogs');
+			catalogs = catalogRes.data?.items ?? [];
 		} catch {
 			// Ignore connector load failure
 		}
@@ -178,6 +184,7 @@
 			autoFixConflicts = project.github.automation?.auto_fix_conflicts ?? true;
 			autoEnrollOnTrigger = project.github.automation?.auto_enroll_on_trigger ?? true;
 			dispatchIntervalSeconds = String(project.github.automation?.dispatch_interval_seconds ?? 60);
+			aiCatalogId = project.github.ai_catalog_id ?? '';
 		} else {
 			hasGithub = false;
 			githubRepo = '';
@@ -190,6 +197,7 @@
 			autoFixConflicts = true;
 			autoEnrollOnTrigger = true;
 			dispatchIntervalSeconds = '60';
+			aiCatalogId = '';
 		}
 
 		isEditOpen = true;
@@ -214,6 +222,7 @@
 					? {
 							repository: githubRepo.trim(),
 							github_connector_id: githubConnectorId,
+							ai_catalog_id: aiCatalogId || null,
 							verification: {
 								workflow: githubWorkflow.trim(),
 								required_jobs: jobs,
@@ -780,8 +789,28 @@
 										</div>
 									</div>
 
+									<div class="space-y-1">
+										<label
+											for="aiCatalog"
+											class="text-[11px] font-semibold text-muted-foreground uppercase"
+											>AI catalog</label
+										>
+										<select
+											id="aiCatalog"
+											bind:value={aiCatalogId}
+											class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-xs"
+										>
+											<option value="">Default (Personal Codex)</option>
+											{#each pipelineCatalogs as catalog (catalog.id)}
+												<option value={catalog.id}>{catalog.name} ({catalog.kind})</option>
+											{/each}
+										</select>
+									</div>
+
 									<label class="flex items-center justify-between gap-3 text-sm">
-										<span class="font-medium text-foreground">Ask Codex to fix failed CI</span>
+										<span class="font-medium text-foreground"
+											>Ask the AI agent to fix failed CI</span
+										>
 										<input
 											type="checkbox"
 											bind:checked={autoFixCi}
@@ -790,7 +819,7 @@
 									</label>
 									<label class="flex items-center justify-between gap-3 text-sm">
 										<span class="font-medium text-foreground"
-											>Ask Codex to resolve merge conflicts</span
+											>Ask the AI agent to resolve merge conflicts</span
 										>
 										<input
 											type="checkbox"

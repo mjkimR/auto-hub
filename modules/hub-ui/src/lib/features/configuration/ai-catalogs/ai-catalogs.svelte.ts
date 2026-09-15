@@ -3,6 +3,7 @@ import { SvelteDate } from 'svelte/reactivity';
 import { toast } from 'svelte-sonner';
 
 export type AICatalog = components['schemas']['AICatalogRead'];
+export type AICatalogSession = components['schemas']['AICatalogSessionRead'];
 
 export type CatalogConnector = { id: string; name: string; provider: string; enabled: boolean };
 
@@ -18,6 +19,8 @@ export type DailyQuotaConfig = {
 	window: 'rolling' | 'calendar';
 	timezone: string;
 };
+
+const SESSION_MARKER = / \[hub-session:[^\]]+\]$/;
 
 /** A Codex catalog's refresh policy, with the backend defaults filled in for settings it has never saved. */
 export function codexWindowConfig(catalog: AICatalog): CodexWindowConfig {
@@ -39,6 +42,19 @@ export function dailyQuotaConfig(catalog: AICatalog): DailyQuotaConfig | null {
 		window: config.window === 'calendar' ? 'calendar' : 'rolling',
 		timezone: config.timezone ?? 'UTC'
 	};
+}
+
+export function dailyQuotaSummary(catalog: AICatalog): string {
+	const config = dailyQuotaConfig(catalog);
+	if (!config) return 'Daily quota: not configured — dispatch is blocked until it is set';
+	const reset =
+		config.window === 'calendar' ? `resets at midnight ${config.timezone}` : 'rolling 24 hours';
+	return `Daily quota: ${config.daily_task_limit} tasks · ${reset}`;
+}
+
+/** Session titles carry a hidden reconciliation marker that operators do not need to see. */
+export function sessionTitle(title: string): string {
+	return title.replace(SESSION_MARKER, '');
 }
 
 export function isKnownTimezone(timezone: string): boolean {
@@ -78,6 +94,26 @@ export class AICatalogsState {
 			toast.error('Failed to load AI catalogs');
 		} finally {
 			this.loading = false;
+		}
+	}
+
+	async loadSessions(
+		key: string,
+		offset: number,
+		limit: number
+	): Promise<{ items: AICatalogSession[]; total: number }> {
+		try {
+			const res = await api.GET('/api/v1/ai-catalogs/{catalog_key}/sessions', {
+				params: { path: { catalog_key: key }, query: { offset, limit } }
+			});
+			if (res.error) {
+				toast.error(detail(res.error, 'Failed to load catalog sessions'));
+				return { items: [], total: 0 };
+			}
+			return { items: res.data?.items ?? [], total: res.data?.total_count ?? 0 };
+		} catch {
+			toast.error('Failed to load catalog sessions');
+			return { items: [], total: 0 };
 		}
 	}
 

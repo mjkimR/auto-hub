@@ -126,15 +126,20 @@ class AICatalogRepository:
         if exclude_run_id is not None:
             filters.append(PipelineRun.id != exclude_run_id)
         runs = await session.scalar(select(func.count()).select_from(PipelineRun).where(*filters))
-        sessions = await session.scalar(
-            select(func.count())
-            .select_from(AICatalogSession)
-            .where(
-                AICatalogSession.ai_catalog_id == catalog_id,
-                AICatalogSession.state.not_in(SESSION_TERMINAL_STATES),
+        return int(runs or 0) + await self.open_session_count(session, catalog_id)
+
+    async def open_session_count(self, session: AsyncSession, catalog_id: UUID) -> int:
+        return int(
+            await session.scalar(
+                select(func.count())
+                .select_from(AICatalogSession)
+                .where(
+                    AICatalogSession.ai_catalog_id == catalog_id,
+                    AICatalogSession.state.not_in(SESSION_TERMINAL_STATES),
+                )
             )
+            or 0
         )
-        return int(runs or 0) + int(sessions or 0)
 
     async def list_unfinished_sessions(self, session: AsyncSession, catalog_id: UUID) -> Sequence[AICatalogSession]:
         rows = await session.scalars(
@@ -146,3 +151,19 @@ class AICatalogRepository:
             .order_by(AICatalogSession.created_at)
         )
         return rows.all()
+
+    async def list_sessions(
+        self, session: AsyncSession, catalog_id: UUID, *, offset: int, limit: int
+    ) -> tuple[Sequence[AICatalogSession], int]:
+        """One page of sessions, most recent first, with the catalog's total session count."""
+        rows = await session.scalars(
+            select(AICatalogSession)
+            .where(AICatalogSession.ai_catalog_id == catalog_id)
+            .order_by(AICatalogSession.created_at.desc(), AICatalogSession.id)
+            .offset(offset)
+            .limit(limit)
+        )
+        total = await session.scalar(
+            select(func.count()).select_from(AICatalogSession).where(AICatalogSession.ai_catalog_id == catalog_id)
+        )
+        return rows.all(), int(total or 0)

@@ -130,7 +130,8 @@ class ExecutionDelivery(Base, UUIDMixin, TimestampMixin):
     )
     delivery_number: Mapped[int] = mapped_column(Integer, nullable=False)
     cause: Mapped[str] = mapped_column(String(30), nullable=False, default="initial")
-    comment_id: Mapped[str | None] = mapped_column(String(255), nullable=True, unique=True)
+    # The provider's identifier for the delivery (a GitHub comment ID for Codex mentions).
+    external_id: Mapped[str | None] = mapped_column(String(255), nullable=True, unique=True)
     posted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
@@ -146,7 +147,7 @@ class ExecutionReply(Base, UUIDMixin, TimestampMixin):
     execution_attempt_id: Mapped[UUID] = mapped_column(
         ForeignKey("execution_attempts.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    comment_id: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
+    external_id: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
     author: Mapped[str] = mapped_column(String(255), nullable=False)
     replied_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     excerpt: Mapped[str | None] = mapped_column(Text, nullable=True)

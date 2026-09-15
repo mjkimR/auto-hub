@@ -74,7 +74,7 @@ Rules:
 
 ## 4. Posting and Reconciliation
 
-A delivery is one posted mention for an attempt. Hub stores deliveries under the attempt with their number, cause (`initial`, `silent`, `quota`, `resume`), comment ID, and posting time.
+A delivery is one posted mention for an attempt. Hub stores deliveries under the attempt with their number, cause (`initial`, `silent`, `quota`, `resume`), external ID (the GitHub comment ID), and posting time.
 
 1. Under the run lease, commit the attempt and a planned delivery before any GitHub write.
 2. Reconcile: list the PR's issue comments (bounded pagination) and look for a marker with the same correlation marker and `delivery`, authored by the connector's login.

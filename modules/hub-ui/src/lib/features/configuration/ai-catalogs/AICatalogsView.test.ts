@@ -19,8 +19,10 @@ const base = {
 	effective_concurrency: 3,
 	active_dispatch_count: 0,
 	held_run_count: 0,
+	open_session_count: 0,
 	connector_id: null,
-	policy_config: {}
+	policy_config: {},
+	policy_state: {}
 };
 const codex = {
 	...base,
@@ -28,7 +30,9 @@ const codex = {
 	key: 'personal-codex',
 	name: 'Personal Codex',
 	kind: 'codex',
-	adapter: 'codex-github-mention'
+	adapter: 'codex-github-mention',
+	connector_provider: null,
+	pipeline_delivery: true
 };
 const jules = {
 	...base,
@@ -36,20 +40,34 @@ const jules = {
 	key: 'personal-jules',
 	name: 'Personal Jules',
 	kind: 'jules',
-	adapter: 'jules-api'
+	adapter: 'jules-api',
+	connector_provider: 'jules',
+	pipeline_delivery: false
 };
 const connectors = [
 	{ id: 'k1', name: 'Jules key', provider: 'jules', enabled: true },
 	{ id: 'g1', name: 'GitHub token', provider: 'github', enabled: true }
 ];
+const sessions = [
+	{
+		id: 's1',
+		title: 'Weekly hygiene report [hub-session:abc]',
+		state: 'in_progress',
+		url: 'https://jules.google/session/1',
+		pull_request_url: null,
+		failure_detail: null,
+		created_at: '2026-09-15T00:00:00Z'
+	}
+];
 
 beforeEach(() => {
 	vi.clearAllMocks();
-	api.GET.mockImplementation((path: string) =>
-		Promise.resolve({
-			data: { items: path === '/api/v1/connectors' ? connectors : [codex, jules] }
-		})
-	);
+	api.GET.mockImplementation((path: string) => {
+		if (path === '/api/v1/connectors') return Promise.resolve({ data: { items: connectors } });
+		if (path === '/api/v1/ai-catalogs/{catalog_key}/sessions')
+			return Promise.resolve({ data: { items: sessions, total_count: 45 } });
+		return Promise.resolve({ data: { items: [codex, jules] } });
+	});
 	api.PUT.mockResolvedValue({ data: jules });
 });
 
@@ -59,15 +77,17 @@ afterEach(() => {
 	document.body.style.removeProperty('pointer-events');
 });
 
-test('offers the refresh policy to Codex and the quota policy and connector to Jules', async () => {
+test('shows each kind its own policy editor and session controls only where the kind has them', async () => {
 	render(AICatalogsView);
 
 	await screen.findByText('Personal Jules');
 	expect(screen.getAllByRole('button', { name: 'Refresh policy' })).toHaveLength(1);
 	expect(screen.getAllByRole('button', { name: 'Quota policy' })).toHaveLength(1);
 	expect(screen.getAllByRole('button', { name: 'Connector' })).toHaveLength(1);
+	expect(screen.getAllByRole('button', { name: 'Sessions' })).toHaveLength(1);
 	expect(screen.getByText(/Daily quota: not configured/)).toBeTruthy();
 	expect(screen.getByText(/Connector: not assigned/)).toBeTruthy();
+	expect(screen.getByText(/0 open session\(s\)/)).toBeTruthy();
 });
 
 test('saves a calendar daily quota for a Jules catalog', async () => {
@@ -76,11 +96,12 @@ test('saves a calendar daily quota for a Jules catalog', async () => {
 	await screen.findByText('Personal Jules');
 
 	await user.click(screen.getByRole('button', { name: 'Quota policy' }));
-	await user.clear(screen.getByLabelText('Daily task limit'));
-	await user.type(screen.getByLabelText('Daily task limit'), '100');
+	// Edit the multi-character limit last: the dialog moves focus once while it opens.
 	await user.selectOptions(screen.getByLabelText('Daily window'), 'calendar');
 	await user.clear(screen.getByLabelText('Reset timezone'));
 	await user.type(screen.getByLabelText('Reset timezone'), 'America/Los_Angeles');
+	await user.clear(screen.getByLabelText('Daily task limit'));
+	await user.type(screen.getByLabelText('Daily task limit'), '250');
 	await user.click(screen.getByRole('button', { name: 'Save quota policy' }));
 
 	await waitFor(() =>
@@ -88,7 +109,7 @@ test('saves a calendar daily quota for a Jules catalog', async () => {
 			params: { path: { catalog_key: 'personal-jules' } },
 			body: {
 				policy_config: {
-					daily_task_limit: 100,
+					daily_task_limit: 250,
 					window: 'calendar',
 					timezone: 'America/Los_Angeles'
 				}
@@ -137,13 +158,13 @@ test('saves the Codex refresh policy as policy config', async () => {
 	);
 });
 
-test('assigns only a Jules connector to a Jules catalog', async () => {
+test('assigns only a connector of the catalog provider', async () => {
 	const user = userEvent.setup();
 	render(AICatalogsView);
 	await screen.findByText('Personal Jules');
 
 	await user.click(screen.getByRole('button', { name: 'Connector' }));
-	const select = screen.getByLabelText('Jules connector');
+	const select = screen.getByLabelText('Provider connector');
 	expect(screen.queryByRole('option', { name: 'GitHub token' })).toBeNull();
 	await user.selectOptions(select, 'k1');
 	await user.click(screen.getByRole('button', { name: 'Save connector' }));
@@ -152,6 +173,30 @@ test('assigns only a Jules connector to a Jules catalog', async () => {
 		expect(api.PUT).toHaveBeenCalledWith('/api/v1/ai-catalogs/{catalog_key}/connector', {
 			params: { path: { catalog_key: 'personal-jules' } },
 			body: { connector_id: 'k1' }
+		})
+	);
+});
+
+test('pages through sessions and hides their reconciliation marker', async () => {
+	const user = userEvent.setup();
+	render(AICatalogsView);
+	await screen.findByText('Personal Jules');
+
+	await user.click(screen.getByRole('button', { name: 'Sessions' }));
+
+	expect(await screen.findByText('Weekly hygiene report')).toBeTruthy();
+	expect(screen.getByText('in progress')).toBeTruthy();
+	expect(screen.getByText('1–1 of 45')).toBeTruthy();
+	expect(api.GET).toHaveBeenCalledWith('/api/v1/ai-catalogs/{catalog_key}/sessions', {
+		params: { path: { catalog_key: 'personal-jules' }, query: { offset: 0, limit: 20 } }
+	});
+	expect(screen.getByRole('button', { name: 'Previous' })).toHaveProperty('disabled', true);
+
+	await user.click(screen.getByRole('button', { name: 'Next' }));
+
+	await waitFor(() =>
+		expect(api.GET).toHaveBeenCalledWith('/api/v1/ai-catalogs/{catalog_key}/sessions', {
+			params: { path: { catalog_key: 'personal-jules' }, query: { offset: 20, limit: 20 } }
 		})
 	);
 });

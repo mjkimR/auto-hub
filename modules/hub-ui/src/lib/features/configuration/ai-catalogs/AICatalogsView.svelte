@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { toast } from 'svelte-sonner';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 	import { Card, CardContent, CardHeader, CardTitle } from '$lib/components/ui/card';
@@ -14,38 +13,23 @@
 	} from '$lib/components/ui/dialog';
 	import { Input } from '$lib/components/ui/input';
 	import { Bot, Clock3, RefreshCw, ShieldAlert } from '@lucide/svelte';
-	import {
-		AICatalogsState,
-		codexWindowConfig,
-		dailyQuotaConfig,
-		isKnownTimezone,
-		type AICatalog,
-		type DailyQuotaConfig
-	} from './ai-catalogs.svelte';
+	import { AICatalogsState, type AICatalog } from './ai-catalogs.svelte';
+	import { catalogKinds } from './catalog-kinds';
+	import CatalogConnectorDialog from './CatalogConnectorDialog.svelte';
+	import CatalogSessionsDialog from './CatalogSessionsDialog.svelte';
 
-	const selectClass = 'h-9 rounded-md border border-input bg-transparent px-3 text-sm';
+	type CatalogDialog = 'policy' | 'connector' | 'sessions';
 
 	const catalogs = new AICatalogsState();
 	let selectedKey = $state<string | null>(null);
 	let availableAt = $state('');
 	let note = $state('');
 	let dialogOpen = $state(false);
-	let policyKey = $state<string | null>(null);
-	let shortRefreshEnabled = $state(true);
-	let shortRefreshHours = $state('5');
-	let longRefreshDays = $state('7');
-	let probeWindowMinutes = $state(10);
-	let policyDialogOpen = $state(false);
-	let quotaKey = $state<string | null>(null);
-	let dailyTaskLimit = $state('100');
-	let quotaWindow = $state<DailyQuotaConfig['window']>('rolling');
-	let quotaTimezone = $state('UTC');
-	let quotaDialogOpen = $state(false);
-	let connectorKey = $state<string | null>(null);
-	let connectorId = $state('');
-	let connectorDialogOpen = $state(false);
+	let active = $state<{ dialog: CatalogDialog; catalog: AICatalog } | null>(null);
 
-	const julesConnectors = $derived(catalogs.connectors.filter((item) => item.provider === 'jules'));
+	const PolicyDialog = $derived(
+		active?.dialog === 'policy' ? catalogKinds[active.catalog.kind]?.policyDialog : undefined
+	);
 
 	function openAvailability(key: string) {
 		selectedKey = key;
@@ -54,29 +38,12 @@
 		dialogOpen = true;
 	}
 
-	function openRefreshPolicy(catalog: AICatalog) {
-		const config = codexWindowConfig(catalog);
-		policyKey = catalog.key;
-		shortRefreshEnabled = config.short_refresh_enabled;
-		shortRefreshHours = String(config.short_refresh_cycle_minutes / 60);
-		longRefreshDays = String(config.long_refresh_cycle_minutes / (60 * 24));
-		probeWindowMinutes = config.probe_window_minutes;
-		policyDialogOpen = true;
+	function openDialog(dialog: CatalogDialog, catalog: AICatalog) {
+		active = { dialog, catalog };
 	}
 
-	function openDailyQuota(catalog: AICatalog) {
-		const config = dailyQuotaConfig(catalog);
-		quotaKey = catalog.key;
-		dailyTaskLimit = String(config?.daily_task_limit ?? 100);
-		quotaWindow = config?.window ?? 'rolling';
-		quotaTimezone = config?.timezone ?? 'UTC';
-		quotaDialogOpen = true;
-	}
-
-	function openConnector(catalog: AICatalog) {
-		connectorKey = catalog.key;
-		connectorId = catalog.connector_id ?? '';
-		connectorDialogOpen = true;
+	function closeDialog() {
+		active = null;
 	}
 
 	async function saveAvailability(event: SubmitEvent) {
@@ -85,53 +52,11 @@
 			dialogOpen = false;
 	}
 
-	async function saveRefreshPolicy(event: SubmitEvent) {
-		event.preventDefault();
-		const shortHours = Number(shortRefreshHours);
-		const longDays = Number(longRefreshDays);
-		if (
-			!policyKey ||
-			!Number.isFinite(shortHours) ||
-			shortHours <= 0 ||
-			!Number.isFinite(longDays) ||
-			longDays <= 0
-		) {
-			return;
-		}
-		const config = {
-			short_refresh_enabled: shortRefreshEnabled,
-			short_refresh_cycle_minutes: Math.round(shortHours * 60),
-			long_refresh_cycle_minutes: Math.round(longDays * 24 * 60),
-			probe_window_minutes: probeWindowMinutes
-		};
-		if (await catalogs.updatePolicyConfig(policyKey, config)) policyDialogOpen = false;
-	}
-
-	async function saveDailyQuota(event: SubmitEvent) {
-		event.preventDefault();
-		const limit = Number(dailyTaskLimit);
-		if (!quotaKey || !Number.isInteger(limit) || limit < 1) return;
-		const timezone = quotaTimezone.trim() || 'UTC';
-		if (quotaWindow === 'calendar' && !isKnownTimezone(timezone)) {
-			toast.error(`Unknown timezone: ${timezone}`);
-			return;
-		}
-		const config = { daily_task_limit: limit, window: quotaWindow, timezone };
-		if (await catalogs.updatePolicyConfig(quotaKey, config)) quotaDialogOpen = false;
-	}
-
-	async function saveConnector(event: SubmitEvent) {
-		event.preventDefault();
-		if (connectorKey && (await catalogs.setConnector(connectorKey, connectorId || null)))
-			connectorDialogOpen = false;
-	}
-
-	function dailyQuotaSummary(catalog: AICatalog) {
-		const config = dailyQuotaConfig(catalog);
-		if (!config) return 'Daily quota: not configured — dispatch is blocked until it is set';
-		const reset =
-			config.window === 'calendar' ? `resets at midnight ${config.timezone}` : 'rolling 24 hours';
-		return `Daily quota: ${config.daily_task_limit} tasks · ${reset}`;
+	function workSummary(catalog: AICatalog) {
+		const runs = `${catalog.held_run_count} queued, dispatching, or implementing run(s)`;
+		return catalog.connector_provider
+			? `${runs} · ${catalog.open_session_count} open session(s)`
+			: runs;
 	}
 
 	function connectorSummary(catalog: AICatalog) {
@@ -174,6 +99,7 @@
 	{:else}
 		<div class="grid gap-5 lg:grid-cols-2">
 			{#each catalogs.items as catalog (catalog.id)}
+				{@const kindUi = catalogKinds[catalog.kind]}
 				<Card class="border-border/80 bg-card/60">
 					<CardHeader class="pb-3">
 						<div class="flex items-start justify-between gap-4">
@@ -204,16 +130,17 @@
 									: 'Available now'}
 							</div>
 							<p class="mt-1 text-xs text-muted-foreground">
-								Source: {catalog.availability_source ?? 'not set'} · {catalog.held_run_count} queued,
-								dispatching, or implementing run(s)
+								Source: {catalog.availability_source ?? 'not set'} · {workSummary(catalog)}
 							</p>
 							<p class="mt-1 text-xs text-muted-foreground">
 								Concurrency: {catalog.active_dispatch_count} in use / {catalog.effective_concurrency}
 								allowed ({catalog.configured_concurrency}
 								configured){catalog.availability_state === 'probe' ? ' · recovery probe' : ''}
 							</p>
-							{#if catalog.kind === 'jules'}
-								<p class="mt-1 text-xs text-muted-foreground">{dailyQuotaSummary(catalog)}</p>
+							{#if kindUi?.summary}
+								<p class="mt-1 text-xs text-muted-foreground">{kindUi.summary(catalog)}</p>
+							{/if}
+							{#if catalog.connector_provider}
 								<p class="mt-1 text-xs text-muted-foreground">{connectorSummary(catalog)}</p>
 							{/if}
 							{#if catalog.availability_note}<p class="mt-2 text-xs text-muted-foreground">
@@ -226,25 +153,23 @@
 								onclick={() => openAvailability(catalog.key)}
 								disabled={catalogs.saving}>Set refresh time</Button
 							>
-							{#if catalog.kind === 'codex'}
+							{#if kindUi}
 								<Button
 									size="sm"
 									variant="outline"
-									onclick={() => openRefreshPolicy(catalog)}
-									disabled={catalogs.saving}>Refresh policy</Button
+									onclick={() => openDialog('policy', catalog)}
+									disabled={catalogs.saving}>{kindUi.policyLabel}</Button
 								>
-							{:else if catalog.kind === 'jules'}
+							{/if}
+							{#if catalog.connector_provider}
 								<Button
 									size="sm"
 									variant="outline"
-									onclick={() => openDailyQuota(catalog)}
-									disabled={catalogs.saving}>Quota policy</Button
-								>
-								<Button
-									size="sm"
-									variant="outline"
-									onclick={() => openConnector(catalog)}
+									onclick={() => openDialog('connector', catalog)}
 									disabled={catalogs.saving}>Connector</Button
+								>
+								<Button size="sm" variant="outline" onclick={() => openDialog('sessions', catalog)}
+									>Sessions</Button
 								>
 							{/if}
 							{#if catalog.available_at}<Button
@@ -289,112 +214,10 @@
 	</DialogContent>
 </Dialog>
 
-<Dialog bind:open={policyDialogOpen}>
-	<DialogContent>
-		<DialogHeader>
-			<DialogTitle>Refresh policy</DialogTitle>
-			<DialogDescription>
-				A quota block waits one cycle from the first task of the current usage window, plus the
-				catalog's safety jitter; after two failed short cycles, the long cycle is used.
-			</DialogDescription>
-		</DialogHeader>
-		<form onsubmit={saveRefreshPolicy} class="space-y-4">
-			<label class="flex items-center gap-2 text-sm font-medium">
-				<input type="checkbox" bind:checked={shortRefreshEnabled} />
-				Use short refresh cycle
-			</label>
-			<label class="grid gap-1 text-sm font-medium">
-				Short cycle (hours)
-				<Input
-					type="number"
-					min="0.1"
-					step="0.1"
-					bind:value={shortRefreshHours}
-					disabled={!shortRefreshEnabled}
-					required
-				/>
-			</label>
-			<label class="grid gap-1 text-sm font-medium">
-				Long cycle (days)
-				<Input type="number" min="0.1" step="0.1" bind:value={longRefreshDays} required />
-			</label>
-			<DialogFooter>
-				<Button type="button" variant="outline" onclick={() => (policyDialogOpen = false)}
-					>Cancel</Button
-				>
-				<Button type="submit" disabled={catalogs.saving}>Save policy</Button>
-			</DialogFooter>
-		</form>
-	</DialogContent>
-</Dialog>
-
-<Dialog bind:open={quotaDialogOpen}>
-	<DialogContent>
-		<DialogHeader>
-			<DialogTitle>Quota policy</DialogTitle>
-			<DialogDescription>
-				The hub counts every admitted task. When the day's limit is reached it holds the catalog
-				until the window has room again, plus the catalog's safety jitter. Concurrency uses the
-				configured limit.
-			</DialogDescription>
-		</DialogHeader>
-		<form onsubmit={saveDailyQuota} class="space-y-4">
-			<label class="grid gap-1 text-sm font-medium">
-				Daily task limit
-				<Input type="number" min="1" step="1" bind:value={dailyTaskLimit} required />
-			</label>
-			<label class="grid gap-1 text-sm font-medium">
-				Daily window
-				<select bind:value={quotaWindow} class={selectClass}>
-					<option value="rolling">Rolling 24 hours</option>
-					<option value="calendar">Calendar day</option>
-				</select>
-			</label>
-			{#if quotaWindow === 'calendar'}
-				<label class="grid gap-1 text-sm font-medium">
-					Reset timezone
-					<Input
-						bind:value={quotaTimezone}
-						placeholder="UTC or an IANA name like America/Los_Angeles"
-					/>
-				</label>
-			{/if}
-			<DialogFooter>
-				<Button type="button" variant="outline" onclick={() => (quotaDialogOpen = false)}
-					>Cancel</Button
-				>
-				<Button type="submit" disabled={catalogs.saving}>Save quota policy</Button>
-			</DialogFooter>
-		</form>
-	</DialogContent>
-</Dialog>
-
-<Dialog bind:open={connectorDialogOpen}>
-	<DialogContent>
-		<DialogHeader>
-			<DialogTitle>Catalog connector</DialogTitle>
-			<DialogDescription>
-				Sessions on this catalog authenticate with the selected Jules connector's API key.
-			</DialogDescription>
-		</DialogHeader>
-		<form onsubmit={saveConnector} class="space-y-4">
-			<label class="grid gap-1 text-sm font-medium">
-				Jules connector
-				<select bind:value={connectorId} class={selectClass}>
-					<option value="">No connector</option>
-					{#each julesConnectors as connector (connector.id)}
-						<option value={connector.id}
-							>{connector.name}{connector.enabled ? '' : ' (disabled)'}</option
-						>
-					{/each}
-				</select>
-			</label>
-			<DialogFooter>
-				<Button type="button" variant="outline" onclick={() => (connectorDialogOpen = false)}
-					>Cancel</Button
-				>
-				<Button type="submit" disabled={catalogs.saving}>Save connector</Button>
-			</DialogFooter>
-		</form>
-	</DialogContent>
-</Dialog>
+{#if active && PolicyDialog}
+	<PolicyDialog catalog={active.catalog} {catalogs} onclose={closeDialog} />
+{:else if active?.dialog === 'connector'}
+	<CatalogConnectorDialog catalog={active.catalog} {catalogs} onclose={closeDialog} />
+{:else if active?.dialog === 'sessions'}
+	<CatalogSessionsDialog catalog={active.catalog} {catalogs} onclose={closeDialog} />
+{/if}

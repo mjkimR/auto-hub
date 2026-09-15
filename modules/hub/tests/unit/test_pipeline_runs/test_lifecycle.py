@@ -47,7 +47,7 @@ async def test_rejected_admission_commits_catalog_transitions_before_raising(mon
     attempt.id, attempt.state = uuid4(), ExecutionAttemptState.PLANNED
     repo.active_attempt = AsyncMock(return_value=attempt)
     delivery = MagicMock(spec=ExecutionDelivery)
-    delivery.id, delivery.comment_id = uuid4(), None
+    delivery.id, delivery.external_id = uuid4(), None
     repo.latest_delivery = AsyncMock(return_value=delivery)
     projects.get = AsyncMock(
         return_value=MagicMock(enabled=True, revision=1, github_repository="owner/repo", github_connector_id=uuid4())
@@ -271,6 +271,7 @@ async def test_resume_run_transitions_paused_run_back_to_active():
     projects.get = AsyncMock(
         return_value=MagicMock(enabled=True, revision=1, github_repository="owner/repo", github_connector_id=uuid4())
     )
+    use_case._project_catalog = AsyncMock(return_value=MagicMock(id=uuid4()))
     selector.get_pull_request = AsyncMock(
         return_value={"state": "open", "head": {"sha": "b" * 40, "ref": "feature"}, "base": {"ref": "main"}}
     )

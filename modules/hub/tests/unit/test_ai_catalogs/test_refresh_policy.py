@@ -4,7 +4,7 @@ from uuid import uuid4
 
 import pytest
 from app.features.ai_catalogs.models import AICatalog, AICatalogKind, AICatalogState
-from app.features.ai_catalogs.policies.codex_window import CodexWindowPolicy
+from app.features.ai_catalogs.policies.codex_window import CodexWindowPolicy, CodexWindowState
 from app.features.ai_catalogs.schemas import SetAvailabilityRequest
 from app.features.ai_catalogs.services import AICatalogService
 from app.features.project_management.projects.services import ProjectError
@@ -14,17 +14,14 @@ pytestmark = pytest.mark.unit
 T0 = datetime(2026, 9, 15, 12, tzinfo=UTC)
 
 
-def make_catalog(*, short_refresh_enabled: bool = True) -> AICatalog:
+def make_catalog(*, short_refresh_enabled: bool = True, **state) -> AICatalog:
     catalog = MagicMock(spec=AICatalog)
     catalog.kind = AICatalogKind.CODEX
     catalog.enabled = True
     catalog.configured_concurrency = 1
     catalog.refresh_jitter_minutes = 10
     catalog.policy_config = {"short_refresh_enabled": short_refresh_enabled}
-    catalog.probe_started_at = None
-    catalog.short_refresh_failure_count = 0
-    catalog.last_refreshed_at = None
-    catalog.usage_window_started_at = None
+    catalog.policy_state = CodexWindowState(**state).model_dump(mode="json")
     catalog.available_at = None
     catalog.availability_state = AICatalogState.NORMAL
     catalog.availability_source = None
@@ -32,6 +29,10 @@ def make_catalog(*, short_refresh_enabled: bool = True) -> AICatalog:
     catalog.availability_updated_at = None
     catalog.revision = 1
     return catalog
+
+
+def state_of(catalog: AICatalog) -> CodexWindowState:
+    return CodexWindowState.model_validate(catalog.policy_state)
 
 
 def make_service(catalog: AICatalog) -> AICatalogService:
@@ -60,8 +61,10 @@ async def test_catalog_kind_without_a_quota_policy_is_never_admitted():
         await service.request_dispatch(AsyncMock(), uuid4(), uuid4(), "delivery:new", T0)
 
     service.repo.active_dispatch_count.assert_not_awaited()
-    # Listing still works: such a catalog simply has no capacity.
+    # Listing and switching still work: such a catalog simply has no capacity and no recovery state.
     assert AICatalogService.effective_concurrency(catalog) == 0
+    await service.set_enabled(AsyncMock(), "retired", False, T0)
+    assert catalog.availability_state == AICatalogState.DISABLED
 
 
 def test_codex_policy_config_fills_defaults_and_rejects_foreign_settings():
@@ -90,6 +93,7 @@ async def test_rejected_admission_returns_its_policy_transition_to_be_committed(
 
     assert admission.rejection == "AI catalog has reached its concurrency limit"
     assert catalog.availability_state == AICatalogState.PROBE
+    assert state_of(catalog).last_refreshed_at == T0 - timedelta(minutes=1)
     session.flush.assert_awaited_once()
 
 
@@ -125,15 +129,15 @@ async def test_each_hold_re_anchors_on_the_probe_through_short_then_long_cycles(
 
     await service.record_quota_event(AsyncMock(), uuid4(), T0 + timedelta(minutes=2))
     assert catalog.available_at == T0 + timedelta(hours=5, minutes=10)
-    assert catalog.short_refresh_failure_count == 1
+    assert state_of(catalog).short_refresh_failure_count == 1
     assert catalog.availability_source == "quota-short-cycle"
 
     # The old window guaranteed only the first hold; the probe is the first task of the next window.
     probe_at = await deliver_probe_at_hold_end(service, catalog)
-    assert catalog.usage_window_started_at == probe_at
+    assert state_of(catalog).usage_window_started_at == probe_at
     await service.record_quota_event(AsyncMock(), uuid4(), probe_at + timedelta(minutes=2))
     assert catalog.available_at == probe_at + timedelta(hours=5, minutes=10)
-    assert catalog.short_refresh_failure_count == 2
+    assert state_of(catalog).short_refresh_failure_count == 2
 
     probe_at = await deliver_probe_at_hold_end(service, catalog)
     await service.record_quota_event(AsyncMock(), uuid4(), probe_at + timedelta(minutes=2))
@@ -142,14 +146,13 @@ async def test_each_hold_re_anchors_on_the_probe_through_short_then_long_cycles(
 
 
 async def test_disabled_short_cycle_uses_long_cycle_immediately():
-    catalog = make_catalog(short_refresh_enabled=False)
-    catalog.usage_window_started_at = T0
+    catalog = make_catalog(short_refresh_enabled=False, usage_window_started_at=T0)
     service = make_service(catalog)
 
     await service.record_quota_event(AsyncMock(), uuid4(), T0 + timedelta(minutes=2))
 
     assert catalog.available_at == T0 + timedelta(weeks=1, minutes=10)
-    assert catalog.short_refresh_failure_count == 0
+    assert state_of(catalog).short_refresh_failure_count == 0
     assert catalog.availability_source == "quota-long-cycle"
 
 
@@ -159,9 +162,9 @@ async def test_first_task_after_an_expired_window_opens_the_next_window():
 
     await service.record_dispatch_delivered(AsyncMock(), uuid4(), T0)
     await service.record_dispatch_delivered(AsyncMock(), uuid4(), T0 + timedelta(hours=4))
-    assert catalog.usage_window_started_at == T0
+    assert state_of(catalog).usage_window_started_at == T0
     await service.record_dispatch_delivered(AsyncMock(), uuid4(), T0 + timedelta(hours=6))
-    assert catalog.usage_window_started_at == T0 + timedelta(hours=6)
+    assert state_of(catalog).usage_window_started_at == T0 + timedelta(hours=6)
 
     await service.record_quota_event(AsyncMock(), uuid4(), T0 + timedelta(hours=8))
 
@@ -169,14 +172,13 @@ async def test_first_task_after_an_expired_window_opens_the_next_window():
 
 
 async def test_reply_outside_the_known_window_waits_conservatively_from_the_reply():
-    catalog = make_catalog()
-    catalog.usage_window_started_at = T0 - timedelta(days=3)
+    catalog = make_catalog(usage_window_started_at=T0 - timedelta(days=3))
     service = make_service(catalog)
 
     await service.record_quota_event(AsyncMock(), uuid4(), T0)
 
     assert catalog.available_at == T0 + timedelta(hours=5, minutes=10)
-    assert catalog.short_refresh_failure_count == 1
+    assert state_of(catalog).short_refresh_failure_count == 1
 
 
 async def test_replies_from_one_exhaustion_consume_a_single_short_retry():
@@ -187,7 +189,7 @@ async def test_replies_from_one_exhaustion_consume_a_single_short_retry():
         await service.record_quota_event(AsyncMock(), uuid4(), T0 + timedelta(seconds=offset))
 
     assert catalog.available_at == T0 + timedelta(hours=5, minutes=10)
-    assert catalog.short_refresh_failure_count == 1
+    assert state_of(catalog).short_refresh_failure_count == 1
 
 
 async def test_late_reply_never_moves_a_verified_hold_earlier():
@@ -201,35 +203,33 @@ async def test_late_reply_never_moves_a_verified_hold_earlier():
 
     assert catalog.available_at == T0 + timedelta(days=3)
     assert catalog.availability_source == "local-codex-cli"
-    assert catalog.short_refresh_failure_count == 0
+    assert state_of(catalog).short_refresh_failure_count == 0
 
 
 async def test_probe_window_starts_only_after_the_probe_is_delivered():
-    catalog = make_catalog()
+    catalog = make_catalog(usage_window_started_at=T0 - timedelta(hours=5), short_refresh_failure_count=2)
     catalog.availability_state = AICatalogState.QUOTA_BLOCKED
     catalog.available_at = T0 - timedelta(minutes=1)
-    catalog.usage_window_started_at = T0 - timedelta(hours=5)
-    catalog.short_refresh_failure_count = 2
     service = make_service(catalog)
     session = AsyncMock()
     catalog_id, run_id = uuid4(), uuid4()
 
     await service.request_dispatch(session, catalog_id, run_id, "delivery:probe", T0)
     assert catalog.availability_state == AICatalogState.PROBE
-    assert catalog.probe_started_at is None
-    assert catalog.usage_window_started_at is None
-    assert catalog.last_refreshed_at == T0 - timedelta(minutes=1)
+    assert state_of(catalog).probe_started_at is None
+    assert state_of(catalog).usage_window_started_at is None
+    assert state_of(catalog).last_refreshed_at == T0 - timedelta(minutes=1)
 
     # An admitted probe that never posted must not restore normal concurrency.
     await service.request_dispatch(session, catalog_id, run_id, "delivery:probe", T0 + timedelta(minutes=30))
     assert catalog.availability_state == AICatalogState.PROBE
 
     await service.record_dispatch_delivered(session, catalog_id, T0 + timedelta(minutes=31))
-    assert catalog.probe_started_at == T0 + timedelta(minutes=31)
-    assert catalog.usage_window_started_at == T0 + timedelta(minutes=31)
+    assert state_of(catalog).probe_started_at == T0 + timedelta(minutes=31)
+    assert state_of(catalog).usage_window_started_at == T0 + timedelta(minutes=31)
     await service.request_dispatch(session, catalog_id, run_id, "delivery:next", T0 + timedelta(minutes=41))
     assert catalog.availability_state == AICatalogState.NORMAL
-    assert catalog.short_refresh_failure_count == 0
+    assert state_of(catalog).short_refresh_failure_count == 0
 
 
 async def test_disabled_catalog_keeps_its_hold_through_re_enabling():
@@ -250,11 +250,23 @@ async def test_disabled_catalog_keeps_its_hold_through_re_enabling():
     assert catalog.available_at == hold
 
 
+async def test_a_manual_hold_drops_an_unfinished_probe():
+    catalog = make_catalog(probe_started_at=T0 - timedelta(minutes=3), short_refresh_failure_count=1)
+    catalog.availability_state = AICatalogState.PROBE
+    service = make_service(catalog)
+    hold = T0 + timedelta(hours=2)
+
+    await service.set_availability(AsyncMock(), "personal-codex", SetAvailabilityRequest(available_at=hold), T0)
+
+    assert catalog.availability_state == AICatalogState.QUOTA_BLOCKED
+    assert state_of(catalog).probe_started_at is None
+    assert state_of(catalog).short_refresh_failure_count == 1
+
+
 async def test_reconciled_mention_from_before_the_hold_neither_opens_a_window_nor_starts_the_probe():
-    catalog = make_catalog()
+    catalog = make_catalog(usage_window_started_at=T0 - timedelta(hours=5, minutes=10))
     catalog.availability_state = AICatalogState.QUOTA_BLOCKED
     catalog.available_at = T0
-    catalog.usage_window_started_at = T0 - timedelta(hours=5, minutes=10)
     service = make_service(catalog)
     session = AsyncMock()
     catalog_id, run_id = uuid4(), uuid4()
@@ -262,21 +274,20 @@ async def test_reconciled_mention_from_before_the_hold_neither_opens_a_window_no
 
     # An uncertain post from before the hold is found by reconciliation after the probe was admitted.
     await service.record_dispatch_delivered(session, catalog_id, T0 - timedelta(minutes=20))
-    assert catalog.usage_window_started_at is None
-    assert catalog.probe_started_at is None
+    assert state_of(catalog).usage_window_started_at is None
+    assert state_of(catalog).probe_started_at is None
     await service.request_dispatch(session, catalog_id, run_id, "delivery:probe", T0 + timedelta(minutes=11))
     assert catalog.availability_state == AICatalogState.PROBE
 
     await service.record_dispatch_delivered(session, catalog_id, T0 + timedelta(minutes=12))
-    assert catalog.usage_window_started_at == T0 + timedelta(minutes=12)
-    assert catalog.probe_started_at == T0 + timedelta(minutes=12)
+    assert state_of(catalog).usage_window_started_at == T0 + timedelta(minutes=12)
+    assert state_of(catalog).probe_started_at == T0 + timedelta(minutes=12)
 
 
 async def test_clearing_a_hold_ignores_quota_evidence_from_before_the_clear():
-    catalog = make_catalog()
+    catalog = make_catalog(short_refresh_failure_count=1)
     catalog.availability_state = AICatalogState.QUOTA_BLOCKED
     catalog.available_at = T0 + timedelta(hours=5, minutes=10)
-    catalog.short_refresh_failure_count = 1
     service = make_service(catalog)
 
     await service.clear_availability(AsyncMock(), "personal-codex", T0 + timedelta(minutes=5))
@@ -284,4 +295,4 @@ async def test_clearing_a_hold_ignores_quota_evidence_from_before_the_clear():
 
     assert catalog.availability_state == AICatalogState.NORMAL
     assert catalog.available_at is None
-    assert catalog.short_refresh_failure_count == 1
+    assert state_of(catalog).short_refresh_failure_count == 1

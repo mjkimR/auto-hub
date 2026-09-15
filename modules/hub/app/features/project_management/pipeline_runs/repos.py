@@ -210,10 +210,10 @@ class PipelineRunRepository:
         await session.refresh(reply)
         return reply
 
-    async def has_reply_comment(self, session: AsyncSession, comment_id: str) -> bool:
+    async def has_reply(self, session: AsyncSession, external_id: str) -> bool:
         return (
             await session.scalar(
-                select(func.count()).select_from(ExecutionReply).where(ExecutionReply.comment_id == comment_id)
+                select(func.count()).select_from(ExecutionReply).where(ExecutionReply.external_id == external_id)
             )
             or 0
         ) > 0

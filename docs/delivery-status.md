@@ -12,8 +12,9 @@ delivery state; the durable `@codex` request contract lives in
 - HMAC-verified GitHub webhooks with delivery deduplication and polling
   recovery, plus parallel runs for different PRs in the same project.
 - AI catalog gateway with per-kind quota policies (Codex usage windows, daily
-  task caps), a dispatch ledger, pluggable pipeline execution adapters, and
-  scheduled Jules sessions (`jules.session`, `jules.sync_sessions`). See
+  task caps), a dispatch ledger, pluggable pipeline execution adapters,
+  project-level catalog selection, and scheduled Jules sessions
+  (`jules.session`, `jules.sync_sessions`) with a session list. See
   [AI Catalog Gateway](ai-catalogs.md). This work is not yet committed or
   deployed as of 2026-09-15.
 - No Linear integration: Hub is the single source of truth for run state. A
@@ -27,11 +28,11 @@ push, observed passing Actions CI, and completed the merge.
 
 Local verification on 2026-09-15 (AI catalog generalization):
 
-- Backend: 428 tests passing on SQLite and on PostgreSQL (testcontainers).
+- Backend: 431 tests passing on SQLite and on PostgreSQL (testcontainers).
 - Migrations: the full Alembic chain upgrades, downgrades, and re-upgrades on
   PostgreSQL 16. `alembic check` reports only two pre-existing column-comment
   differences (`pipeline_runs.pull_snapshot`, `schedule_configs.next_run_at`).
-- Frontend: 7 component tests, `svelte-check`, production build, and lint
+- Frontend: 8 component tests, `svelte-check`, production build, and lint
   passing.
 - Jules was exercised only against a mocked HTTP transport; no live Jules or
   post-refactor Codex canary has run.
@@ -58,8 +59,7 @@ catalog policy editing.
 ## Explicitly deferred
 
 - Automatic planning/WBS generation and dynamic agent selection.
-- Project-level catalog selection (pipeline runs always use `personal-codex`),
-  Jules pull request delivery, a Jules session results UI, and richer quota
-  history. Open items are tracked in the
-  [AI Catalog generalization worklog](ai-catalogs-worklog-2026-09-15.md#남은-작업--알려진-제약).
+- Per-pull-request catalog selection (waits for a work router), Jules pull
+  request delivery, and richer quota history. Open items are tracked in the
+  [AI Catalog Implementation Notes](ai-catalog-implementation-notes.md#known-limitations-and-remaining-work).
 - A bounded LLM review lane before merge.

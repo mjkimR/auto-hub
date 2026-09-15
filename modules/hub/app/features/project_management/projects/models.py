@@ -16,6 +16,8 @@ class Project(Base, UUIDMixin, TimestampMixin):
     github_connector_id: Mapped[UUID | None] = mapped_column(
         ForeignKey("connectors.id", ondelete="RESTRICT"), nullable=True
     )
+    # The AI catalog that receives this project's pull request work; empty selects the seeded Codex catalog.
+    ai_catalog_id: Mapped[UUID | None] = mapped_column(ForeignKey("ai_catalogs.id", ondelete="RESTRICT"), nullable=True)
     verification: Mapped[dict | None] = mapped_column(JSON_VARIANT, nullable=True)
     automation: Mapped[dict] = mapped_column(JSON_VARIANT, nullable=False, default=dict)
     enabled: Mapped[bool] = mapped_column(default=True)

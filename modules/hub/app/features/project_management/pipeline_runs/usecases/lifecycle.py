@@ -51,6 +51,7 @@ from app.features.project_management.pipelines import services as pipeline_servi
 from app.features.project_management.pipelines.github import GitHubActionsReader, GitHubObservationError
 from app.features.project_management.pipelines.schemas import VerificationStatus
 from app.features.project_management.pipelines.services import PipelineConfigurationError, PipelineObservationService
+from app.features.project_management.projects.models import Project
 from app.features.project_management.projects.schemas import ProjectRead
 from app.features.project_management.projects.services import ProjectError, ProjectService
 from app_layer_base.core.database.transaction import AsyncTransaction
@@ -166,7 +167,7 @@ class PipelineRunUseCase:
                     raise ProjectError(409, "Project changed during pull request enrollment; retry")
                 if await self.repo.get_active_for_pull(session, project_id, snapshot.number, lock=True) is not None:
                     raise ProjectError(409, ACTIVE_RUN_CONFLICT)
-                catalog = await self._default_catalog(session)
+                catalog = await self._project_catalog(session, project)
                 run = await self.repo.create(
                     session,
                     PipelineRun(
@@ -364,14 +365,12 @@ class PipelineRunUseCase:
                 adapter = await resolve_execution_adapter(session, run.ai_catalog_id)
                 replies = await adapter.collect_replies(observer, target, posted_at)
                 for reply in replies:
-                    if reply.external_id is not None and not await self.repo.has_reply_comment(
-                        session, reply.external_id
-                    ):
+                    if reply.external_id is not None and not await self.repo.has_reply(session, reply.external_id):
                         await self.repo.create_reply(
                             session,
                             ExecutionReply(
                                 execution_attempt_id=attempt.id,
-                                comment_id=reply.external_id,
+                                external_id=reply.external_id,
                                 author=reply.author,
                                 replied_at=reply.replied_at,
                                 excerpt=reply.body.strip()[:500] or None,
@@ -654,9 +653,17 @@ class PipelineRunUseCase:
         await session.flush()
         return PipelineRunRead.model_validate(run)
 
-    async def _default_catalog(self, session: AsyncSession) -> AICatalog:
-        """Return the seeded AI catalog; create it for metadata-only test databases."""
+    async def _project_catalog(self, session: AsyncSession, project: Project) -> AICatalog:
+        """The catalog for a project's pull request work: its selection, else the seeded Codex catalog.
+
+        The seeded catalog is created on demand for metadata-only test databases.
+        """
         catalogs = AICatalogRepository()
+        if project.ai_catalog_id is not None:
+            selected = await catalogs.get(session, project.ai_catalog_id)
+            if selected is None:
+                raise ProjectError(409, "The project's AI catalog was removed; select another one")
+            return selected
         catalog = await catalogs.get_by_key(session, "personal-codex", lock=True)
         if catalog is None:
             catalog = AICatalog(
@@ -706,7 +713,7 @@ class PipelineRunUseCase:
                         cause="initial",
                     ),
                 )
-            elif delivery.comment_id is not None:
+            elif delivery.external_id is not None:
                 delivery = await self.repo.create_delivery(
                     session,
                     ExecutionDelivery(
@@ -757,7 +764,7 @@ class PipelineRunUseCase:
             recorded = await self.repo.latest_delivery(session, attempt.id)
             if recorded is None or recorded.id != delivery.id:
                 raise ProjectError(409, "Pipeline delivery changed during delivery")
-            recorded.comment_id = receipt.external_id
+            recorded.external_id = receipt.external_id
             recorded.posted_at = posted_at
             attempt.state = ExecutionAttemptState.RUNNING
             attempt.external_correlation_id = receipt.external_id
@@ -934,6 +941,8 @@ class PipelineRunUseCase:
             run.pause_reason = None
             # The operator's resume accepts settings changes; later ticks follow the current project.
             run.project_revision = project_revision
+            # The new attempt is delivered through the project's current catalog selection.
+            run.ai_catalog_id = (await self._project_catalog(session, project)).id
             run.revision += 1
             await session.flush()
             return PipelineRunRead.model_validate(run)

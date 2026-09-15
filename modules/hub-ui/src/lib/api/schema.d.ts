@@ -586,6 +586,23 @@ export interface paths {
 		patch?: never;
 		trace?: never;
 	};
+	'/api/v1/ai-catalogs/{catalog_key}/sessions': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		/** List Ai Catalog Sessions */
+		get: operations['list_ai_catalog_sessions_api_v1_ai_catalogs__catalog_key__sessions_get'];
+		put?: never;
+		post?: never;
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
 	'/api/v1/ai-catalogs/{catalog_key}/availability': {
 		parameters: {
 			query?: never;
@@ -832,14 +849,10 @@ export interface components {
 			policy_config?: {
 				[key: string]: unknown;
 			};
-			/** Probe Started At */
-			probe_started_at: string | null;
-			/** Short Refresh Failure Count */
-			short_refresh_failure_count: number;
-			/** Last Refreshed At */
-			last_refreshed_at: string | null;
-			/** Usage Window Started At */
-			usage_window_started_at: string | null;
+			/** Policy State */
+			policy_state?: {
+				[key: string]: unknown;
+			};
 			/** Revision */
 			revision: number;
 			/**
@@ -852,6 +865,63 @@ export interface components {
 			 * @default 0
 			 */
 			active_dispatch_count: number;
+			/**
+			 * Open Session Count
+			 * @default 0
+			 */
+			open_session_count: number;
+			/**
+			 * Connector Provider
+			 * @description Connector provider the catalog authenticates with; set for kinds with sessions
+			 */
+			connector_provider?: string | null;
+			/**
+			 * Pipeline Delivery
+			 * @description Whether the catalog's adapter can deliver pull request pipeline work
+			 * @default false
+			 */
+			pipeline_delivery: boolean;
+		};
+		/** AICatalogSessionList */
+		AICatalogSessionList: {
+			/** Items */
+			items: components['schemas']['AICatalogSessionRead'][];
+			/** Total Count */
+			total_count: number;
+		};
+		/** AICatalogSessionRead */
+		AICatalogSessionRead: {
+			/**
+			 * Created At
+			 * Format: date-time
+			 */
+			created_at: string;
+			/**
+			 * Updated At
+			 * Format: date-time
+			 */
+			updated_at: string;
+			/**
+			 * Id
+			 * Format: uuid
+			 */
+			id: string;
+			/** Schedule Config Id */
+			schedule_config_id: string | null;
+			/** Title */
+			title: string;
+			/** State */
+			state: string;
+			/** External Name */
+			external_name: string | null;
+			/** Url */
+			url: string | null;
+			/** Pull Request Url */
+			pull_request_url: string | null;
+			/** Failure Detail */
+			failure_detail: string | null;
+			/** Observed At */
+			observed_at: string | null;
 		};
 		/**
 		 * AICatalogState
@@ -1142,8 +1212,8 @@ export interface components {
 			 * @enum {string}
 			 */
 			cause: 'initial' | 'silent' | 'quota' | 'resume';
-			/** Comment Id */
-			comment_id: string | null;
+			/** External Id */
+			external_id: string | null;
 			/** Posted At */
 			posted_at: string | null;
 		};
@@ -1169,8 +1239,8 @@ export interface components {
 			 * Format: uuid
 			 */
 			execution_attempt_id: string;
-			/** Comment Id */
-			comment_id: string;
+			/** External Id */
+			external_id: string;
 			/** Author */
 			author: string;
 			/**
@@ -1233,6 +1303,11 @@ export interface components {
 			/** Template Id */
 			template_id?: ('python-uv' | 'node-npm') | null;
 			automation?: components['schemas']['GitHubAutomationConfig'];
+			/**
+			 * Ai Catalog Id
+			 * @description AI catalog that receives pull request work; empty uses the default Codex catalog
+			 */
+			ai_catalog_id?: string | null;
 		};
 		/** HTTPValidationError */
 		HTTPValidationError: {
@@ -3891,6 +3966,40 @@ export interface operations {
 				};
 				content: {
 					'application/json': components['schemas']['AICatalogList'];
+				};
+			};
+		};
+	};
+	list_ai_catalog_sessions_api_v1_ai_catalogs__catalog_key__sessions_get: {
+		parameters: {
+			query?: {
+				offset?: number;
+				limit?: number;
+			};
+			header?: never;
+			path: {
+				catalog_key: string;
+			};
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description Successful Response */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json': components['schemas']['AICatalogSessionList'];
+				};
+			};
+			/** @description Validation Error */
+			422: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json': components['schemas']['HTTPValidationError'];
 				};
 			};
 		};

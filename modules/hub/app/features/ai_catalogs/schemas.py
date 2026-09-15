@@ -24,17 +24,39 @@ class AICatalogRead(UUIDSchemaMixin, TimestampSchemaMixin):
     effective_concurrency: int = 0
     refresh_jitter_minutes: int
     policy_config: dict = Field(default_factory=dict)
-    probe_started_at: datetime | None
-    short_refresh_failure_count: int
-    last_refreshed_at: datetime | None
-    usage_window_started_at: datetime | None
+    policy_state: dict = Field(default_factory=dict)
     revision: int
     held_run_count: int = 0
     active_dispatch_count: int = 0
+    open_session_count: int = 0
+    connector_provider: str | None = Field(
+        default=None, description="Connector provider the catalog authenticates with; set for kinds with sessions"
+    )
+    pipeline_delivery: bool = Field(
+        default=False, description="Whether the catalog's adapter can deliver pull request pipeline work"
+    )
 
 
 class AICatalogList(BaseModel):
     items: list[AICatalogRead]
+
+
+class AICatalogSessionRead(UUIDSchemaMixin, TimestampSchemaMixin):
+    model_config = ConfigDict(from_attributes=True)
+
+    schedule_config_id: UUID | None
+    title: str
+    state: str
+    external_name: str | None
+    url: str | None
+    pull_request_url: str | None
+    failure_detail: str | None
+    observed_at: datetime | None
+
+
+class AICatalogSessionList(BaseModel):
+    items: list[AICatalogSessionRead]
+    total_count: int
 
 
 class SetAvailabilityRequest(BaseModel):

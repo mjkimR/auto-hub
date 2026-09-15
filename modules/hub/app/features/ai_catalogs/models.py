@@ -40,11 +40,8 @@ class AICatalog(Base, UUIDMixin, TimestampMixin):
     refresh_jitter_minutes: Mapped[int] = mapped_column(Integer, nullable=False, default=10)
     # Quota settings of the catalog's kind, validated by its quota policy.
     policy_config: Mapped[dict] = mapped_column(JSON_VARIANT, nullable=False, default=dict)
-    # Codex usage-window state, maintained by its quota policy.
-    probe_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    short_refresh_failure_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    last_refreshed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    usage_window_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Runtime quota state of the catalog's kind, owned by its quota policy and replaced whole on change.
+    policy_state: Mapped[dict] = mapped_column(JSON_VARIANT, nullable=False, default=dict)
     revision: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
 
 

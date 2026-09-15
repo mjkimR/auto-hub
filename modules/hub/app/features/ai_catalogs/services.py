@@ -1,9 +1,10 @@
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Annotated
 from uuid import UUID
 
-from app.features.ai_catalogs.models import AICatalog, AICatalogKind, AICatalogState
+from app.features.ai_catalogs.models import AICatalog, AICatalogKind, AICatalogSession, AICatalogState
 from app.features.ai_catalogs.policies.base import hold_state, utc
 from app.features.ai_catalogs.policies.registry import find_quota_policy, quota_policy_for
 from app.features.ai_catalogs.repos import AICatalogRepository
@@ -13,7 +14,7 @@ from app.features.project_management.projects.services import ProjectError
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-# Kinds whose provider the hub calls directly, with the connector provider holding their credentials.
+# Kinds whose provider the hub calls directly: they hold their own connector and track provider sessions.
 CATALOG_CONNECTOR_PROVIDERS: dict[str, str] = {AICatalogKind.JULES: "jules"}
 
 
@@ -95,7 +96,7 @@ class AICatalogService:
         catalog.availability_source = request.source
         catalog.availability_note = request.note
         catalog.availability_updated_at = now
-        catalog.probe_started_at = None
+        await self._override_policy_state(session, catalog, now)
         catalog.revision += 1
         await session.flush()
         return catalog
@@ -107,8 +108,8 @@ class AICatalogService:
         catalog.availability_source = "manual"
         catalog.availability_note = None
         catalog.availability_updated_at = now
-        catalog.probe_started_at = None
-        await quota_policy_for(catalog).on_hold_cleared(session, catalog, now)
+        if (policy := find_quota_policy(catalog)) is not None:
+            await policy.on_hold_cleared(session, catalog, now)
         catalog.revision += 1
         await session.flush()
         return catalog
@@ -123,9 +124,9 @@ class AICatalogService:
             catalog.availability_state = AICatalogState.QUOTA_BLOCKED
         else:
             catalog.availability_state = AICatalogState.NORMAL
-        catalog.probe_started_at = None
         catalog.availability_source = "manual"
         catalog.availability_updated_at = now
+        await self._override_policy_state(session, catalog, now)
         catalog.revision += 1
         await session.flush()
         return catalog
@@ -153,6 +154,14 @@ class AICatalogService:
         await session.flush()
         return catalog
 
+    async def list_sessions(
+        self, session: AsyncSession, key: str, *, offset: int, limit: int
+    ) -> tuple[Sequence[AICatalogSession], int]:
+        catalog = await self.repo.get_by_key(session, key)
+        if catalog is None:
+            raise ProjectError(404, "AI catalog not found")
+        return await self.repo.list_sessions(session, catalog.id, offset=offset, limit=limit)
+
     async def record_quota_event(self, session: AsyncSession, catalog_id: UUID, observed_at: datetime) -> AICatalog:
         catalog = await self.repo.get(session, catalog_id, lock=True)
         if catalog is None:
@@ -166,3 +175,9 @@ class AICatalogService:
         if catalog is None:
             raise ProjectError(404, "AI catalog not found")
         return catalog
+
+    @staticmethod
+    async def _override_policy_state(session: AsyncSession, catalog: AICatalog, now: datetime) -> None:
+        # A kind without a policy has no recovery state to drop, and must still be switchable.
+        if (policy := find_quota_policy(catalog)) is not None:
+            await policy.on_availability_override(session, catalog, now)

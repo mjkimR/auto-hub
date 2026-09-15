@@ -13,8 +13,8 @@ Two catalogs are seeded:
 | `personal-codex` | `codex` | `codex-github-mention` | The pull request pipeline (every enrolled run) |
 | `personal-jules` | `jules` | `jules-api` | Scheduled Jules sessions (`jules.session`); pull request delivery is not implemented (501) |
 
-The change history and open work for this design are summarized in
-[AI Catalog generalization worklog (2026-09-15, Korean)](ai-catalogs-worklog-2026-09-15.md).
+Code structure, flows, design decisions, and open work are described in
+[AI Catalog Implementation Notes](ai-catalog-implementation-notes.md).
 
 ## Why a catalog is the gateway
 
@@ -61,11 +61,16 @@ other's state; the pipeline lifecycle owns run state and persistence.
 | `availability_source`, `availability_note`, `availability_updated_at` | Operator-visible evidence and audit metadata |
 | `refresh_jitter_minutes` | Safety delay added to every calculated reset (default 10) |
 | `policy_config` | Kind-specific quota settings, validated and normalized by the kind's policy |
-| `probe_started_at`, `short_refresh_failure_count`, `last_refreshed_at`, `usage_window_started_at` | Codex usage-window runtime state |
-| `held_run_count`, `active_dispatch_count` (read-only) | Pipeline runs queued/dispatching/implementing; runs and sessions currently holding capacity |
+| `policy_state` | Kind-specific runtime quota state owned by the policy (Codex: usage window, probe, short-cycle failures) |
+| `held_run_count`, `active_dispatch_count`, `open_session_count` (read-only) | Pipeline runs queued/dispatching/implementing; runs and sessions currently holding capacity; unfinished sessions |
+| `connector_provider`, `pipeline_delivery` (read-only) | Connector provider for kinds the hub calls directly (they also track sessions); whether the adapter can deliver pull request work |
 | `revision` | Optimistic state/configuration revision |
 
-A pipeline run records only its `ai_catalog_id` and `quota_block_count`.
+A pipeline run records only its `ai_catalog_id` and `quota_block_count`. The
+catalog comes from the project's `github.ai_catalog_id` (empty selects
+`personal-codex`) at enrollment and again when a run is resumed. Only catalogs
+whose adapter can deliver pull request work (`pipeline_delivery`) can be
+selected.
 
 ## Gateway decisions
 
@@ -112,6 +117,11 @@ capacity.
 {"short_refresh_enabled": true, "short_refresh_cycle_minutes": 300,
  "long_refresh_cycle_minutes": 10080, "probe_window_minutes": 10}
 ```
+
+Runtime state lives in `policy_state`: `probe_started_at`,
+`short_refresh_failure_count`, `last_refreshed_at`, and
+`usage_window_started_at`. A manual hold or enable switch drops an unfinished
+probe.
 
 1. When an expired hold is admitted, the catalog enters `probe`, sets
    `last_refreshed_at` to the hold end, and limits effective concurrency to one.
@@ -176,6 +186,9 @@ the pull requests it opens.
 - A 429 on create marks the session `failed` and is recorded as a quota event.
   Jules does not document its limit error, so this is conservative.
 - Any other 4xx marks the session `failed`.
+- `GET /api/v1/ai-catalogs/{key}/sessions?offset=&limit=` pages through the
+  catalog's sessions, most recent first (default limit 50, at most 100), with
+  their state, links, failure detail, and a `total_count`.
 
 ## Operator controls
 
@@ -184,7 +197,11 @@ the pull requests it opens.
 - set a local reset time, clear a hold, and enable or disable a catalog;
 - edit the Codex refresh policy or the Jules quota policy (both saved through
   `PUT /api/v1/ai-catalogs/{key}/policy-config`);
-- assign a Jules connector (`PUT /api/v1/ai-catalogs/{key}/connector`).
+- assign a Jules connector (`PUT /api/v1/ai-catalogs/{key}/connector`);
+- review a catalog's recent sessions.
+
+**Projects → Edit → Advanced automation** selects the AI catalog that receives
+the project's pull request work.
 
 An explicit reset time replaces `available_at` for every piece of work on the
 catalog, even while disabled. Clearing a hold records a refresh at that moment;
@@ -205,5 +222,6 @@ and fails closed when it cannot identify one blocking window.
    `_NOT_IMPLEMENTED` so they fail before admission.
 3. If the hub calls the provider directly, map the kind to a connector provider
    in `CATALOG_CONNECTOR_PROVIDERS`.
-4. Seed or create the catalog, add its settings form to the AI Catalogs view,
-   and cover the policy with unit tests and the integration with e2e tests.
+4. Seed or create the catalog, register its policy dialog in `catalogKinds`
+   (`hub-ui/…/ai-catalogs/catalog-kinds.ts`), and cover the policy with unit
+   tests and the integration with e2e tests.

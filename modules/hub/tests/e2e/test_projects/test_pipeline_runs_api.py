@@ -576,6 +576,51 @@ async def test_catalog_hold_gates_only_dispatching_runs(client, project, github,
     assert [str(run.id) for run in ready] == [observing["id"]]
 
 
+async def test_project_catalog_selection_routes_enrollment_to_pipeline_capable_catalogs(
+    client, project, github, session
+):
+    from app.features.ai_catalogs.models import AICatalog, AICatalogKind, AICatalogState
+
+    team_codex, team_jules = (
+        AICatalog(
+            key=key,
+            name=key,
+            kind=kind,
+            adapter=adapter,
+            enabled=True,
+            availability_state=AICatalogState.NORMAL,
+            revision=1,
+        )
+        for key, kind, adapter in (
+            ("team-codex", AICatalogKind.CODEX, "codex-github-mention"),
+            ("team-jules", AICatalogKind.JULES, "jules-api"),
+        )
+    )
+    session.add_all([team_codex, team_jules])
+    await session.flush()
+    team_codex_id, team_jules_id = str(team_codex.id), str(team_jules.id)
+    await session.commit()
+
+    def selecting(catalog_id: str) -> dict:
+        return {
+            "name": project["name"],
+            "enabled": True,
+            "expected_revision": project["revision"],
+            "github": {**project["github"], "ai_catalog_id": catalog_id},
+        }
+
+    rejected = await client.put(f"/api/v1/projects/{project['id']}", json=selecting(team_jules_id))
+    assert_status_code(rejected, 422)
+
+    selected = await client.put(f"/api/v1/projects/{project['id']}", json=selecting(team_codex_id))
+    assert_status_code(selected, 200)
+    assert selected.json()["github"]["ai_catalog_id"] == team_codex_id
+
+    response = await enroll(client, project)
+    assert_status_code(response, 201)
+    assert response.json()["ai_catalog_id"] == team_codex_id
+
+
 async def test_runs_waiting_for_admission_do_not_hold_catalog_capacity(client, project, github, session):
     from app.features.ai_catalogs.repos import AICatalogRepository
     from app.features.project_management.pipeline_runs.models import ExecutionAttempt
@@ -753,7 +798,7 @@ async def test_reconciled_delivery_preserves_time_and_processes_existing_quota_r
     deliveries = (await client.get(f"{root}/attempts/{attempt['id']}/deliveries")).json()
     stored_time = datetime.fromisoformat(deliveries[0]["posted_at"].replace("Z", "+00:00")).replace(tzinfo=UTC)
     assert stored_time == posted_at
-    assert deliveries[0]["comment_id"] == "77"
+    assert deliveries[0]["external_id"] == "77"
 
     response = await client.post(f"{root}/advance")
     assert_status_code(response, 200)
@@ -787,7 +832,7 @@ async def test_probe_window_starts_when_the_probe_mention_is_delivered(client, p
     catalog = (await client.get("/api/v1/ai-catalogs")).json()["items"][0]
     assert catalog["availability_state"] == "probe"
     assert catalog["effective_concurrency"] == 1
-    probe_started_at = datetime.fromisoformat(catalog["probe_started_at"].replace("Z", "+00:00")).replace(tzinfo=UTC)
+    probe_started_at = datetime.fromisoformat(catalog["policy_state"]["probe_started_at"].replace("Z", "+00:00"))
     assert probe_started_at == datetime.fromisoformat(mention_github[0]["created_at"])
 
 
@@ -859,7 +904,7 @@ async def test_expired_dispatcher_cannot_post_after_another_worker_takes_over(
     assert len(mention_github) == 1
     deliveries = (await client.get(f"{root}/attempts/{attempt['id']}/deliveries")).json()
     assert len(deliveries) == 1
-    assert deliveries[0]["comment_id"] == str(mention_github[0]["id"])
+    assert deliveries[0]["external_id"] == str(mention_github[0]["id"])
 
 
 async def test_delivery_timeout_leaves_one_reconcilable_delivery(client, project, mention_github, monkeypatch):
@@ -924,7 +969,7 @@ async def test_post_response_crash_is_reconciled_without_a_duplicate_mention(
     assert len(mention_github) == 1
     deliveries = await client.get(f"{root}/attempts/{attempt['id']}/deliveries")
     assert len(deliveries.json()) == 1
-    assert deliveries.json()[0]["comment_id"] == str(mention_github[0]["id"])
+    assert deliveries.json()[0]["external_id"] == str(mention_github[0]["id"])
 
 
 async def test_pre_post_crash_reuses_the_planned_delivery_on_restart(client, project, mention_github, monkeypatch):
@@ -951,7 +996,7 @@ async def test_pre_post_crash_reuses_the_planned_delivery_on_restart(client, pro
     assert mention_github == []
     deliveries = await client.get(f"{root}/attempts/{attempt['id']}/deliveries")
     assert len(deliveries.json()) == 1
-    assert deliveries.json()[0]["comment_id"] is None
+    assert deliveries.json()[0]["external_id"] is None
 
     recovered = await client.post(f"{root}/advance")
     assert_status_code(recovered, 200)

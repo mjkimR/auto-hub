@@ -135,3 +135,6 @@ class DailyQuotaPolicy:
 
     async def on_hold_cleared(self, session: AsyncSession, catalog: AICatalog, now: datetime) -> None:
         return None
+
+    async def on_availability_override(self, session: AsyncSession, catalog: AICatalog, now: datetime) -> None:
+        return None

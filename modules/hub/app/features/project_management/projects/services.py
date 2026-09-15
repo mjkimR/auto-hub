@@ -1,6 +1,7 @@
 from typing import Annotated
 from uuid import UUID
 
+from app.features.ai_catalogs.models import AICatalog
 from app.features.project_management.pipelines.schemas import PipelineObservationConfig
 from app.features.project_management.projects.models import Project
 from app.features.project_management.projects.repos import PROJECT_OBSERVATION_TASK, ProjectRepository
@@ -59,6 +60,15 @@ class ProjectService:
             repository = data.github.repository
             if any(row.id != project_id for row in await self.repo.conflicts(session, repository)):
                 raise ProjectError(409, "Repository is already connected")
+            if data.github.ai_catalog_id is not None:
+                # Imported here: the adapter registry itself depends on this module's ProjectError.
+                from app.features.project_management.pipeline_runs.adapters.registry import (
+                    supports_pipeline_delivery,
+                )
+
+                catalog = await session.get(AICatalog, data.github.ai_catalog_id)
+                if catalog is None or not supports_pipeline_delivery(catalog.adapter):
+                    raise ProjectError(422, "Select an AI catalog that can deliver pull request work")
 
     async def create(self, session: AsyncSession, data: ProjectWrite) -> Project:
         await self.validate(session, data)
@@ -70,6 +80,7 @@ class ProjectService:
             "verification": data.github.verification.model_dump(mode="json") if data.github else None,
             "template_id": data.github.template_id if data.github else None,
             "automation": data.github.automation.model_dump(mode="json") if data.github else {},
+            "ai_catalog_id": data.github.ai_catalog_id if data.github else None,
         }
         saved = await self.repo.save(
             session,
@@ -94,6 +105,7 @@ class ProjectService:
         project.verification = data.github.verification.model_dump(mode="json") if data.github else None
         project.template_id = data.github.template_id if data.github else None
         project.automation = data.github.automation.model_dump(mode="json") if data.github else {}
+        project.ai_catalog_id = data.github.ai_catalog_id if data.github else None
         project.template_version = TEMPLATE_VERSION if data.github and data.github.template_id else None
         project.revision += 1
         project.last_check = None

@@ -18,6 +18,10 @@ _NOT_IMPLEMENTED: dict[str, str] = {
 }
 
 
+def supports_pipeline_delivery(adapter: str) -> bool:
+    return adapter in _ADAPTERS
+
+
 async def resolve_execution_adapter(session: AsyncSession, catalog_id: UUID) -> ExecutionAdapter:
     catalog = await AICatalogRepository().get(session, catalog_id)
     if catalog is None:

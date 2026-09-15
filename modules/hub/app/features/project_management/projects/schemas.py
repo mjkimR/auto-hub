@@ -35,6 +35,9 @@ class GitHubProjectConnection(BaseModel):
     verification: VerificationConfig
     template_id: TemplateId | None = None
     automation: GitHubAutomationConfig = Field(default_factory=GitHubAutomationConfig)
+    ai_catalog_id: UUID | None = Field(
+        default=None, description="AI catalog that receives pull request work; empty uses the default Codex catalog"
+    )
 
     @field_validator("repository", mode="before")
     @classmethod
@@ -139,6 +142,7 @@ class ProjectRead(UUIDSchemaMixin, TimestampSchemaMixin, ProjectWrite):
                 "verification": row.verification,
                 "template_id": row.template_id,
                 "automation": row.automation,
+                "ai_catalog_id": row.ai_catalog_id,
             }
         return {
             "id": row.id,

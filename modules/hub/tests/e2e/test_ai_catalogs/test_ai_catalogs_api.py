@@ -1,7 +1,7 @@
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from app.features.ai_catalogs.models import AICatalog, AICatalogKind, AICatalogState
+from app.features.ai_catalogs.models import AICatalog, AICatalogKind, AICatalogSession, AICatalogState
 from app.features.configuration.connectors.models import Connector
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -52,6 +52,8 @@ class TestAICatalogsAPI:
         assert found["effective_concurrency"] == 3
         assert found["availability_state"] == "normal"
         assert found["policy_config"] == {}
+        assert found["pipeline_delivery"] is True
+        assert found["connector_provider"] is None
 
     async def test_set_and_clear_availability(self, client: AsyncClient, session: AsyncSession):
         session.add(catalog("test-catalog-avail"))
@@ -191,6 +193,52 @@ class TestAICatalogsAPI:
         response = await client.put(url, json={"connector_id": None})
         assert_status_code(response, 200)
         assert response.json()["connector_id"] is None
+
+    async def test_lists_sessions_and_counts_open_ones(self, client: AsyncClient, session: AsyncSession):
+        jules = catalog("test-catalog-sessions", AICatalogKind.JULES)
+        session.add(jules)
+        await session.flush()
+        session.add_all(
+            [
+                AICatalogSession(
+                    ai_catalog_id=jules.id,
+                    title="Hygiene [hub-session:a]",
+                    state="completed",
+                    pull_request_url="https://github.com/owner/app/pull/1",
+                ),
+                AICatalogSession(
+                    ai_catalog_id=jules.id,
+                    title="Report [hub-session:b]",
+                    state="in_progress",
+                    url="https://jules.google/session/2",
+                ),
+                AICatalogSession(ai_catalog_id=jules.id, title="Audit [hub-session:c]", state="failed"),
+            ]
+        )
+        await session.commit()
+        url = f"{self._base_url}/test-catalog-sessions/sessions"
+
+        first = await client.get(url, params={"offset": 0, "limit": 2})
+        second = await client.get(url, params={"offset": 2, "limit": 2})
+        assert_status_code(first, 200)
+        assert_status_code(second, 200)
+        assert (first.json()["total_count"], second.json()["total_count"]) == (3, 3)
+        assert (len(first.json()["items"]), len(second.json()["items"])) == (2, 1)
+        # Pages never overlap or skip a session, even when sessions share a creation time.
+        titles = [item["title"] for item in first.json()["items"] + second.json()["items"]]
+        assert sorted(titles) == ["Audit [hub-session:c]", "Hygiene [hub-session:a]", "Report [hub-session:b]"]
+        assert_status_code(await client.get(url, params={"limit": 101}), 422)
+
+        listing = next(
+            item
+            for item in (await client.get(self._base_url)).json()["items"]
+            if item["key"] == "test-catalog-sessions"
+        )
+        assert listing["connector_provider"] == "jules"
+        assert listing["pipeline_delivery"] is False
+        assert (listing["open_session_count"], listing["active_dispatch_count"]) == (1, 1)
+
+        assert_status_code(await client.get(f"{self._base_url}/non-existent/sessions"), 404)
 
     async def test_catalog_not_found(self, client: AsyncClient):
         response = await client.put(
